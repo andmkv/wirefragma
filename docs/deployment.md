@@ -15,6 +15,8 @@ dist/index.html
 dist/assets/index-<hash>.css      (~14 kB, ~4 kB gzip)
 dist/assets/index-<hash>.js       (~252 kB, ~81 kB gzip)
 dist/wf_logo_w_white.png          (copied verbatim from public/)
+dist/brand/                       (sign-in logos, from public/brand/)
+dist/api/                         (optional PHP accounts backend, copied from server/api/)
 ```
 
 `vite.config.ts` sets:
@@ -34,11 +36,11 @@ file host without configuration.
 
 | Aspect | Reality |
 | --- | --- |
-| Backend | none — no server, no API, no WebSocket |
-| Database | none |
-| Authentication | none |
-| Network calls | none at runtime (no fonts, no CDN, no analytics) |
-| Secrets/config | none; no environment variables are required |
+| Backend | none for the editor; the optional accounts API is PHP (`dist/api/`) — see below |
+| Database | none, or MySQL / MariaDB for accounts |
+| Authentication | none, or the optional accounts backend |
+| Network calls | one `api/index.php?action=status` probe; nothing else unless signed in (Turnstile only if configured) |
+| Secrets/config | none for static hosting; `wirefragma-config.php` for accounts |
 | Persistence | `localStorage`, per origin, one autosaved slot |
 | Interchange | `.md` (with the `ui-project` block) and `.json` downloads/uploads |
 
@@ -58,6 +60,43 @@ vendor.
 Note: opening the built file directly over `file://` works for the editor itself, but the OS
 clipboard may be restricted there; the internal copy/paste (Cmd/Ctrl+C/V) does not depend on it.
 
+## Deploying with accounts on Namecheap shared hosting (cPanel)
+
+Everything runs on a standard Stellar / cPanel plan: PHP 7.4+ (8.x recommended), MySQL/MariaDB,
+Apache with `.htaccess`, `mail()`. No Node.js, SSH or Composer is needed on the server.
+
+1. **Build locally:** `npm install && npm run build`. Upload the **contents** of `dist/` (including
+   the hidden `api/.htaccess` and `api/lib/.htaccess`) to `public_html/` (or a sub-folder /
+   sub-domain folder) with cPanel **File Manager** (upload a zip, then Extract) or FTP.
+2. **PHP version:** cPanel → *Select PHP Version* → 8.1+ with the `pdo_mysql`, `mbstring` and `gd`
+   extensions enabled (they are on by default).
+3. **Database:** cPanel → *MySQL Databases*: create a database (e.g. `cpuser_wirefragma`) and a
+   user with a strong password, then *Add User To Database* with **ALL PRIVILEGES**. Open
+   *phpMyAdmin*, select the database → *Import* → `server/schema.sql`.
+4. **Mailbox:** cPanel → *Email Accounts*: create `no-reply@yourdomain.com`. Either keep
+   `'transport' => 'mail'`, or (better deliverability) use `'smtp'` with host
+   `mail.yourdomain.com`, port 465, `secure` `ssl` and that mailbox's credentials. Make sure the
+   domain has SPF/DKIM enabled (cPanel → *Email Deliverability*).
+5. **Config:** copy `server/api/config.sample.php` to **`/home/CPUSER/wirefragma-config.php`**
+   (one level above `public_html`, so it can never be downloaded) and fill in `db`, `app_url`
+   (e.g. `https://yourdomain.com/` — with a trailing slash), `mail`, `privacy`. Keep `debug` false.
+   If the app lives in a sub-folder (`public_html/wf/`), put the file two levels above `api/`
+   (i.e. in `public_html/`) — or anywhere, and point the `WIREFRAGMA_CONFIG` environment variable
+   at it.
+6. **HTTPS:** enable AutoSSL / the free SSL for the domain (secure cookies depend on it) and force
+   HTTPS (cPanel → *Domains* → *Force HTTPS Redirect*).
+7. **Check:** open `https://yourdomain.com/api/index.php?action=status` — it must return JSON with
+   `"enabled":true`. `503 not_configured` = the config file was not found; `db_unavailable` = wrong
+   DB credentials. Then open the site, create an account and confirm the email.
+8. **Optional captcha upgrade:** create a free Cloudflare Turnstile widget for the domain and set
+   `'captcha' => ['provider' => 'turnstile', 'turnstile_site_key' => …, 'turnstile_secret' => …]`.
+
+Updating later: rebuild and re-upload `dist/` (the config lives outside it and is untouched). The
+schema file is idempotent; re-importing it is harmless.
+
+Without step 5 the uploaded site is simply the guest editor — the probe gets `503` and the app
+starts without the sign-in screen.
+
 ## Storage behaviour after deployment
 
 `localStorage` is scoped to the origin, so:
@@ -67,8 +106,9 @@ clipboard may be restricted there; the internal copy/paste (Cmd/Ctrl+C/V) does n
 * `https` vs `http` on the same host are different origins too;
 * clearing site data, or using a private window, loses the document — export first.
 
-Invariant: never rely on a server for state. Everything that must survive a deployment or a device
-change has to travel in the exported Markdown/JSON.
+Invariant: the **guest** editor never relies on a server for state — everything that must
+survive a deployment or a device change travels in the exported Markdown/JSON. Signed-in
+wireframes live in the account database instead (see [accounts.md](./accounts.md)).
 
 ## Cache busting
 

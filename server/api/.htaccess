@@ -1,0 +1,20 @@
+# Wirefragma API — Apache (Namecheap / cPanel) hardening.
+Options -Indexes
+
+# Only index.php is public. lib/, config.php, logs and SQL files are never served.
+<IfModule mod_authz_core.c>
+  <FilesMatch "^(config\.php|config\.sample\.php|.*\.log|.*\.sql)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "^(config\.php|config\.sample\.php|.*\.log|.*\.sql)$">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "same-origin"
+</IfModule>

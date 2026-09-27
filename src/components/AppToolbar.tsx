@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { CANVAS_MODES, MAX_CANVAS_SIZE, MIN_CANVAS_SIZE, type CanvasMode, type WireframeProject } from "../model/project";
 import { DraftNumberInput } from "./DraftNumberInput";
 import { ZOOM_PRESETS, formatZoom, type ZoomMode } from "../utils/zoom";
@@ -28,6 +29,12 @@ interface AppToolbarProps {
   onZoomFit: () => void;
   onZoomPreset: (scale: number) => void;
   onToggleLayers: () => void;
+  /** False when Import lives in the projects panel (signed-in mode). */
+  showImport?: boolean;
+  /** Tooltip of the New button (signed-in mode creates a wireframe in the current project). */
+  newTitle?: string;
+  /** Extra controls at the far right (the account menu). */
+  accountSlot?: ReactNode;
 }
 
 const MODE_LABEL: Record<CanvasMode, string> = {
@@ -62,7 +69,10 @@ export function AppToolbar({
   onZoomOut,
   onZoomFit,
   onZoomPreset,
-  onToggleLayers
+  onToggleLayers,
+  showImport = true,
+  newTitle = "Start a new blank project",
+  accountSlot
 }: AppToolbarProps) {
   const isCustom = project.canvas.mode === "custom";
 
@@ -184,7 +194,7 @@ export function AppToolbar({
           Redo
         </button>
         <span className="divider" />
-        <button type="button" onClick={onNew} title="Start a new blank project">
+        <button type="button" onClick={onNew} title={newTitle}>
           New
         </button>
         <button
@@ -195,15 +205,18 @@ export function AppToolbar({
         >
           Layers
         </button>
-        <button type="button" onClick={onImport} title="Import Markdown or JSON">
-          Import
-        </button>
+        {showImport ? (
+          <button type="button" onClick={onImport} title="Import Markdown or JSON">
+            Import
+          </button>
+        ) : null}
         <button type="button" onClick={onCopyForLlm} title="Copy the Markdown export for an LLM">
           Copy for LLM
         </button>
         <button type="button" className="primary" onClick={onExport} title="Export Markdown">
           Export
         </button>
+        {accountSlot}
       </div>
     </header>
   );

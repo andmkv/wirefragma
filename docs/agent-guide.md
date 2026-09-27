@@ -82,8 +82,11 @@ Wirefragma is a *wireframe sketcher that produces an LLM-readable spec*, not a d
 * a fixed palette of 24 generic primitives is a feature, not a limitation to remove;
 * the Markdown export and its `ui-project` block are the product — canvas polish that does not
   improve the export is usually not worth it;
-* no rotation, grouping, auto-layout, alignment guides, fonts/colours, rich text, plugins, cloud
-  sync, accounts or AI calls (see [known-limitations.md](./known-limitations.md));
+* no rotation, group objects, auto-layout, alignment guides, fonts/colours, rich text, plugins,
+  real-time collaboration or AI calls (see [known-limitations.md](./known-limitations.md));
+* accounts are an **optional** layer (PHP + MySQL, [accounts.md](./accounts.md)): the editor must
+  keep working with no backend at all, and signed-in documents are still plain
+  `WireframeProject` JSON;
 * prefer keeping the app dependency-free (two runtime dependencies today) over pulling in a library
   for a small feature;
 * when a request is ambiguous, favour the smallest interpretation that keeps the export lossless.

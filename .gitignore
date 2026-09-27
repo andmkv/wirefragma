@@ -4,3 +4,8 @@ dist/
 .DS_Store
 *.local
 coverage
+
+# Wirefragma server secrets / local artefacts
+server/api/config.php
+server/mail.log
+.claude/

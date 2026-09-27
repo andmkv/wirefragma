@@ -6,6 +6,7 @@
   "description": "Visual wireframe editor that exports LLM-readable UI specifications",
   "scripts": {
     "dev": "vite",
+    "dev:api": "php -S 127.0.0.1:8787 -t server",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -17,6 +18,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/node": "^20.19.43",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

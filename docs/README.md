@@ -17,7 +17,9 @@ LLM note, and exports Markdown containing:
 4. the **canonical embedded project JSON** (`ui-project` fence) used for re-import.
 
 That Markdown can be pasted back into the editor to reconstruct the editable project losslessly.
-There is no backend, no account, no AI call and no network traffic.
+The editor itself needs no backend and makes no AI calls. An **optional** PHP + MySQL backend
+adds accounts and a projects panel (see [accounts.md](./accounts.md)); without it the app runs as
+a purely static, guest-only editor.
 
 Product philosophy: *simple wireframing plus an LLM-readable export*, explicitly **not** a Figma
 clone. See [agent-guide.md](./agent-guide.md) before adding features.
@@ -50,6 +52,9 @@ src/components/       React presentational components and panels
 src/utils/            markdown export/import, ASCII renderer, spatial summary, history,
                       storage, zoom math, keyboard helper, clipboard helper
 src/dev/selfTest.ts   development-only browser harness (?selftest=N), excluded from prod
+src/Root.tsx          start-up: backend probe, sign-in / guest / signed-in workspace
+src/account/          sign-in screen, captcha, privacy policy, projects panel, workspace, API client
+server/               optional PHP accounts API (server/api), MySQL schema, API smoke test
 ```
 
 Rough size for orientation (non-test source, ~10.7k lines total; tests add ~4.0k): `components`
@@ -97,7 +102,8 @@ testing, rendering and pointer gestures; the two meet through a very small callb
 | [ascii-renderer.md](./ascii-renderer.md) | how the ASCII sketch is produced and why it is approximate |
 | [persistence-and-migrations.md](./persistence-and-migrations.md) | storage keys, autosave, legacy migration, corrupt data |
 | [testing.md](./testing.md) | test strategy, commands, the browser self-test harness |
-| [deployment.md](./deployment.md) | static build, hosting, storage behaviour per origin |
+| [deployment.md](./deployment.md) | static build, hosting, storage behaviour per origin, Namecheap deployment with accounts |
+| [accounts.md](./accounts.md) | the optional accounts backend, sign-in, projects panel, autosave, API and security |
 | [agent-guide.md](./agent-guide.md) | the invariants and rules a coding agent must not break |
 | [known-limitations.md](./known-limitations.md) | what Wirefragma deliberately does not do |
 

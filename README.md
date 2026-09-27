@@ -187,6 +187,15 @@ an LLM note.
 - configurable symbol content size;
 - Unicode-safe label fitting.
 
+### Accounts and projects (optional)
+
+- sign-up with captcha, email confirmation and privacy-policy consent; sign-in, password reset,
+  account deletion — or continue without an account;
+- a collapsible projects panel (Codex / Claude Code style): projects with wireframes, instant
+  switching with per-wireframe undo history, autosave to MySQL with conflict detection;
+- Import moves to the projects panel and adds the import as a new wireframe;
+- plain PHP + MySQL, deployable on ordinary shared hosting such as Namecheap.
+
 ### Import and export
 
 - export regular Markdown or an LLM-prefaced variant;
@@ -228,6 +237,13 @@ npm run dev
 
 Open the local URL printed by Vite. No environment variables, backend, account, or AI API key are
 required.
+
+Optional accounts backend (sign-in, projects panel, MySQL storage): create a MySQL/MariaDB
+database, import `server/schema.sql`, copy `server/api/config.sample.php` to
+`server/api/config.php` (use `'transport' => 'log'` for mail), then run `npm run dev:api` next to
+`npm run dev` — Vite proxies `/api` to PHP's built-in server. See
+[docs/accounts.md](docs/accounts.md); deployment to Namecheap / cPanel shared hosting is described in
+[docs/deployment.md](docs/deployment.md).
 
 Useful commands:
 
@@ -271,9 +287,12 @@ reasoning behind the engine. Canvas changes should also start with
 
 Wirefragma is a client-side web application:
 
-- the current project autosaves to the browser's `localStorage`;
+- without an account, the current project autosaves to the browser's `localStorage`;
 - storage is specific to the browser, origin, scheme, and port;
-- no backend or account is required by the editor;
+- no backend or account is required by the editor; a deployment *may* add the optional accounts
+  backend, in which case signed-in projects are stored in that server's database (with a sign-up
+  captcha, email confirmation and a privacy policy) and anyone can still continue without an
+  account;
 - the app makes no LLM call itself;
 - Markdown and JSON exports are explicit, portable files you control.
 
@@ -282,7 +301,8 @@ backup. Export important work before clearing site data or moving between deploy
 
 ## Current scope
 
-Wirefragma currently supports one canvas and one autosaved project slot. Layers are a flat list (elements can nest inside elements). There
+Without an account, Wirefragma supports one canvas and one autosaved project slot; with the
+optional accounts backend, projects hold any number of wireframes. Layers are a flat list (elements can nest inside elements). There
 is no rotation, grouping, group resize, alignment system, auto-layout, asset pipeline,
 collaboration, or built-in AI. Multi-selection can move a set but cannot resize it as a group.
 

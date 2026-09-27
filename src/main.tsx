@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
+import { Root } from "./Root";
 import { INPUT_DEBUG_ENABLED, logBuildIdentity } from "./buildIdentity";
 import "./styles.css";
 
@@ -12,7 +12,7 @@ if (import.meta.env.DEV && INPUT_DEBUG_ENABLED) logBuildIdentity();
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <Root />
   </StrictMode>
 );
 

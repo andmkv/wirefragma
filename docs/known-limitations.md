@@ -19,7 +19,7 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
 | Multi-page / multi-artboard | one canvas per project, one project per storage slot |
 | Real assets | Image/Icon content is a **text/emoji label**, not an uploaded file; there is no asset pipeline, no SVG/PNG embedding |
 | Rich text | no font-family picker, no colours, no per-span styling, no text boxes with wrapping/line breaks in the model |
-| Collaboration / sync | no accounts, no server, no realtime, no comments |
+| Collaboration / sync | accounts and server storage are optional ([accounts.md](./accounts.md)); no realtime co-editing, no sharing, no comments; concurrent edits of one wireframe resolve by choosing a version |
 | AI features | none; the "LLM" part of the product is the export format |
 
 ## Editor behaviour

@@ -87,3 +87,62 @@ export function MoreIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function FolderIcon({ open, className }: IconProps & { open?: boolean }) {
+  return (
+    <svg viewBox="0 0 14 14" width="14" height="14" className={className} aria-hidden="true">
+      <path
+        d={
+          open
+            ? "M1.5 4V3.2c0-.5.4-.9.9-.9h3l1.2 1.3h4.6c.5 0 .9.4.9.9V5M1.4 5.2h11.3l-1.3 6H2.6z"
+            : "M1.5 11.3V3.2c0-.5.4-.9.9-.9h3l1.2 1.3h4.6c.5 0 .9.4.9.9v6.8c0 .5-.4.9-.9.9H2.4c-.5 0-.9-.4-.9-.9Z"
+        }
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function ScreenIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 14 14" width="13" height="13" className={className} aria-hidden="true">
+      <rect x="1.8" y="2.3" width="10.4" height="9.4" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M1.8 4.8h10.4M4.3 7h3.2M4.3 8.9h5.2" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function PlusIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 12 12" width="12" height="12" className={className} aria-hidden="true">
+      <path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function SidebarIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 14 14" width="14" height="14" className={className} aria-hidden="true">
+      <rect x="1.5" y="2" width="11" height="10" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M5.2 2v10" fill="none" stroke="currentColor" strokeWidth="1.1" />
+    </svg>
+  );
+}
+
+export function ImportIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 14 14" width="14" height="14" className={className} aria-hidden="true">
+      <path
+        d="M7 1.8v7M4.2 6.2 7 9l2.8-2.8M2 9.6v1.4c0 .6.5 1.1 1.1 1.1h7.8c.6 0 1.1-.5 1.1-1.1V9.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
