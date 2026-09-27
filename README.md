@@ -192,7 +192,12 @@ an LLM note.
 - export regular Markdown or an LLM-prefaced variant;
 - copy LLM-ready Markdown directly to the clipboard;
 - download the canonical project as JSON;
-- import raw project JSON or Markdown containing a `ui-project` block;
+- export a single layer (Layers → "…" → Export layer), optionally cropped to its content — handy
+  for explaining one form to a model;
+- export the **WIREFRAGMA schema**: LLM-ready instructions for the project JSON, so a chat model
+  can generate a wireframe that you paste back into Import;
+- import raw project JSON, Markdown containing a `ui-project` block, or an LLM answer with the
+  JSON inside a code block;
 - lossless round trips for project fields, including hidden layers and elements.
 
 ## Try the sample project

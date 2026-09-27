@@ -3,6 +3,7 @@ import { markdownFilename, projectToJson, projectToLlmMarkdown, projectToMarkdow
 import { copyText, downloadText } from "../utils/clipboard";
 import { findLayer, type WireframeProject } from "../model/project";
 import { projectForLayer } from "../model/layerExport";
+import { wirefragmaSchemaMarkdown } from "../utils/schemaExport";
 
 interface ExportDialogProps {
   project: WireframeProject;
@@ -11,7 +12,7 @@ interface ExportDialogProps {
   onClose: () => void;
 }
 
-type Tab = "markdown" | "llm" | "json";
+type Tab = "markdown" | "llm" | "json" | "schema";
 
 export function ExportDialog({ project, layerId = null, onClose }: ExportDialogProps) {
   const [tab, setTab] = useState<Tab>("markdown");
@@ -28,8 +29,10 @@ export function ExportDialog({ project, layerId = null, onClose }: ExportDialogP
   const markdown = useMemo(() => projectToMarkdown(scoped), [scoped]);
   const llmMarkdown = useMemo(() => projectToLlmMarkdown(scoped), [scoped]);
   const json = useMemo(() => projectToJson(scoped), [scoped]);
+  const schema = useMemo(() => wirefragmaSchemaMarkdown(), []);
 
-  const content = tab === "markdown" ? markdown : tab === "llm" ? llmMarkdown : json;
+  const content =
+    tab === "markdown" ? markdown : tab === "llm" ? llmMarkdown : tab === "json" ? json : schema;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -56,6 +59,8 @@ export function ExportDialog({ project, layerId = null, onClose }: ExportDialogP
   const handleDownload = () => {
     if (tab === "json") {
       downloadText(markdownFilename(scoped, "json"), json, "application/json");
+    } else if (tab === "schema") {
+      downloadText("wirefragma-schema.md", schema, "text/markdown");
     } else {
       downloadText(markdownFilename(scoped), content, "text/markdown");
     }
@@ -84,9 +89,12 @@ export function ExportDialog({ project, layerId = null, onClose }: ExportDialogP
           <button type="button" className={tab === "json" ? "active" : ""} onClick={() => setTab("json")}>
             Project JSON
           </button>
+          <button type="button" className={tab === "schema" ? "active" : ""} onClick={() => setTab("schema")}>
+            WIREFRAGMA schema
+          </button>
         </div>
 
-        {layer ? (
+        {layer && tab !== "schema" ? (
           <div className="modal-note export-scope">
             <span>
               Only the <strong>{scoped.elements.length}</strong> element
@@ -99,10 +107,18 @@ export function ExportDialog({ project, layerId = null, onClose }: ExportDialogP
           </div>
         ) : null}
 
-        <p className="modal-note">
-          The Markdown contains the ASCII wireframe, the semantic element list, your LLM notes and the
-          canonical <code>ui-project</code> block used for re-importing.
-        </p>
+        {tab === "schema" ? (
+          <p className="modal-note">
+            LLM-ready instructions for the Wirefragma JSON format. Paste them into a chat together with a
+            description of the screen you want; the model answers with a <code>ui-project</code> block that
+            you can paste into <strong>Import</strong> to get an editable wireframe.
+          </p>
+        ) : (
+          <p className="modal-note">
+            The Markdown contains the ASCII wireframe, the semantic element list, your LLM notes and the
+            canonical <code>ui-project</code> block used for re-importing.
+          </p>
+        )}
 
         <textarea className="export-output" readOnly value={content} spellCheck={false} />
 
