@@ -52,7 +52,11 @@ These are non-negotiable; breaking one of them has already caused real bugs in t
 12. **A Container interior is never greedy.** A Container is grabbed by its border band or its
     label; clicks inside its empty interior pass through to whatever is behind/inside.
 13. **Locked and hidden elements are inert.** Hidden: not drawn, not hit-testable. Locked: drawn
-    but not hit-testable, and excluded from drag, delete and duplicate.
+    but not hit-testable, and excluded from drag, delete and duplicate. Both are inherited from
+    ancestors when elements are nested.
+16. **Nested subtrees stay contiguous.** `elements` is kept in canonical tree order by
+    `canonicalizeTree` (via `reindexLayers`). Any transform that changes `parentId`, `layerId` or
+    array order must end in `reindexLayers`; never hand-build an order that splits a subtree.
 14. **Global shortcuts must respect text editing.** Guard every window-level shortcut with
     `isEditingTextInput(event.target)` from `src/utils/keyboard.ts`.
 15. **Transient editor state must be repainted explicitly.** Clearing marquee/preview state is not

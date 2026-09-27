@@ -117,8 +117,9 @@ pointermove                -> preview.moves = moveSelectionFromSnapshot(starts, 
 pointerup                  -> commitMove(changedMoves)  (or nothing when the delta is 0), endEdit()
 ```
 
-* `starts` = `movableSelection(project, selection.ids)` mapped to their bounds — a locked or hidden
-  member of the selection simply does not move.
+* `starts` = `withDescendants(project, movableSelection(project, selection.ids))` mapped to their
+  bounds — a locked or hidden member of the selection simply does not move, while everything
+  nested inside a moving element travels with it (arrow-key nudges use the same expansion).
 * The delta is measured from the pointerdown snapshot: `world - startWorld`. It is **never**
   accumulated across moves.
 * `moveSelectionFromSnapshot(starts, primaryId, delta, { snapEnabled, gridSize })`:

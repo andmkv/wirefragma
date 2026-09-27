@@ -47,6 +47,8 @@ Type: <ELEMENT_TYPE_LABEL>          <- always
 
 Layer: <layer name>                 <- always
 
+Inside: `<parent name>`             <- only for a nested element (it has a `parentId`)
+
 Label: <label>                      <- only when label.trim() is non-empty, newlines collapsed
 
 Bounds: x=<..>, y=<..>, width=<..>, height=<..>   <- rounded integers

@@ -32,6 +32,9 @@ export interface WireframeProject {
    that array by layer.
 3. `zIndex` mirrors an element's position **inside its own layer** (`0` = back of that layer).
    It is derived data: `reindexLayers(project)` recomputes it after structural changes.
+4. Nested elements (`parentId`) keep the array in **canonical tree order**: each element is
+   directly followed by its subtree, so children paint in front of their parent. See
+   [layers-and-z-order.md](./layers-and-z-order.md#nesting-hierarchy).
 
 Details and examples in [layers-and-z-order.md](./layers-and-z-order.md).
 
@@ -65,6 +68,7 @@ export interface WireframeElement {
   width: number; height: number;  // >= MIN_ELEMENT_SIZE (8)
 
   layerId: string;
+  parentId?: string;              // nesting: the element this one lives inside (same layer)
   visible: boolean;               // element-level visibility
   locked: boolean;                // element-level locking
   zIndex: number;                 // position inside its own layer (derived)
@@ -140,7 +144,7 @@ restyled therefore has no `textStyle` key at all.
 
 ## Optional fields and backward compatibility
 
-`items`, `columns`, `textStyle` and `contentSize` are **optional**. Older projects simply do not
+`items`, `columns`, `textStyle`, `contentSize` and `parentId` are **optional**. Older projects simply do not
 have them, and `normalizeTextStyle` / `normalizeContentSize` return `undefined` for missing or
 invalid input rather than inventing values. Helpers apply the defaults at read time
 (`textStyleOf`, `contentSizeOf`), so the model stays minimal without losing behaviour.

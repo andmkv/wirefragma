@@ -257,10 +257,9 @@ The component is deliberately thin; the engine does the work.
 
 ## Known duplication in the codebase
 
-`isElementVisible` / `isElementLocked` exist in **both** `src/canvas/geometry.ts` and
-`src/model/project.ts` (`effectiveVisible` / `effectiveLocked`) with identical semantics. The
-canvas module uses its local copies; the React shell uses the model ones. They must evolve
-together — see [known-limitations.md](./known-limitations.md).
+`isElementVisible` / `isElementLocked` in `src/canvas/geometry.ts` are thin aliases that delegate
+to the model's `effectiveVisible` / `effectiveLocked` (element + every ancestor + layer), so the
+canvas and the React shell can no longer disagree about visibility or locking.
 
 ## Related documents
 

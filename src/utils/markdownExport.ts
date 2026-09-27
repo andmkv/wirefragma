@@ -6,6 +6,7 @@ import {
   PROJECT_VERSION,
   contentSizeOf,
   layerName,
+  parentOf,
   textStyleOf,
   visibleElementsInDrawOrder,
   type WireframeElement,
@@ -121,6 +122,11 @@ function elementSection(project: WireframeProject, element: WireframeElement): s
   parts.push(`Type: ${ELEMENT_TYPE_LABEL[element.type]}`);
   parts.push("");
   parts.push(`Layer: ${layerName(project, element.layerId)}`);
+  const parent = parentOf(project, element);
+  if (parent) {
+    parts.push("");
+    parts.push(`Inside: \`${fenceSafe(parent.name)}\``);
+  }
   if (element.label.trim()) {
     parts.push("");
     parts.push(`Label: ${element.label.replace(/\n+/g, " ").trim()}`);

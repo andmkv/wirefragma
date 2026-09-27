@@ -13,6 +13,15 @@
  *    Elements of the same layer keep their relative array order, so the effective
  *    paint order is a stable partition of that array by layer.
  *  - `zIndex` mirrors an element's position inside its own layer (0 = back of layer).
+ *
+ * Hierarchy (optional `parentId`, Unity-style nesting):
+ *  - an element may live inside another element of the SAME layer; the child inherits the
+ *    parent's layer, visibility and locking, and is always drawn in front of its parent;
+ *  - the flat `elements` array is kept in canonical TREE order: every element is immediately
+ *    followed by its whole subtree, and siblings keep their relative array order. Because
+ *    subtrees are contiguous, the per-layer array order is still THE paint order and every
+ *    ordering helper above keeps working unchanged. `canonicalizeTree` enforces this and is
+ *    applied by `reindexLayers`, which every structural transform funnels through.
  */
 
 export const ELEMENT_TYPES = [
@@ -71,6 +80,12 @@ export interface WireframeElement {
   height: number;
 
   layerId: string;
+
+  /**
+   * Id of the element this one is nested in (same layer), or absent for a layer root.
+   * Optional: documents written before nesting existed simply have no parents.
+   */
+  parentId?: string;
 
   visible: boolean;
   locked: boolean;
@@ -295,10 +310,90 @@ export function createLayer(name = DEFAULT_LAYER_NAME, overrides: Partial<Wirefr
   };
 }
 
-/** Recompute `zIndex` so it mirrors each element's position inside its own layer. */
+/**
+ * Enforce the hierarchy invariants on a flat element array:
+ *  - `parentId` must point at another existing element; dangling, self and cyclic links are
+ *    dropped (the element becomes a layer root);
+ *  - a child always lives in its root ancestor's layer;
+ *  - the array is reordered so each element is directly followed by its subtree (pre-order),
+ *    roots and siblings keeping their relative array order.
+ *
+ * Returns the SAME array when nothing had to change, so callers can detect no-ops cheaply.
+ */
+export function canonicalizeTree(elements: WireframeElement[]): WireframeElement[] {
+  const byId = new Map(elements.map((element) => [element.id, element]));
+  const hasParents = elements.some((element) => element.parentId !== undefined);
+  if (!hasParents) return elements;
+
+  // 1. Valid parent links (no dangling ids, no self links, no cycles).
+  const parentOfId = new Map<string, string>();
+  for (const element of elements) {
+    const parentId = element.parentId;
+    if (parentId !== undefined && parentId !== element.id && byId.has(parentId)) {
+      parentOfId.set(element.id, parentId);
+    }
+  }
+  for (const element of elements) {
+    const seen = new Set<string>([element.id]);
+    let cursor = parentOfId.get(element.id);
+    while (cursor !== undefined) {
+      if (seen.has(cursor)) {
+        parentOfId.delete(element.id);
+        break;
+      }
+      seen.add(cursor);
+      cursor = parentOfId.get(cursor);
+    }
+  }
+
+  const rootOf = (id: string): string => {
+    let cursor = id;
+    let parent = parentOfId.get(cursor);
+    while (parent !== undefined) {
+      cursor = parent;
+      parent = parentOfId.get(cursor);
+    }
+    return cursor;
+  };
+
+  // 2. Repair fields (parentId, inherited layer) without touching unchanged elements.
+  const repaired = elements.map((element) => {
+    const parentId = parentOfId.get(element.id);
+    const layerId = parentId === undefined ? element.layerId : byId.get(rootOf(element.id))!.layerId;
+    if (element.parentId === parentId && element.layerId === layerId) return element;
+    const next: WireframeElement = { ...element, layerId };
+    if (parentId === undefined) delete next.parentId;
+    else next.parentId = parentId;
+    return next;
+  });
+
+  // 3. Pre-order: each element followed by its subtree.
+  const children = new Map<string | undefined, WireframeElement[]>();
+  for (const element of repaired) {
+    const key = element.parentId;
+    const list = children.get(key);
+    if (list) list.push(element);
+    else children.set(key, [element]);
+  }
+  const ordered: WireframeElement[] = [];
+  const visit = (element: WireframeElement) => {
+    ordered.push(element);
+    for (const child of children.get(element.id) ?? []) visit(child);
+  };
+  for (const root of children.get(undefined) ?? []) visit(root);
+
+  const changed = ordered.some((element, index) => element !== elements[index]);
+  return changed ? ordered : elements;
+}
+
+/**
+ * Recompute `zIndex` so it mirrors each element's position inside its own layer (after putting
+ * the array into canonical tree order, see `canonicalizeTree`).
+ */
 export function reindexLayers(project: WireframeProject): WireframeProject {
   const counters = new Map<string, number>();
-  const elements = project.elements.map((element) => {
+  const canonical = canonicalizeTree(project.elements);
+  const elements = canonical.map((element) => {
     const index = counters.get(element.layerId) ?? 0;
     counters.set(element.layerId, index + 1);
     return element.zIndex === index ? element : { ...element, zIndex: index };
@@ -427,6 +522,10 @@ export function normalizeProject(raw: unknown): WireframeProject {
     const contentSize = normalizeContentSize(element.contentSize);
     if (contentSize !== undefined) normalized.contentSize = contentSize;
 
+    // Validated against the final id set by `canonicalizeTree` (via `reindexLayers`) below.
+    const parentId = asString(element.parentId).trim();
+    if (parentId) normalized.parentId = parentId;
+
     return normalized;
   });
 
@@ -456,14 +555,115 @@ export function layerName(project: WireframeProject, layerId: string): string {
   return findLayer(project, layerId)?.name ?? "Unknown layer";
 }
 
-export function effectiveVisible(project: WireframeProject, element: WireframeElement): boolean {
-  const layer = findLayer(project, element.layerId);
-  return element.visible && (layer ? layer.visible : true);
+const elementIndexCache = new WeakMap<WireframeElement[], Map<string, WireframeElement>>();
+
+/** id -> element lookup for one `elements` array (memoized; arrays are never mutated). */
+export function elementIndex(project: WireframeProject): Map<string, WireframeElement> {
+  let index = elementIndexCache.get(project.elements);
+  if (!index) {
+    index = new Map(project.elements.map((element) => [element.id, element]));
+    elementIndexCache.set(project.elements, index);
+  }
+  return index;
 }
 
-export function effectiveLocked(project: WireframeProject, element: WireframeElement): boolean {
+/** The element's parent, or null for a layer root. */
+export function parentOf(project: WireframeProject, element: WireframeElement): WireframeElement | null {
+  if (element.parentId === undefined) return null;
+  return elementIndex(project).get(element.parentId) ?? null;
+}
+
+/** Ancestors from the direct parent up to the layer root. */
+export function ancestorsOf(project: WireframeProject, element: WireframeElement): WireframeElement[] {
+  const result: WireframeElement[] = [];
+  const seen = new Set<string>([element.id]);
+  let cursor = parentOf(project, element);
+  while (cursor && !seen.has(cursor.id)) {
+    result.push(cursor);
+    seen.add(cursor.id);
+    cursor = parentOf(project, cursor);
+  }
+  return result;
+}
+
+/** Nesting depth: 0 for a layer root. */
+export function elementDepth(project: WireframeProject, element: WireframeElement): number {
+  return ancestorsOf(project, element).length;
+}
+
+/** True when `candidateId` is `ancestorId` itself or lives anywhere inside it. */
+export function isInSubtree(project: WireframeProject, candidateId: string, ancestorId: string): boolean {
+  if (candidateId === ancestorId) return true;
+  const candidate = elementIndex(project).get(candidateId);
+  if (!candidate) return false;
+  return ancestorsOf(project, candidate).some((ancestor) => ancestor.id === ancestorId);
+}
+
+/** Every descendant id of `id` (not including `id`), in array (= paint) order. */
+export function descendantIds(project: WireframeProject, id: string): string[] {
+  const result: string[] = [];
+  const inside = new Set<string>([id]);
+  for (const element of project.elements) {
+    if (element.parentId !== undefined && inside.has(element.parentId) && !inside.has(element.id)) {
+      inside.add(element.id);
+      result.push(element.id);
+    }
+  }
+  return result;
+}
+
+/**
+ * `ids` plus all of their descendants, deduplicated, in array order. This is the set a
+ * structural action (move, delete, duplicate, copy) really affects.
+ */
+export function withDescendants(project: WireframeProject, ids: string[]): string[] {
+  const wanted = new Set(ids);
+  const result: string[] = [];
+  for (const element of project.elements) {
+    if (wanted.has(element.id) || (element.parentId !== undefined && wanted.has(element.parentId))) {
+      wanted.add(element.id);
+      result.push(element.id);
+    }
+  }
+  return result;
+}
+
+/** Drop ids whose ancestor is also in the list (the ancestor already covers them). */
+export function topmostIds(project: WireframeProject, ids: string[]): string[] {
+  const wanted = new Set(ids);
+  return ids.filter((id) => {
+    const element = elementIndex(project).get(id);
+    return !!element && !ancestorsOf(project, element).some((ancestor) => wanted.has(ancestor.id));
+  });
+}
+
+/** Direct children of `parentId` (null = layer roots) inside a layer, in array order. */
+export function childrenOf(
+  project: WireframeProject,
+  layerId: string,
+  parentId: string | null,
+  options: { frontFirst?: boolean } = {}
+): WireframeElement[] {
+  const children = project.elements.filter(
+    (element) => element.layerId === layerId && (element.parentId ?? null) === parentId
+  );
+  return options.frontFirst ? children.reverse() : children;
+}
+
+/** Visible only when the element, every ancestor and the layer are visible. */
+export function effectiveVisible(project: WireframeProject, element: WireframeElement): boolean {
+  if (!element.visible) return false;
+  if (ancestorsOf(project, element).some((ancestor) => !ancestor.visible)) return false;
   const layer = findLayer(project, element.layerId);
-  return element.locked || (layer ? layer.locked : false);
+  return layer ? layer.visible : true;
+}
+
+/** Locked when the element, any ancestor or the layer is locked. */
+export function effectiveLocked(project: WireframeProject, element: WireframeElement): boolean {
+  if (element.locked) return true;
+  if (ancestorsOf(project, element).some((ancestor) => ancestor.locked)) return true;
+  const layer = findLayer(project, element.layerId);
+  return layer ? layer.locked : false;
 }
 
 /** Elements ordered back → front, honouring layer stacking and per-layer order. */
@@ -500,7 +700,7 @@ export function elementsOfLayer(
 
 export function findElement(project: WireframeProject, id: string | null): WireframeElement | null {
   if (!id) return null;
-  return project.elements.find((element) => element.id === id) ?? null;
+  return elementIndex(project).get(id) ?? null;
 }
 
 /* ------------------------------------------------------------------ *
@@ -525,8 +725,16 @@ export function updateElement(
   return changed ? reindexLayers({ ...project, elements }) : project;
 }
 
+/** Remove an element together with everything nested inside it. */
 export function removeElement(project: WireframeProject, id: string): WireframeProject {
-  const elements = project.elements.filter((element) => element.id !== id);
+  return removeElements(project, [id]);
+}
+
+/** Remove several elements (and their subtrees) in one pass. */
+export function removeElements(project: WireframeProject, ids: string[]): WireframeProject {
+  const doomed = new Set(withDescendants(project, ids));
+  if (doomed.size === 0) return project;
+  const elements = project.elements.filter((element) => !doomed.has(element.id));
   if (elements.length === project.elements.length) return project;
   return reindexLayers({ ...project, elements });
 }
@@ -538,19 +746,43 @@ export function duplicateElement(
   const index = project.elements.findIndex((element) => element.id === id);
   if (index === -1) return { project, newId: null };
 
-  const source = project.elements[index];
-  const copy: WireframeElement = {
-    ...source,
-    id: createId(source.type),
-    name: uniqueName(project, source.name),
-    x: source.x + 16,
-    y: source.y + 16,
-    items: source.items ? [...source.items] : undefined
-  };
+  // The copy takes the whole subtree along; the copied root stays a sibling of the source.
+  const subtree = [project.elements[index].id, ...descendantIds(project, id)];
+  const idMap = new Map(subtree.map((sourceId) => {
+    const source = findElement(project, sourceId)!;
+    return [sourceId, createId(source.type)] as const;
+  }));
 
+  let naming = project;
+  const copies: WireframeElement[] = [];
+  for (const sourceId of subtree) {
+    const source = findElement(project, sourceId)!;
+    const copy: WireframeElement = {
+      ...cloneElement(source),
+      id: idMap.get(sourceId)!,
+      name: uniqueName(naming, source.name),
+      x: source.x + 16,
+      y: source.y + 16
+    };
+    if (source.parentId !== undefined && sourceId !== id) copy.parentId = idMap.get(source.parentId);
+    copies.push(copy);
+    naming = { ...naming, elements: [...naming.elements, copy] };
+  }
+
+  // Insert right after the source's subtree, i.e. directly in front of it.
+  const lastIndex = Math.max(...subtree.map((sourceId) => project.elements.findIndex((e) => e.id === sourceId)));
   const elements = [...project.elements];
-  elements.splice(index + 1, 0, copy);
-  return { project: reindexLayers({ ...project, elements }), newId: copy.id };
+  elements.splice(lastIndex + 1, 0, ...copies);
+  return { project: reindexLayers({ ...project, elements }), newId: copies[0].id };
+}
+
+/** Deep copy of one element's own arrays/objects (ids untouched). */
+export function cloneElement(element: WireframeElement): WireframeElement {
+  const copy: WireframeElement = { ...element };
+  if (element.items) copy.items = [...element.items];
+  if (element.columns) copy.columns = [...element.columns];
+  if (element.textStyle) copy.textStyle = { ...element.textStyle };
+  return copy;
 }
 
 /**
@@ -561,7 +793,8 @@ export function duplicateElements(
   project: WireframeProject,
   ids: string[]
 ): { project: WireframeProject; newIds: string[] } {
-  const wanted = new Set(ids);
+  // A selected child of a selected parent is already copied with its parent.
+  const wanted = new Set(topmostIds(project, ids));
   const sources = project.elements.filter((element) => wanted.has(element.id));
   if (sources.length === 0) return { project, newIds: [] };
 
@@ -602,7 +835,9 @@ export function reorderElement(
   const element = findElement(project, id);
   if (!element) return project;
 
-  const siblings = project.elements.filter((candidate) => candidate.layerId === element.layerId);
+  // Siblings only: same layer AND same parent. Swapping the two entries is enough — the
+  // canonical tree order then carries each one's subtree along.
+  const siblings = childrenOf(project, element.layerId, element.parentId ?? null);
   const position = siblings.indexOf(element);
   const target = direction === "forward" ? position + 1 : position - 1;
   if (position === -1 || target < 0 || target >= siblings.length) return project;
@@ -667,8 +902,14 @@ export function moveElement(
 ): WireframeProject {
   const element = findElement(project, elementId);
   if (!element || !findLayer(project, targetLayerId)) return project;
+  const target = targetElementId ? findElement(project, targetElementId) : null;
+  // An element can never be placed relative to something inside its own subtree.
+  if (target && isInSubtree(project, target.id, elementId)) return project;
 
-  const moved: WireframeElement = { ...element, layerId: targetLayerId };
+  // Next to a target = sibling of that target; without a target = a root of the layer.
+  const moved: WireframeElement = { ...element, layerId: target ? target.layerId : targetLayerId };
+  if (target?.parentId !== undefined) moved.parentId = target.parentId;
+  else delete moved.parentId;
   const elements = moveWithinArray(
     project.elements.map((candidate) => (candidate.id === elementId ? moved : candidate)),
     elementId,
@@ -685,6 +926,32 @@ export function moveElement(
     }
   );
   return reindexLayers({ ...project, elements });
+}
+
+/**
+ * Nest `elementId` inside `parentId` (Unity-style): the element and its subtree move into the
+ * parent's layer and become the parent's front-most child. World coordinates are untouched.
+ * No-op when the parent is missing, is the element itself or lives inside the element.
+ */
+export function nestElement(project: WireframeProject, elementId: string, parentId: string): WireframeProject {
+  const element = findElement(project, elementId);
+  const parent = findElement(project, parentId);
+  if (!element || !parent) return project;
+  if (isInSubtree(project, parentId, elementId)) return project;
+  if (element.parentId === parentId) return bringToFront(project, elementId);
+
+  const moved: WireframeElement = { ...element, parentId, layerId: parent.layerId };
+  // Last in the array = last among the new siblings = front-most child.
+  const elements = [...project.elements.filter((candidate) => candidate.id !== elementId), moved];
+  return reindexLayers({ ...project, elements });
+}
+
+/** Move an element out of its parent: it becomes a sibling directly in front of that parent. */
+export function unnestElement(project: WireframeProject, elementId: string): WireframeProject {
+  const element = findElement(project, elementId);
+  const parent = element ? parentOf(project, element) : null;
+  if (!element || !parent) return project;
+  return moveElement(project, elementId, parent.layerId, parent.id, true);
 }
 
 /* ------------------------------------------------------------------ *

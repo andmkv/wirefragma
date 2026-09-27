@@ -8,7 +8,7 @@
 
 import { hitRectsFor, isBorderOnlyHit } from "../model/hitAreas";
 import type { ElementType, WireframeElement, WireframeProject } from "../model/project";
-import { elementsInDrawOrder } from "../model/project";
+import { effectiveLocked, effectiveVisible, elementsInDrawOrder } from "../model/project";
 import type { Point, Rect, ViewTransform } from "./transform";
 import { worldToScreen } from "./transform";
 
@@ -169,16 +169,14 @@ export function elementGeometry(
   return { elementId: element.id, type: element.type, bounds, hitRegions, resizeHandles };
 }
 
+/** Canvas-side name for the model rule (element + ancestors + layer), kept for the call sites. */
 export function isElementVisible(project: WireframeProject, element: WireframeElement): boolean {
-  if (!element.visible) return false;
-  const layer = project.layers.find((candidate) => candidate.id === element.layerId);
-  return layer ? layer.visible : true;
+  return effectiveVisible(project, element);
 }
 
+/** Canvas-side name for the model rule (element + ancestors + layer), kept for the call sites. */
 export function isElementLocked(project: WireframeProject, element: WireframeElement): boolean {
-  if (element.locked) return true;
-  const layer = project.layers.find((candidate) => candidate.id === element.layerId);
-  return layer ? layer.locked : false;
+  return effectiveLocked(project, element);
 }
 
 /**
