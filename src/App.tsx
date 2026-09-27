@@ -8,6 +8,7 @@ import { ExportDialog } from "./components/ExportDialog";
 import { ImportDialog } from "./components/ImportDialog";
 import { LayersPanel } from "./components/LayersPanel";
 import { LeftPanel } from "./components/LeftPanel";
+import { usePanelFlag } from "./components/PanelResize";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import {
   CANVAS_PRESETS,
@@ -29,9 +30,9 @@ import {
   findElement,
   findLayer,
   layerName,
-  moveElement,
+  moveElements,
   moveLayer,
-  nestElement,
+  nestElements,
   removeElements,
   reorderElement,
   sendToBack,
@@ -129,7 +130,8 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
   const [exportLayerId, setExportLayerId] = useState<string | null>(null);
   const [pendingLayerDelete, setPendingLayerDelete] = useState<string | null>(null);
   const [pendingNewProject, setPendingNewProject] = useState(false);
-  const [layersOpen, setLayersOpen] = useState(true);
+  // Remembered per browser, so opening another wireframe (a fresh editor) keeps the layout.
+  const [layersOpen, setLayersOpen] = usePanelFlag("wirefragma.panel.layersOpen", true);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("fit");
   const [manualScale, setManualScale] = useState(1);
   const [zoomView, setZoomView] = useState({ scale: 1, fit: 1 });
@@ -536,9 +538,10 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
     [mutate]
   );
 
-  const handleMoveElement = useCallback(
-    (id: string, targetLayerId: string, targetElementId: string | null, placeAbove: boolean) => {
-      mutate((current) => moveElement(current, id, targetLayerId, targetElementId, placeAbove), {
+  const handleMoveElements = useCallback(
+    (ids: string[], targetLayerId: string, targetElementId: string | null, placeAbove: boolean) => {
+      // One drop = one undo step, however many rows were dragged.
+      mutate((current) => moveElements(current, ids, targetLayerId, targetElementId, placeAbove), {
         coalesceKey: null
       });
     },
@@ -546,9 +549,9 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
   );
 
   /** Layers panel "drop into": nest an element inside another one (Unity-style). */
-  const handleNestElement = useCallback(
-    (id: string, parentId: string) => {
-      mutate((current) => nestElement(current, id, parentId), { coalesceKey: null });
+  const handleNestElements = useCallback(
+    (ids: string[], parentId: string) => {
+      mutate((current) => nestElements(current, ids, parentId), { coalesceKey: null });
     },
     [mutate]
   );
@@ -948,7 +951,6 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
       <main
         className={[
           "workspace",
-          layersOpen ? "" : "layers-collapsed",
           host ? "with-projects" : ""
         ]
           .filter(Boolean)
@@ -979,8 +981,8 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
               onToggleElementVisible={handleToggleElementVisible}
               onToggleElementLocked={handleToggleElementLocked}
               onMoveLayer={handleMoveLayer}
-              onMoveElement={handleMoveElement}
-              onNestElement={handleNestElement}
+              onMoveElements={handleMoveElements}
+              onNestElements={handleNestElements}
             />
           }
         />

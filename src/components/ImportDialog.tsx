@@ -1,14 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 
+export interface ImportDestination {
+  projectId: number;
+  title: string;
+}
+
 interface ImportDialogProps {
   onClose: () => void;
   /** Returns an error message, or null when the import succeeded. */
-  onImport: (text: string, sourceName: string) => string | null;
+  onImport: (text: string, sourceName: string, destination?: ImportDestination) => string | null;
   /** "replace" (guest editor) or "project" (signed-in: add as a new wireframe). */
   target?: "replace" | "project";
+  /** Signed-in only: the projects to choose from, and the preselected one. */
+  projects?: { id: number; name: string; wireframeTitles: string[] }[];
+  defaultProjectId?: number | null;
 }
 
-export function ImportDialog({ onClose, onImport, target = "replace" }: ImportDialogProps) {
+/** "New Wireframe N" with the smallest N not used in that project yet. */
+export function nextWireframeTitle(existing: string[]): string {
+  const taken = new Set(existing.map((title) => title.trim().toLowerCase()));
+  let counter = 1;
+  while (taken.has(`new wireframe ${counter}`)) counter += 1;
+  return `New Wireframe ${counter}`;
+}
+
+export function ImportDialog({ onClose, onImport, target = "replace", projects = [], defaultProjectId = null }: ImportDialogProps) {
+  const [projectId, setProjectId] = useState<number | null>(defaultProjectId ?? projects[0]?.id ?? null);
+  const [title, setTitle] = useState("");
+  const defaultTitle = nextWireframeTitle(projects.find((project) => project.id === projectId)?.wireframeTitles ?? []);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,7 +45,9 @@ export function ImportDialog({ onClose, onImport, target = "replace" }: ImportDi
       setError("Nothing to import yet. Paste Markdown or choose a .md file.");
       return;
     }
-    const message = onImport(value, name);
+    const destination =
+      target === "project" && projectId !== null ? { projectId, title: title.trim() || defaultTitle } : undefined;
+    const message = onImport(value, name, destination);
     if (message) {
       setError(message);
       return;
@@ -61,9 +82,28 @@ export function ImportDialog({ onClose, onImport, target = "replace" }: ImportDi
           schema (Export → WIREFRAGMA schema). The importer reads the <code>ui-project</code> block, so
           the ASCII drawing is not used for reconstruction.{" "}
           {target === "project"
-            ? "The import becomes a new wireframe in the current project."
+            ? "The import becomes a new wireframe in the chosen project."
             : "Importing replaces the current project and clears the undo history."}
         </p>
+
+        {target === "project" && projects.length > 0 ? (
+          <div className="import-destination">
+            <label className="field">
+              <span className="field-label">Project</span>
+              <select value={projectId ?? ""} onChange={(event) => setProjectId(Number(event.target.value))}>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">Wireframe title</span>
+              <input value={title} placeholder={defaultTitle} maxLength={160} onChange={(event) => setTitle(event.target.value)} />
+            </label>
+          </div>
+        ) : null}
 
         <textarea
           className="import-input"

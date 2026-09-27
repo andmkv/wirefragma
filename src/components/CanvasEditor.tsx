@@ -209,7 +209,8 @@ export function CanvasEditor({
       minSize: MIN_ELEMENT_SIZE
     });
     render();
-  }, [canvasWidth, canvasHeight, dpr, gridSize, project, render, scale, selection, snapToGrid, transform]);
+    // showGrid is read by render() through `latest`; it must still trigger a repaint on toggle.
+  }, [canvasWidth, canvasHeight, dpr, gridSize, project, render, scale, selection, showGrid, snapToGrid, transform]);
 
   /* ------------------------------------------------------- zoom anchoring */
 

@@ -46,7 +46,10 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
   the arrow keys and nudge the selection with the arrow keys (reordering is still drag-only) — but the drawing itself is
   invisible to assistive technology.
 * **English only.** All UI strings, Markdown sections and messages are hard-coded English.
-* **Narrow windows** collapse the Layers column; there is no other responsive behaviour.
+* **Narrow windows** collapse the Layers column; there is no other responsive behaviour. The
+  Projects, Add and Layers panels can be resized from their right edge (double-click resets; the
+  widths are remembered per browser in `wirefragma.panel.*`), and Projects / Layers collapse to
+  identical rails.
 
 ## Data and persistence
 
