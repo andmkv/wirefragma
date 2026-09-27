@@ -69,3 +69,13 @@ CREATE TABLE IF NOT EXISTS wf_rate_limits (
   hits          INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (bucket)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Per-user interface preferences (language, theme). Added after the first release; the API also
+-- creates this table on demand, so upgrading an existing database needs no manual step.
+CREATE TABLE IF NOT EXISTS wf_user_settings (
+  user_id     INT UNSIGNED NOT NULL,
+  data        TEXT         NOT NULL,          -- JSON: {"language": "en", "theme": "light"}
+  updated_at  DATETIME     NOT NULL,
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_wf_user_settings_user FOREIGN KEY (user_id) REFERENCES wf_users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

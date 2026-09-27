@@ -54,7 +54,13 @@ R=$(post wireframe-save "$B"); expect "save" "$R" '"revision":2'
 R=$(post wireframe-save "$B"); expect "stale save conflicts" "$R" '"conflict"'
 B=$(printf '{"id":%s,"baseRevision":2,"data":{"x":1}}' "$WID")
 R=$(post wireframe-save "$B"); expect "rejects non-projects" "$R" '"bad_document"'
-R=$(post project-create '{"name":"Second"}'); expect "create project" "$R" '"Second"'
+R=$(post project-create '{"name":"Second","wireframeTitle":"Экран 1"}'); expect "create project" "$R" '"Second"'
+expect "localized starter wireframe" "$R" 'Экран 1'
+R=$(post settings-save '{"displayName":"Smoke","language":"ru","theme":"dark"}'); expect "save settings" "$R" '"language":"ru"'
+R=$(post settings-save '{"language":"xx"}'); expect "ignores unknown language" "$R" '"language":"ru"'
+R=$(post password-change '{"current":"wrong-one","next":"another123"}'); expect "password change needs current" "$R" '"bad_credentials"'
+R=$(post password-change '{"current":"secret123","next":"changed123"}'); expect "password change" "$R" '"ok":true'
+R=$(post password-change '{"current":"changed123","next":"secret123"}'); expect "password change back" "$R" '"ok":true'
 R=$(post logout '{}'); CSRF=$(echo "$R" | json '["csrf"]')
 R=$(curl -s -b "$JAR" "$API?action=projects"); expect "signed out" "$R" '"unauthorized"'
 B=$(printf '{"email":"%s","password":"nope-nope"}' "$EMAIL")

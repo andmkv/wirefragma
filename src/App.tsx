@@ -9,6 +9,7 @@ import { ImportDialog } from "./components/ImportDialog";
 import { LayersPanel } from "./components/LayersPanel";
 import { LeftPanel } from "./components/LeftPanel";
 import { usePanelFlag } from "./components/PanelResize";
+import { useT, type TranslationKey, type TranslationParams } from "./i18n";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import {
   CANVAS_PRESETS,
@@ -99,7 +100,17 @@ export interface EditorHost {
   notice?: ReactNode;
 }
 
-export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?: ReactNode } = {}) {
+export default function App({
+  host,
+  guestSlot,
+  preferencesSlot
+}: { host?: EditorHost; guestSlot?: ReactNode; preferencesSlot?: ReactNode } = {}) {
+  const t = useT();
+  // Stable translator for callbacks (toasts), always reading the current language.
+  const tRef = useRef(t);
+  tRef.current = t;
+  const tr = useCallback((key: TranslationKey, params?: TranslationParams) => tRef.current(key, params), []);
+
   const boot = useMemo(() => {
     if (host) {
       return { project: host.initialHistory.present, error: null, migrated: false, freshStart: false };
@@ -141,8 +152,8 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
   const [notice, setNotice] = useState<string | null>(boot.error);
   const [status, setStatus] = useState<string | null>(() => {
     if (boot.error) return null;
-    if (boot.migrated) return "Loaded your project from the previous UI Sketch version.";
-    if (boot.freshStart) return "Blank canvas — pick an element from the palette to start.";
+    if (boot.migrated) return tr("toast.migrated");
+    if (boot.freshStart) return tr("toast.freshStart");
     return null;
   });
 
@@ -274,9 +285,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
       setSelection(singleSelection(element.id));
 
       if (!targetLayer.visible || targetLayer.locked) {
-        flash(
-          `Added to ${targetLayer.visible ? "locked" : "hidden"} layer "${targetLayer.name}" — unlock/show it in the Layers panel to edit.`
-        );
+        flash(tr(targetLayer.visible ? "toast.addedToLocked" : "toast.addedToHidden", { layer: targetLayer.name }));
       }
     },
     [activeLayerId, flash, mutate, project, snapValue]
@@ -365,14 +374,14 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
     if (removable.length === 0) {
       flash(
         selection.ids.length === 1
-          ? "That element is locked — unlock it before deleting."
-          : "All selected objects are locked — unlock them before deleting."
+          ? tr("toast.deleteLockedOne")
+          : tr("toast.deleteLockedAll")
       );
       return;
     }
     if (removable.length < selection.ids.length) {
       flash(
-        `Deleted ${removable.length} of ${selection.ids.length} objects — the locked ones stay.`
+        tr("toast.deletedPartial", { removed: removable.length, total: selection.ids.length })
       );
     }
     // One delete = one undo step, however many objects it covers. Nested children go with
@@ -386,7 +395,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
     if (selection.ids.length === 0) return;
     const duplicable = deletableSelection(project, selection.ids);
     if (duplicable.length === 0) {
-      flash("Locked objects cannot be duplicated — unlock them first.");
+      flash(tr("toast.duplicateLockedAll"));
       return;
     }
     const result = duplicateElements(project, duplicable);
@@ -401,7 +410,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
       const element = findElement(project, id);
       if (!element) return;
       if (effectiveLocked(project, element)) {
-        flash("That element is locked — unlock it before duplicating.");
+        flash(tr("toast.duplicateLockedOne"));
         return;
       }
       const result = duplicateElement(project, id);
@@ -420,7 +429,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
     clipboardRef.current = payload;
     pasteCounterRef.current = 0;
     flash(
-      `Copied ${payload.elements.length} object${payload.elements.length === 1 ? "" : "s"} — ⌘/Ctrl+V to paste.`
+      tr("toast.copied", { count: payload.elements.length })
     );
   }, [flash, project, selection.ids]);
 
@@ -443,9 +452,10 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
       )
     ];
     flash(
-      `Pasted ${result.newIds.length} object${result.newIds.length === 1 ? "" : "s"} into ${
-        layerNames.length > 0 ? layerNames.join(", ") : "the active layer"
-      }.`
+      tr("toast.pasted", {
+        count: result.newIds.length,
+        layers: layerNames.length > 0 ? layerNames.join(", ") : tr("toast.activeLayer")
+      })
     );
   }, [activeLayerId, flash, mutate, project]);
 
@@ -568,7 +578,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
     const result = addLayer(project);
     mutate(() => result.project, { coalesceKey: null });
     setActiveLayerId(result.layer.id);
-    flash(`Layer "${result.layer.name}" created — new elements go there.`);
+    flash(tr("toast.layerCreated", { name: result.layer.name }));
   }, [flash, mutate, project]);
 
   const handleRenameLayer = useCallback(
@@ -618,12 +628,9 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
       const layer = findLayer(project, layerId);
       if (!layer) return;
       const count = project.elements.filter((element) => element.layerId === layerId).length;
-      const message =
-        count > 0
-          ? `This will also permanently delete ${count} element${count === 1 ? "" : "s"} in this layer.`
-          : "This layer is empty.";
+      const message = count > 0 ? tr("confirm.deleteLayerWith", { count }) : tr("confirm.deleteLayerEmpty");
       setPendingLayerDelete(layerId);
-      flash(`Delete layer "${layer.name}"? ${message}`);
+      flash(`${tr("confirm.deleteLayerTitle", { name: layer.name })} ${message}`);
     },
     [flash, project]
   );
@@ -646,7 +653,9 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
       setActiveLayerId(nextLayer ? nextLayer.id : null);
     }
     flash(
-      `Deleted layer "${layer.name}"${result.removedElementIds.length ? ` and ${result.removedElementIds.length} element(s)` : ""}.`
+      result.removedElementIds.length
+        ? tr("toast.layerDeletedWith", { name: layer.name, count: result.removedElementIds.length })
+        : tr("toast.layerDeleted", { name: layer.name })
     );
   }, [activeLayerId, flash, mutate, pendingLayerDelete, project]);
 
@@ -714,7 +723,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
     pasteCounterRef.current = 0;
     setActiveLayerId(next.layers[0]?.id ?? null);
     setDialog("none");
-    flash("New blank project created.");
+    flash(tr("toast.newProject"));
   }, [flash]);
 
   const handleNew = useCallback(() => {
@@ -739,7 +748,13 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
         pasteCounterRef.current = 0;
         setActiveLayerId(imported.layers[0]?.id ?? null);
         flash(
-          `Imported ${imported.elements.length} element${imported.elements.length === 1 ? "" : "s"} in ${imported.layers.length} layer${imported.layers.length === 1 ? "" : "s"} from ${sourceName}.`
+          tr("toast.imported", {
+            elements: tr("toast.importedCounts", {
+              elements: tr("count.elements", { count: imported.elements.length }),
+              layers: tr("count.layers", { count: imported.layers.length })
+            }),
+            source: sourceName
+          })
         );
         return null;
       } catch (error) {
@@ -751,7 +766,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
 
   const handleCopyForLlm = useCallback(async () => {
     const ok = await copyText(projectToLlmMarkdown(project));
-    flash(ok ? "LLM-ready Markdown copied to the clipboard." : "Copy failed — use Export instead.");
+    flash(tr(ok ? "toast.llmCopied" : "toast.copyFailed"));
   }, [flash, project]);
 
   const beginInteraction = useCallback(() => setHistory((current) => beginTransaction(current)), []);
@@ -914,7 +929,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
         onZoomPreset={applyZoom}
         onToggleLayers={() => setLayersOpen((value) => !value)}
         showImport={!host}
-        newTitle={host ? "Add a new wireframe to the current project" : undefined}
+        newTitle={host ? t("toolbar.newWireframeTitle") : undefined}
         accountSlot={host ? host.accountSlot : guestSlot}
       />
 
@@ -993,13 +1008,13 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
               {project.title} · {Math.round(project.canvas.width)} × {Math.round(project.canvas.height)}
             </span>
             <span>
-              {project.elements.length} element{project.elements.length === 1 ? "" : "s"}
+              {t("canvas.status", { count: project.elements.length })}
               {selectedIds.length > 1
-                ? ` · ${selectedIds.length} selected`
+                ? ` · ${t("canvas.selectedCount", { count: selectedIds.length })}`
                 : selectedElement
-                  ? ` · selected: ${selectedElement.name}`
+                  ? ` · ${t("canvas.selectedName", { name: selectedElement.name })}`
                   : ""}
-              {activeLayer ? ` · layer: ${activeLayer.name}` : ""}
+              {activeLayer ? ` · ${t("canvas.layer", { name: activeLayer.name })}` : ""}
             </span>
           </div>
           <CanvasEditor
@@ -1018,11 +1033,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
             onScaleChange={handleScaleChange}
             onUserZoom={applyZoom}
           />
-          <div className="canvas-hint">
-            Click to select · Shift/⌘-click to add · drag empty canvas to marquee · drag any selected object
-            to move the set · handles resize · ⌘/Ctrl+C/V copy-paste · ⌘/Ctrl+D duplicate · Del deletes ·
-            arrows nudge (Shift = {gridSize}px) · ⌘/Ctrl+Z undo
-          </div>
+          <div className="canvas-hint">{t("canvas.hint", { grid: gridSize })}</div>
         </section>
 
         <PropertiesPanel
@@ -1041,6 +1052,7 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
           onBringToFront={handleBringToFront}
           onSendToBack={handleSendToBack}
           onUnnest={handleUnnestSelected}
+          footer={preferencesSlot}
         />
       </main>
 
@@ -1053,15 +1065,13 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
 
       {pendingDeleteLayer ? (
         <ConfirmDialog
-          title={`Delete layer "${pendingDeleteLayer.name}"?`}
+          title={t("confirm.deleteLayerTitle", { name: pendingDeleteLayer.name })}
           message={
             pendingDeleteCount > 0
-              ? `This will also permanently delete ${pendingDeleteCount} element${
-                  pendingDeleteCount === 1 ? "" : "s"
-                } in this layer.`
-              : "This layer is empty."
+              ? t("confirm.deleteLayerWith", { count: pendingDeleteCount })
+              : t("confirm.deleteLayerEmpty")
           }
-          confirmLabel="Delete Layer"
+          confirmLabel={t("confirm.deleteLayerButton")}
           onConfirm={confirmDeleteLayer}
           onCancel={() => setPendingLayerDelete(null)}
         />
@@ -1069,9 +1079,9 @@ export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?
 
       {pendingNewProject ? (
         <ConfirmDialog
-          title="Start a new blank project?"
-          message="Unsaved work in the current project will be replaced."
-          confirmLabel="New Project"
+          title={t("confirm.newProjectTitle")}
+          message={t("confirm.newProjectMessage")}
+          confirmLabel={t("confirm.newProjectButton")}
           onConfirm={() => {
             setPendingNewProject(false);
             startBlankProject();

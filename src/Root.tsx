@@ -3,6 +3,8 @@ import App from "./App";
 import { AuthScreen, type AuthMode } from "./account/AuthScreen";
 import { fetchStatus, type AccountUser, type ServerStatus } from "./account/api";
 import { Workspace } from "./account/Workspace";
+import { PreferencesControl } from "./components/PreferencesControl";
+import { useT } from "./i18n";
 
 /** Remembered choice "use without an account" (per browser). */
 const GUEST_KEY = "wirefragma.mode";
@@ -54,6 +56,7 @@ const LINK_PARAMS = typeof window === "undefined" ? null : takeLinkParams();
  * can still skip it.
  */
 export function Root() {
+  const t = useT();
   const [view, setView] = useState<View>({ kind: "loading" });
 
   useEffect(() => {
@@ -90,7 +93,7 @@ export function Root() {
 
   if (view.kind === "loading") {
     return (
-      <div className="boot-screen" aria-label="Loading Wirefragma">
+      <div className="boot-screen" aria-label={t("auth.loading")}>
         <img src="./brand/wf_logo_square.png" alt="" className="boot-logo" />
       </div>
     );
@@ -120,6 +123,12 @@ export function Root() {
   const status = view.status;
   return (
     <App
+      preferencesSlot={
+        <div className="properties-preferences">
+          <div className="section-label">{t("props.preferences")}</div>
+          <PreferencesControl compact />
+        </div>
+      }
       guestSlot={
         status ? (
           <span className="account-slot">
@@ -128,9 +137,9 @@ export function Root() {
               type="button"
               className="account-signin"
               onClick={() => setView({ kind: "auth", status, mode: "signin", token: null })}
-              title="Sign in to save projects to your account"
+              title={t("toolbar.signInTitle")}
             >
-              Sign in
+              {t("toolbar.signIn")}
             </button>
           </span>
         ) : undefined

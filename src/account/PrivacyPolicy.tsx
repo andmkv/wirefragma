@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useT } from "../i18n";
 
 interface PrivacyPolicyProps {
   operator: string;
@@ -7,8 +8,10 @@ interface PrivacyPolicyProps {
   onClose: () => void;
 }
 
-/** The short, plain-language privacy policy accepted at sign-up. */
+/** The short, plain-language privacy policy accepted at sign-up (shown in the UI language). */
 export function PrivacyPolicy({ operator, contactEmail, version, onClose }: PrivacyPolicyProps) {
+  const t = useT();
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -17,75 +20,56 @@ export function PrivacyPolicy({ operator, contactEmail, version, onClose }: Priv
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  const contact = contactEmail ? <a href={`mailto:${contactEmail}`}>{contactEmail}</a> : "the site operator";
+  const contactMarker = "\u0000contact\u0000";
+  const [rightsBefore, rightsAfter] = t("privacy.rights", { contact: contactMarker }).split(contactMarker);
+  const contact = contactEmail ? <a href={`mailto:${contactEmail}`}>{contactEmail}</a> : t("privacy.operatorFallback");
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="modal privacy-modal" role="dialog" aria-modal="true" aria-label="Privacy policy">
+      <div className="modal privacy-modal" role="dialog" aria-modal="true" aria-label={t("privacy.title")}>
         <div className="modal-header">
-          <h2>Privacy policy</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
+          <h2>{t("privacy.title")}</h2>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={t("common.close")}>
             ✕
           </button>
         </div>
         <div className="privacy-body">
-          <p className="privacy-meta">
-            Version {version} · Operator: {operator}
-          </p>
-          <p>
-            Wirefragma is a wireframe editor. This policy explains what happens to your data when you
-            create an account on this server. Without an account, nothing leaves your browser.
-          </p>
+          <p className="privacy-meta">{t("privacy.meta", { version, operator })}</p>
+          <p>{t("privacy.intro")}</p>
 
-          <h3>What we store</h3>
+          <h3>{t("privacy.storeTitle")}</h3>
           <ul>
             <li>
-              <strong>Account data:</strong> your email address, an optional display name, and your
-              password as a one-way hash (we never see or store the password itself).
+              <strong>{t("privacy.storeAccountLabel")}</strong> {t("privacy.storeAccount")}
             </li>
             <li>
-              <strong>Your work:</strong> the projects and wireframes you save, including element
-              names, labels and LLM notes.
+              <strong>{t("privacy.storeWorkLabel")}</strong> {t("privacy.storeWork")}
             </li>
             <li>
-              <strong>Technical data:</strong> a session cookie that keeps you signed in, the date you
-              accepted this policy, and short-lived records of request counts per IP address used only
-              to stop abuse (deleted within a day).
+              <strong>{t("privacy.storeTechLabel")}</strong> {t("privacy.storeTech")}
             </li>
           </ul>
 
-          <h3>What we use it for</h3>
+          <h3>{t("privacy.useTitle")}</h3>
+          <p>{t("privacy.use")}</p>
+
+          <h3>{t("privacy.whereTitle")}</h3>
+          <p>{t("privacy.where")}</p>
+
+          <h3>{t("privacy.rightsTitle")}</h3>
           <p>
-            Only to run the service: signing you in, saving and showing your wireframes, and sending
-            account emails (address confirmation and password reset). No advertising, no tracking, no
-            analytics, no selling or sharing of data. There are no third-party cookies; if the server
-            uses Cloudflare Turnstile as its captcha, Cloudflare processes the check under its own
-            privacy policy.
+            {rightsBefore}
+            {contact}
+            {rightsAfter}
           </p>
 
-          <h3>Where it lives</h3>
-          <p>
-            In a database on this server's hosting provider. Wireframes are not encrypted at rest, so do
-            not put secrets or personal data of others into them.
-          </p>
-
-          <h3>Your rights</h3>
-          <p>
-            You can export any wireframe at any time (Export → Markdown / JSON), and you can delete your
-            account from the account menu — this permanently removes your account, projects and
-            wireframes. For any other request (access, correction, questions) contact {contact}.
-          </p>
-
-          <h3>Changes</h3>
-          <p>
-            When this policy changes, the version and date above change too. The version you accepted
-            is recorded with your account.
-          </p>
+          <h3>{t("privacy.changesTitle")}</h3>
+          <p>{t("privacy.changes")}</p>
         </div>
         <div className="modal-footer">
           <div className="modal-actions">
             <button type="button" className="primary" onClick={onClose}>
-              Close
+              {t("common.close")}
             </button>
           </div>
         </div>

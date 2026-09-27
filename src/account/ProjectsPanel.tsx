@@ -4,6 +4,7 @@ import { CollapsedRail, PanelToggle } from "../components/LeftPanel";
 import { PanelResizeHandle, usePanelWidth } from "../components/PanelResize";
 import { RowMenu } from "../components/RowMenu";
 import type { ProjectSummary } from "./api";
+import { useT } from "../i18n";
 
 export type SaveState = "saved" | "saving" | "pending" | "offline" | "conflict";
 
@@ -36,20 +37,12 @@ interface ProjectsPanelProps {
 
 export type PanelRenaming = { kind: "project" | "wireframe"; id: number };
 
-const SAVE_LABEL: Record<SaveState, string> = {
-  saved: "All changes saved",
-  saving: "Saving…",
-  pending: "Unsaved changes",
-  offline: "Offline — will retry",
-  conflict: "Changed elsewhere"
-};
-
 /** "3m", "5h", "2d" — compact age like the Codex / Claude Code sidebars. */
 export function relativeAge(utc: string, now = Date.now()): string {
   const time = Date.parse(utc.replace(" ", "T") + "Z");
   if (!Number.isFinite(time)) return "";
   const seconds = Math.max(0, Math.round((now - time) / 1000));
-  if (seconds < 60) return "now";
+  if (seconds < 60) return "now"; // rendered through t("projects.age.now") by the panel
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.round(minutes / 60);
@@ -113,6 +106,12 @@ export function ProjectsPanel({
   renaming,
   onRenamingChange: setRenaming
 }: ProjectsPanelProps) {
+  const t = useT();
+  const saveLabel = t(`projects.save.${saveState}`);
+  const age = (utc: string) => {
+    const value = relativeAge(utc);
+    return value === "now" ? t("projects.age.now") : value;
+  };
   const [, setTick] = useState(0);
   const size = usePanelWidth("wirefragma.panel.projects", 248, 180, 480);
 
@@ -127,41 +126,41 @@ export function ProjectsPanel({
 
   if (collapsed) {
     return (
-      <CollapsedRail label="Projects" onExpand={onToggleCollapsed}>
+      <CollapsedRail label={t("panel.projects")} onExpand={onToggleCollapsed}>
         <button
           type="button"
           className="projects-icon-button"
           onClick={() => currentProjectId !== null && onCreateWireframe(currentProjectId)}
           disabled={currentProjectId === null}
-          title="New wireframe in the current project"
-          aria-label="New wireframe"
+          title={t("projects.newWireframeCurrent")}
+          aria-label={t("projects.newWireframe")}
         >
           <PlusIcon />
         </button>
-        <button type="button" className="projects-icon-button" onClick={onImport} title="Import into the current project" aria-label="Import">
+        <button type="button" className="projects-icon-button" onClick={onImport} title={t("projects.importCurrent")} aria-label={t("toolbar.import")}>
           <ImportIcon />
         </button>
-        <span className={`projects-save-dot rail-dot ${saveState}`} title={SAVE_LABEL[saveState]} />
+        <span className={`projects-save-dot rail-dot ${saveState}`} title={saveLabel} />
       </CollapsedRail>
     );
   }
 
   return (
-    <aside className="projects-panel" aria-label="Projects" style={{ width: size.width }}>
+    <aside className="projects-panel" aria-label={t("panel.projects")} style={{ width: size.width }}>
       <div className="projects-header">
-        <span className="projects-heading">Projects</span>
-        <button type="button" className="projects-icon-button" onClick={onCreateProject} title="New project" aria-label="New project">
+        <span className="projects-heading">{t("panel.projects")}</span>
+        <button type="button" className="projects-icon-button" onClick={onCreateProject} title={t("projects.new")} aria-label={t("projects.new")}>
           <PlusIcon />
         </button>
-        <PanelToggle open label="Projects" onToggle={onToggleCollapsed} />
+        <PanelToggle open label={t("panel.projects")} onToggle={onToggleCollapsed} />
       </div>
 
       <nav className="projects-list">
         {projects.length === 0 ? (
           <div className="projects-empty">
-            No projects yet.
+            {t("projects.empty")}
             <button type="button" className="auth-link" onClick={onCreateProject}>
-              Create one
+              {t("projects.createOne")}
             </button>
           </div>
         ) : null}
@@ -206,8 +205,8 @@ export function ProjectsPanel({
                   <button
                     type="button"
                     className="row-icon"
-                    title={`New wireframe in ${project.name}`}
-                    aria-label={`New wireframe in ${project.name}`}
+                    title={t("projects.newWireframeIn", { name: project.name })}
+                    aria-label={t("projects.newWireframeIn", { name: project.name })}
                     onClick={(event) => {
                       event.stopPropagation();
                       onCreateWireframe(project.id);
@@ -216,11 +215,11 @@ export function ProjectsPanel({
                     <PlusIcon />
                   </button>
                   <RowMenu
-                    label={`More actions for project ${project.name}`}
+                    label={t("projects.moreProject", { name: project.name })}
                     items={[
-                      { label: "New wireframe", onSelect: () => onCreateWireframe(project.id) },
-                      { label: "Rename", onSelect: () => setRenaming({ kind: "project", id: project.id }) },
-                      { label: "Delete project", danger: true, onSelect: () => onDeleteProject(project.id) }
+                      { label: t("projects.newWireframe"), onSelect: () => onCreateWireframe(project.id) },
+                      { label: t("common.rename"), onSelect: () => setRenaming({ kind: "project", id: project.id }) },
+                      { label: t("projects.deleteProject"), danger: true, onSelect: () => onDeleteProject(project.id) }
                     ]}
                   />
                 </span>
@@ -228,7 +227,7 @@ export function ProjectsPanel({
 
               {open ? (
                 <div className="projects-children">
-                  {project.wireframes.length === 0 ? <div className="projects-empty small">Empty project</div> : null}
+                  {project.wireframes.length === 0 ? <div className="projects-empty small">{t("projects.emptyProject")}</div> : null}
                   {project.wireframes.map((wireframe) => {
                     const active = wireframe.id === currentWireframeId;
                     return (
@@ -265,14 +264,14 @@ export function ProjectsPanel({
                             {wireframe.title}
                           </span>
                         )}
-                        <span className="projects-age">{relativeAge(wireframe.updatedAt)}</span>
+                        <span className="projects-age">{age(wireframe.updatedAt)}</span>
                         <span className="projects-row-actions">
                           <RowMenu
-                            label={`More actions for ${wireframe.title}`}
+                            label={t("projects.moreWireframe", { name: wireframe.title })}
                             items={[
-                              { label: "Rename", onSelect: () => setRenaming({ kind: "wireframe", id: wireframe.id }) },
-                              { label: "Duplicate", onSelect: () => onDuplicateWireframe(wireframe.id) },
-                              { label: "Delete wireframe", danger: true, onSelect: () => onDeleteWireframe(wireframe.id) }
+                              { label: t("common.rename"), onSelect: () => setRenaming({ kind: "wireframe", id: wireframe.id }) },
+                              { label: t("common.duplicate"), onSelect: () => onDuplicateWireframe(wireframe.id) },
+                              { label: t("projects.deleteWireframe"), danger: true, onSelect: () => onDeleteWireframe(wireframe.id) }
                             ]}
                           />
                         </span>
@@ -287,16 +286,16 @@ export function ProjectsPanel({
       </nav>
 
       <div className="projects-footer">
-        <button type="button" className="projects-import" onClick={onImport} title="Import Markdown or JSON as a new wireframe in the current project">
+        <button type="button" className="projects-import" onClick={onImport} title={t("projects.importTitle")}>
           <ImportIcon />
-          Import
+          {t("toolbar.import")}
         </button>
         <span className={`projects-save ${saveState}`}>
           <span className={`projects-save-dot ${saveState}`} />
-          {SAVE_LABEL[saveState]}
+          {saveLabel}
         </span>
       </div>
-      <PanelResizeHandle label="Resize the Projects panel" {...size} onResize={size.setWidth} onReset={size.reset} />
+      <PanelResizeHandle label={t("panel.resize", { panel: t("panel.projects") })} {...size} onResize={size.setWidth} onReset={size.reset} />
     </aside>
   );
 }

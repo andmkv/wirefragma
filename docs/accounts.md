@@ -32,6 +32,8 @@ touch that slot.
   reported through `host.onHistoryChange`; guest autosave is disabled;
 * `host.sidebar` (the projects panel) is rendered as the first workspace column
   (`.workspace.with-projects`);
+* the avatar menu has **Settings…** (profile, language, theme, password, delete account — see
+  [i18n-and-theming.md](./i18n-and-theming.md)) and **Sign out**;
 * the toolbar hides **Import** (it moves to the projects panel), **New** creates a wireframe in the
   current project, and `host.accountSlot` (avatar menu) is appended;
 * `host.notice` shows save errors / conflicts in a banner.
@@ -78,6 +80,8 @@ Plain PHP 7.4+ with PDO MySQL, no Composer, no `mod_rewrite`: one front controll
 | `login` / `logout` | POST | unverified accounts are refused; session id regenerated on sign-in |
 | `forgot` / `reset` | POST | captcha on `forgot`; reset link valid 1 h; always a generic answer |
 | `delete-account` | POST | password required; foreign keys cascade to projects, wireframes and tokens |
+| `settings-save` | POST | display name and interface preferences (`language`, `theme`), validated against fixed lists |
+| `password-change` | POST | current password required; invalidates pending reset links |
 | `projects` | GET | the tree: projects with wireframe summaries |
 | `project-create` / `-rename` / `-delete` | POST | a new project gets one blank "Screen 1" |
 | `wireframe` | GET | one wireframe with its document |
@@ -106,7 +110,8 @@ Configuration: see `server/api/config.sample.php` and [deployment.md](./deployme
 
 `server/schema.sql` (idempotent, `IF NOT EXISTS`): `wf_users`, `wf_email_tokens`, `wf_projects`,
 `wf_wireframes` (the document is the same JSON as the `ui-project` block, in a `MEDIUMTEXT`),
-`wf_rate_limits`. `utf8mb4`, InnoDB, MySQL 5.7+ / MariaDB 10.2+.
+`wf_rate_limits`, `wf_user_settings` (preferences; also created on demand by the API, so databases
+from the first release need no migration step). `utf8mb4`, InnoDB, MySQL 5.7+ / MariaDB 10.2+.
 
 ## Testing
 

@@ -4,6 +4,7 @@ import { copyText, downloadText } from "../utils/clipboard";
 import { findLayer, type WireframeProject } from "../model/project";
 import { projectForLayer } from "../model/layerExport";
 import { wirefragmaSchemaMarkdown } from "../utils/schemaExport";
+import { useT } from "../i18n";
 
 interface ExportDialogProps {
   project: WireframeProject;
@@ -15,6 +16,7 @@ interface ExportDialogProps {
 type Tab = "markdown" | "llm" | "json" | "schema";
 
 export function ExportDialog({ project, layerId = null, onClose }: ExportDialogProps) {
+  const t = useT();
   const [tab, setTab] = useState<Tab>("markdown");
   const [status, setStatus] = useState<string | null>(null);
   const [crop, setCrop] = useState(true);
@@ -53,7 +55,7 @@ export function ExportDialog({ project, layerId = null, onClose }: ExportDialogP
 
   const handleCopy = async () => {
     const ok = await copyText(content);
-    flash(ok ? "Copied to clipboard." : "Copy failed — select the text and copy manually.");
+    flash(t(ok ? "export.copied" : "export.copyFailed"));
   };
 
   const handleDownload = () => {
@@ -64,60 +66,50 @@ export function ExportDialog({ project, layerId = null, onClose }: ExportDialogP
     } else {
       downloadText(markdownFilename(scoped), content, "text/markdown");
     }
-    flash("Download started.");
+    flash(t("export.downloadStarted"));
   };
 
-  const title = layer ? `Export layer “${layer.name}”` : "Export";
+  const title = layer ? t("export.layerTitle", { name: layer.name }) : t("export.title");
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div className="modal wide" role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-header">
           <h2>{title}</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
+          <button type="button" className="icon-button" onClick={onClose} aria-label={t("common.close")}>
             ✕
           </button>
         </div>
 
         <div className="tab-bar">
           <button type="button" className={tab === "markdown" ? "active" : ""} onClick={() => setTab("markdown")}>
-            Markdown
+            {t("export.tab.markdown")}
           </button>
           <button type="button" className={tab === "llm" ? "active" : ""} onClick={() => setTab("llm")}>
-            Copy for LLM
+            {t("export.tab.llm")}
           </button>
           <button type="button" className={tab === "json" ? "active" : ""} onClick={() => setTab("json")}>
-            Project JSON
+            {t("export.tab.json")}
           </button>
           <button type="button" className={tab === "schema" ? "active" : ""} onClick={() => setTab("schema")}>
-            WIREFRAGMA schema
+            {t("export.tab.schema")}
           </button>
         </div>
 
         {layer && tab !== "schema" ? (
           <div className="modal-note export-scope">
-            <span>
-              Only the <strong>{scoped.elements.length}</strong> element
-              {scoped.elements.length === 1 ? "" : "s"} of layer <strong>{layer.name}</strong> are exported.
-            </span>
+            <span>{t("export.layerScope", { count: scoped.elements.length, layer: layer.name })}</span>
             <label className="inline-check">
               <input type="checkbox" checked={crop} onChange={(event) => setCrop(event.target.checked)} />
-              Crop canvas to the layer content
+              {t("export.crop")}
             </label>
           </div>
         ) : null}
 
         {tab === "schema" ? (
-          <p className="modal-note">
-            LLM-ready instructions for the Wirefragma JSON format. Paste them into a chat together with a
-            description of the screen you want; the model answers with a <code>ui-project</code> block that
-            you can paste into <strong>Import</strong> to get an editable wireframe.
-          </p>
+          <p className="modal-note">{t("export.schemaNote")}</p>
         ) : (
-          <p className="modal-note">
-            The Markdown contains the ASCII wireframe, the semantic element list, your LLM notes and the
-            canonical <code>ui-project</code> block used for re-importing.
-          </p>
+          <p className="modal-note">{t("export.note")}</p>
         )}
 
         <textarea className="export-output" readOnly value={content} spellCheck={false} />
@@ -126,10 +118,10 @@ export function ExportDialog({ project, layerId = null, onClose }: ExportDialogP
           <span className="status">{status}</span>
           <div className="modal-actions">
             <button type="button" onClick={handleDownload}>
-              Download {tab === "json" ? ".json" : ".md"}
+              {t("export.download", { ext: tab === "json" ? ".json" : ".md" })}
             </button>
             <button type="button" className="primary" onClick={handleCopy}>
-              Copy
+              {t("common.copy")}
             </button>
           </div>
         </div>

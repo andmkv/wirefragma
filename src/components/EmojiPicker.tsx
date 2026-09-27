@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useT } from "../i18n";
 import { EMOJI_CATEGORIES, emojiByCategory, searchEmoji, type EmojiCategory } from "../model/emoji";
 
 interface EmojiPickerProps {
@@ -20,6 +21,7 @@ interface EmojiPickerProps {
  * a click outside closes it, and picking an emoji writes it straight into the element's label.
  */
 export function EmojiPicker({ value, onPick, onClose, anchorRef }: EmojiPickerProps) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<EmojiCategory>(EMOJI_CATEGORIES[0]);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -51,14 +53,14 @@ export function EmojiPicker({ value, onPick, onClose, anchorRef }: EmojiPickerPr
   }, [anchorRef, onClose]);
 
   return (
-    <div className="emoji-picker" ref={rootRef} role="dialog" aria-label="Emoji picker">
+    <div className="emoji-picker" ref={rootRef} role="dialog" aria-label={t("emoji.picker")}>
       <div className="emoji-search">
         <input
           type="search"
           value={query}
-          placeholder="Search emoji…"
+          placeholder={t("emoji.search")}
           autoFocus
-          aria-label="Search emoji"
+          aria-label={t("emoji.search")}
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
@@ -72,18 +74,18 @@ export function EmojiPicker({ value, onPick, onClose, anchorRef }: EmojiPickerPr
               className={entry === category ? "emoji-category active" : "emoji-category"}
               onClick={() => setCategory(entry)}
             >
-              {entry}
+              {t(`emoji.category.${entry}`)}
             </button>
           ))}
         </div>
       ) : (
         <div className="emoji-results-label">
-          {results.length} match{results.length === 1 ? "" : "es"}
+          {t("emoji.matches", { count: results.length })}
         </div>
       )}
 
       {results.length === 0 ? (
-        <div className="emoji-empty">No emoji found for “{query}”.</div>
+        <div className="emoji-empty">{t("emoji.noResults", { query })}</div>
       ) : (
         <div className="emoji-grid">
           {results.map((entry) => (

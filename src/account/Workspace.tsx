@@ -8,6 +8,9 @@ import { createHistory, type History } from "../utils/history";
 import { projectFromText } from "../utils/markdownImport";
 import { ApiError, api, type AccountUser, type ProjectSummary, type WireframeRecord } from "./api";
 import { ProjectsPanel, type PanelRenaming, type SaveState } from "./ProjectsPanel";
+import { SettingsDialog } from "./SettingsDialog";
+import { errorMessage } from "./errors";
+import { usePreferences, type TranslationKey, type TranslationParams } from "../i18n";
 
 interface CacheEntry {
   projectId: number;
@@ -72,7 +75,22 @@ function initials(user: AccountUser): string {
  * and forth is instant and loses nothing; rows are prefetched on hover. Edits autosave after a
  * short pause with optimistic concurrency (a revision number per wireframe).
  */
-export function Workspace({ user, onSignedOut }: WorkspaceProps) {
+export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
+  const { t, applyPreferences } = usePreferences();
+  const tRef = useRef(t);
+  tRef.current = t;
+  const tr = useCallback((key: TranslationKey, params?: TranslationParams) => tRef.current(key, params), []);
+  const [user, setUser] = useState(initialUser);
+
+  // Preferences stored with the account win over this browser's guest choice.
+  useEffect(() => {
+    const settings = initialUser.settings ?? {};
+    applyPreferences({
+      locale: settings.language as never,
+      theme: settings.theme as never
+    });
+  }, [applyPreferences, initialUser.settings]);
+
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [currentId, setCurrentId] = useState<number | null>(null);
   /** Bumped to remount the editor when its document is replaced from outside. */
@@ -83,7 +101,7 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
   const [notice, setNotice] = useState<ReactNode>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [confirm, setConfirm] = useState<{ title: string; message: string; label: string; run: () => void } | null>(null);
-  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const cache = useRef(new Map<number, CacheEntry>());
@@ -99,7 +117,7 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
   const handleFatal = useCallback(
     (error: unknown): boolean => {
       if (error instanceof ApiError && error.status === 401) {
-        onSignedOut("Your session has ended. Please sign in again.");
+        onSignedOut(tr("projects.sessionEnded"));
         return true;
       }
       return false;
@@ -110,9 +128,9 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
   const report = useCallback(
     (error: unknown) => {
       if (handleFatal(error)) return;
-      setNotice((error as Error).message);
+      setNotice(errorMessage(tr, error));
     },
-    [handleFatal]
+    [handleFatal, tr]
   );
 
   /* ------------------------------------------------------------- loading */
@@ -186,12 +204,12 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
           const current = error.payload.current as WireframeRecord | undefined;
           setNotice(
             <span className="conflict-notice">
-              This wireframe was changed in another tab or on another device.
+              {tr("error.conflict")}
               <button type="button" onClick={() => void resolveConflict(id, "mine")}>
-                Keep my version
+                {tr("projects.conflictKeep")}
               </button>
               <button type="button" onClick={() => void resolveConflict(id, "theirs", current)}>
-                Load the other version
+                {tr("projects.conflictLoad")}
               </button>
             </span>
           );
@@ -200,7 +218,7 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
           window.setTimeout(() => void saveNow(id), RETRY_DELAY_MS);
         } else {
           setSaveState("pending");
-          setNotice((error as Error).message);
+          setNotice(errorMessage(tRef.current, error));
         }
       } finally {
         savingId.current = null;
@@ -304,7 +322,7 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
       try {
         let { projects: list } = await api.projects();
         if (list.length === 0) {
-          list = (await api.createProject("My first project")).projects;
+          list = (await api.createProject(tr("projects.firstName"), tr("projects.screenName", { n: 1 }))).projects;
         }
         if (cancelled) return;
         setProjects(list);
@@ -349,7 +367,7 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
     async (projectId: number, data?: WireframeProject) => {
       try {
         const project = projects?.find((candidate) => candidate.id === projectId);
-        const title = data?.title?.trim() || `Screen ${(project?.wireframes.length ?? 0) + 1}`;
+        const title = data?.title?.trim() || tr("projects.screenName", { n: (project?.wireframes.length ?? 0) + 1 });
         const result = await api.createWireframe(projectId, title, data ? { ...data, title } : undefined);
         setProjects(result.projects);
         await open(result.wireframeId);
@@ -362,8 +380,8 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
 
   const createProject = useCallback(async () => {
     try {
-      const name = `Project ${(projects?.length ?? 0) + 1}`;
-      const result = await api.createProject(name);
+      const name = tr("projects.newName", { n: (projects?.length ?? 0) + 1 });
+      const result = await api.createProject(name, tr("projects.screenName", { n: 1 }));
       setProjects(result.projects);
       if (result.wireframeId) await open(result.wireframeId);
       setRenaming({ kind: "project", id: result.projectId });
@@ -389,9 +407,9 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
     (id: number) => {
       const title = projects?.flatMap((project) => project.wireframes).find((wireframe) => wireframe.id === id)?.title ?? "this wireframe";
       setConfirm({
-        title: `Delete “${title}”?`,
-        message: "The wireframe and its content are removed from your account. This cannot be undone.",
-        label: "Delete wireframe",
+        title: tr("projects.confirmDeleteWireframe", { name: title }),
+        message: tr("projects.confirmDeleteWireframeMessage"),
+        label: tr("projects.deleteWireframe"),
         run: async () => {
           try {
             const projectId = cache.current.get(id)?.projectId ?? null;
@@ -414,9 +432,9 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
       if (!project) return;
       const count = project.wireframes.length;
       setConfirm({
-        title: `Delete project “${project.name}”?`,
-        message: `This also deletes ${count} wireframe${count === 1 ? "" : "s"} in it. This cannot be undone.`,
-        label: "Delete project",
+        title: tr("projects.confirmDeleteProject", { name: project.name }),
+        message: tr("projects.confirmDeleteProjectMessage", { count }),
+        label: tr("projects.deleteProject"),
         run: async () => {
           try {
             const result = await api.deleteProject(id);
@@ -500,7 +518,7 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
       if (target === null) {
         void (async () => {
           try {
-            const created = await api.createProject("Imported");
+            const created = await api.createProject(tr("projects.firstName"));
             setProjects(created.projects);
             await createWireframe(created.projectId, titled);
           } catch (error) {
@@ -531,13 +549,13 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
     <span className="account-slot">
       <span className="divider" />
       <RowMenu
-        label={`Account: ${user.email}`}
+        label={t("account.menu", { email: user.email })}
         className="account-button"
         icon={<span className="account-avatar">{initials(user)}</span>}
         items={[
           { label: user.email, disabled: true, onSelect: () => undefined },
-          { label: "Sign out", onSelect: () => void signOut() },
-          { label: "Delete account…", danger: true, onSelect: () => setDeleteAccountOpen(true) }
+          { label: t("account.settings"), onSelect: () => setSettingsOpen(true) },
+          { label: t("account.signOut"), onSelect: () => void signOut() }
         ]}
       />
     </span>
@@ -603,11 +621,12 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
           onCancel={() => setConfirm(null)}
         />
       ) : null}
-      {deleteAccountOpen ? (
-        <DeleteAccountDialog
-          email={user.email}
-          onCancel={() => setDeleteAccountOpen(false)}
-          onDeleted={() => onSignedOut("Your account and all its projects were deleted.")}
+      {settingsOpen ? (
+        <SettingsDialog
+          user={user}
+          onClose={() => setSettingsOpen(false)}
+          onUserUpdated={setUser}
+          onAccountDeleted={() => onSignedOut(t("account.deleted"))}
         />
       ) : null}
     </>
@@ -623,21 +642,21 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
             {loadError ? (
               <p className="auth-error">{loadError}</p>
             ) : projects === null ? (
-              <div className="auth-spinner" aria-label="Loading projects" />
+              <div className="auth-spinner" aria-label={t("projects.loading")} />
             ) : (
               <div className="workspace-empty-card">
-                <h2>No wireframe open</h2>
-                <p>Create a wireframe in a project, or import a Markdown / JSON export.</p>
+                <h2>{t("projects.noWireframe")}</h2>
+                <p>{t("projects.noWireframeHint")}</p>
                 <div className="button-row">
                   <button
                     type="button"
                     className="primary"
                     onClick={() => (currentProjectId !== null ? void createWireframe(currentProjectId) : void createProject())}
                   >
-                    New wireframe
+                    {t("projects.newWireframe")}
                   </button>
                   <button type="button" onClick={() => setImportOpen(true)}>
-                    Import
+                    {t("toolbar.import")}
                   </button>
                 </div>
                 <div className="workspace-empty-account">{accountSlot}</div>
@@ -666,7 +685,7 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
           notice: notice ? (
             <span className="host-notice-content">
               {notice}
-              <button type="button" className="icon-button" onClick={() => setNotice(null)} aria-label="Dismiss">
+              <button type="button" className="icon-button" onClick={() => setNotice(null)} aria-label={t("common.dismiss")}>
                 ✕
               </button>
             </span>
@@ -675,70 +694,5 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
       />
       {dialogs}
     </>
-  );
-}
-
-function DeleteAccountDialog({ email, onCancel, onDeleted }: { email: string; onCancel: () => void; onDeleted: () => void }) {
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onCancel]);
-
-  return (
-    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
-      <form
-        className="modal narrow"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Delete account"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          setBusy(true);
-          setError(null);
-          try {
-            await api.deleteAccount(password);
-            onDeleted();
-          } catch (reason) {
-            setError((reason as Error).message);
-            setBusy(false);
-          }
-        }}
-      >
-        <div className="modal-header">
-          <h2>Delete your account?</h2>
-          <button type="button" className="icon-button" onClick={onCancel} aria-label="Close">
-            ✕
-          </button>
-        </div>
-        <div className="confirm-message">
-          <p>
-            This permanently deletes <strong>{email}</strong> with every project and wireframe. Export anything
-            you want to keep first.
-          </p>
-          <label className="field">
-            <span className="field-label">Confirm with your password</span>
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoFocus required autoComplete="current-password" />
-          </label>
-          {error ? <p className="auth-error">{error}</p> : null}
-        </div>
-        <div className="modal-footer">
-          <div className="modal-actions">
-            <button type="button" onClick={onCancel}>
-              Cancel
-            </button>
-            <button type="submit" className="primary danger-solid" disabled={busy || !password}>
-              Delete account
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
   );
 }

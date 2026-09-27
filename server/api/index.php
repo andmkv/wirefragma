@@ -74,6 +74,12 @@ try {
         case 'delete-account':
             wf_json(action_delete_account(wf_input()));
             break;
+        case 'settings-save':
+            wf_json(action_settings_save(wf_input()));
+            break;
+        case 'password-change':
+            wf_json(action_password_change(wf_input()));
+            break;
         case 'projects':
             wf_json(['projects' => projects_tree((int)wf_require_user()['id'])]);
             break;
@@ -223,7 +229,7 @@ function action_verify(array $input): array
     $db = wf_db();
     $db->prepare('UPDATE wf_users SET email_verified_at = COALESCE(email_verified_at, ?), updated_at = ? WHERE id = ?')
         ->execute([wf_now(), wf_now(), $userId]);
-    ensure_starter_project($userId);
+    ensure_starter_project($userId, $input);
     return login_session($userId);
 }
 
@@ -302,7 +308,7 @@ function action_reset(array $input): array
     wf_db()->prepare(
         'UPDATE wf_users SET password_hash = ?, email_verified_at = COALESCE(email_verified_at, ?), updated_at = ? WHERE id = ?'
     )->execute([password_hash($password, PASSWORD_DEFAULT), $now, $now, $userId]);
-    ensure_starter_project($userId);
+    ensure_starter_project($userId, $input);
     return login_session($userId);
 }
 
@@ -313,11 +319,52 @@ function action_delete_account(array $input): array
     $statement = wf_db()->prepare('SELECT password_hash FROM wf_users WHERE id = ?');
     $statement->execute([$user['id']]);
     if (!password_verify($password, (string)$statement->fetchColumn())) {
-        throw new ApiError(401, 'bad_credentials', 'The password is not correct.');
+        throw new ApiError(403, 'bad_credentials', 'The password is not correct.');
     }
     // Foreign keys cascade to projects, wireframes and tokens.
     wf_db()->prepare('DELETE FROM wf_users WHERE id = ?')->execute([$user['id']]);
     $_SESSION = ['csrf' => bin2hex(random_bytes(32))];
+    session_regenerate_id(true);
+    return ['ok' => true, 'csrf' => wf_csrf_token()];
+}
+
+/** Profile + interface preferences. Every field is optional; unknown values are ignored. */
+function action_settings_save(array $input): array
+{
+    $user = wf_require_user();
+    $userId = (int)$user['id'];
+    wf_rate_limit('settings', (string)$userId, 300, 3600);
+    if (array_key_exists('displayName', $input)) {
+        wf_db()->prepare('UPDATE wf_users SET display_name = ?, updated_at = ? WHERE id = ?')
+            ->execute([wf_str($input, 'displayName', 80), wf_now(), $userId]);
+    }
+    $settings = wf_user_settings($userId);
+    if (in_array($input['language'] ?? null, WF_LANGUAGES, true)) $settings['language'] = $input['language'];
+    if (in_array($input['theme'] ?? null, WF_THEMES, true)) $settings['theme'] = $input['theme'];
+    wf_db()->prepare(
+        'INSERT INTO wf_user_settings (user_id, data, updated_at) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = VALUES(updated_at)'
+    )->execute([$userId, json_encode($settings), wf_now()]);
+    $fresh = wf_current_user();
+    return ['ok' => true, 'user' => $fresh ? wf_public_user($fresh) : null];
+}
+
+function action_password_change(array $input): array
+{
+    $user = wf_require_user();
+    wf_rate_limit('password-change', (string)$user['id'], 10, 3600);
+    $current = is_string($input['current'] ?? null) ? $input['current'] : '';
+    $next = is_string($input['next'] ?? null) ? $input['next'] : '';
+    $statement = wf_db()->prepare('SELECT password_hash FROM wf_users WHERE id = ?');
+    $statement->execute([$user['id']]);
+    if (!password_verify($current, (string)$statement->fetchColumn())) {
+        throw new ApiError(403, 'bad_credentials', 'The current password is not correct.');
+    }
+    validate_password($next);
+    wf_db()->prepare('UPDATE wf_users SET password_hash = ?, updated_at = ? WHERE id = ?')
+        ->execute([password_hash($next, PASSWORD_DEFAULT), wf_now(), $user['id']]);
+    // Other reset links stop working once the password is changed deliberately.
+    wf_db()->prepare("DELETE FROM wf_email_tokens WHERE user_id = ? AND purpose = 'reset'")->execute([$user['id']]);
     session_regenerate_id(true);
     return ['ok' => true, 'csrf' => wf_csrf_token()];
 }
@@ -431,17 +478,23 @@ function touch_project(int $projectId): void
     wf_db()->prepare('UPDATE wf_projects SET updated_at = ? WHERE id = ?')->execute([wf_now(), $projectId]);
 }
 
-/** First sign-in gets one project with one blank wireframe, so the editor never opens empty. */
-function ensure_starter_project(int $userId): void
+/**
+ * First sign-in gets one project with one blank wireframe, so the editor never opens empty. The
+ * client sends the names in the user's language (`starter.project`, `starter.wireframe`).
+ */
+function ensure_starter_project(int $userId, array $input = []): void
 {
     $statement = wf_db()->prepare('SELECT COUNT(*) FROM wf_projects WHERE user_id = ?');
     $statement->execute([$userId]);
     if ((int)$statement->fetchColumn() > 0) return;
+    $starter = is_array($input['starter'] ?? null) ? $input['starter'] : [];
+    $projectName = wf_str($starter, 'project', 120) ?: 'My first project';
+    $wireframeTitle = wf_str($starter, 'wireframe', 160) ?: 'Home screen';
     $now = wf_now();
     wf_db()->prepare('INSERT INTO wf_projects (user_id, name, position, created_at, updated_at) VALUES (?, ?, 0, ?, ?)')
-        ->execute([$userId, 'My first project', $now, $now]);
+        ->execute([$userId, $projectName, $now, $now]);
     $projectId = (int)wf_db()->lastInsertId();
-    insert_wireframe($userId, $projectId, 'Home screen', document_json(blank_document('Home screen')));
+    insert_wireframe($userId, $projectId, $wireframeTitle, document_json(blank_document($wireframeTitle)));
 }
 
 function action_project_create(array $input): array
@@ -456,7 +509,8 @@ function action_project_create(array $input): array
     $projectId = (int)wf_db()->lastInsertId();
     $wireframeId = null;
     if (($input['withWireframe'] ?? true) !== false) {
-        $wireframeId = insert_wireframe($userId, $projectId, 'Screen 1', document_json(blank_document('Screen 1')));
+        $title = wf_str($input, 'wireframeTitle', 160) ?: 'Screen 1';
+        $wireframeId = insert_wireframe($userId, $projectId, $title, document_json(blank_document($title)));
     }
     return ['ok' => true, 'projectId' => $projectId, 'wireframeId' => $wireframeId, 'projects' => projects_tree($userId)];
 }

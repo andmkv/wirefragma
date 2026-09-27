@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Root } from "./Root";
+import { PreferencesProvider } from "./i18n";
 import { INPUT_DEBUG_ENABLED, logBuildIdentity } from "./buildIdentity";
 import "./styles.css";
 
@@ -12,7 +13,9 @@ if (import.meta.env.DEV && INPUT_DEBUG_ENABLED) logBuildIdentity();
 
 createRoot(container).render(
   <StrictMode>
-    <Root />
+    <PreferencesProvider>
+      <Root />
+    </PreferencesProvider>
   </StrictMode>
 );
 

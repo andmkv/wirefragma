@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ApiError, api, type AccountUser, type ServerStatus } from "./api";
+import { ApiError, api, type AccountUser, type ServerStatus, type StarterNames } from "./api";
+import { PreferencesControl } from "../components/PreferencesControl";
 import { Captcha } from "./Captcha";
 import { PrivacyPolicy } from "./PrivacyPolicy";
+import { errorMessage } from "./errors";
+import { useT } from "../i18n";
 
 /**
  * Confirmation tokens are single-use. Effects may run twice (React StrictMode, remounts), so the
  * request is shared per token instead of being sent again and failing as "already used".
  */
 const verifications = new Map<string, ReturnType<typeof api.verify>>();
-function verifyOnce(token: string): ReturnType<typeof api.verify> {
+function verifyOnce(token: string, starter: StarterNames): ReturnType<typeof api.verify> {
   let pending = verifications.get(token);
   if (!pending) {
-    pending = api.verify(token);
+    pending = api.verify(token, starter);
     verifications.set(token, pending);
   }
   return pending;
@@ -35,6 +38,7 @@ interface AuthScreenProps {
  * form on the right. Also handles the emailed links (confirm address, reset password).
  */
 export function AuthScreen({ status, initialMode, token, initialMessage, onSignedIn, onGuest }: AuthScreenProps) {
+  const t = useT();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,14 +69,14 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
   useEffect(() => {
     if (initialMode !== "verifying" || !token) return;
     let cancelled = false;
-    verifyOnce(token)
+    verifyOnce(token, { project: t("projects.firstName"), wireframe: t("projects.screenName", { n: 1 }) })
       .then((session) => {
         if (!cancelled) onSignedIn(session.user);
       })
       .catch((reason: Error) => {
         if (cancelled) return;
         setMode("signin");
-        setError(reason.message);
+        setError(errorMessage(t, reason));
       });
     return () => {
       cancelled = true;
@@ -87,7 +91,7 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
       await task();
     } catch (reason) {
       const apiError = reason as ApiError;
-      setError(apiError.message);
+      setError(errorMessage(t, apiError));
       if (apiError.code === "unverified") setUnverified(true);
       // The server consumed the captcha challenge; show a fresh one.
       if (mode === "register" || mode === "forgot") setCaptchaKey((key) => key + 1);
@@ -106,7 +110,7 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
       });
     } else if (mode === "register") {
       if (!acceptPrivacy) {
-        setError("Please accept the privacy policy to create an account.");
+        setError(t("auth.acceptPrivacyError"));
         return;
       }
       void run(async () => {
@@ -122,7 +126,10 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
       });
     } else if (mode === "reset" && token) {
       void run(async () => {
-        const session = await api.reset(token, password);
+        const session = await api.reset(token, password, {
+          project: t("projects.firstName"),
+          wireframe: t("projects.screenName", { n: 1 })
+        });
         onSignedIn(session.user);
       });
     }
@@ -132,27 +139,13 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
     void run(async () => {
       await api.resend(email);
       setUnverified(false);
-      setInfo("If that address has an unconfirmed account, a new confirmation link is on its way.");
+      setInfo(t("auth.resent"));
     });
 
-  const title: Record<AuthMode, string> = {
-    signin: "Welcome back",
-    register: "Create your account",
-    forgot: "Reset your password",
-    reset: "Choose a new password",
-    sent: "Check your inbox",
-    verifying: "Confirming your email…"
-  };
-  const subtitle: Record<AuthMode, ReactNode> = {
-    signin: "Sign in to keep your projects and wireframes in the cloud.",
-    register: "Projects and wireframes are saved to your account and follow you across devices.",
-    forgot: "Enter your email and we will send you a link to set a new password.",
-    reset: "Pick a password with at least 8 characters.",
-    sent: null,
-    verifying: "One moment, please."
-  };
+  const title = t(`auth.title.${mode}`);
+  const subtitle: ReactNode = mode === "sent" ? null : t(`auth.subtitle.${mode}`);
 
-  const passwordField = (autoComplete: string, label = "Password") => (
+  const passwordField = (autoComplete: string, label = t("auth.password")) => (
     <label className="auth-field">
       <span className="auth-label">{label}</span>
       <span className="auth-password">
@@ -169,9 +162,9 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
           type="button"
           className="auth-reveal"
           onClick={() => setShowPassword((value) => !value)}
-          aria-label={showPassword ? "Hide password" : "Show password"}
+          aria-label={t(showPassword ? "auth.hidePassword" : "auth.showPassword")}
         >
-          {showPassword ? "Hide" : "Show"}
+          {t(showPassword ? "auth.hide" : "auth.show")}
         </button>
       </span>
     </label>
@@ -179,7 +172,7 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
 
   const emailField = (
     <label className="auth-field">
-      <span className="auth-label">Email</span>
+      <span className="auth-label">{t("auth.email")}</span>
       <input
         className="auth-input"
         type="email"
@@ -206,11 +199,11 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
         </div>
         <div className="auth-hero-content">
           <img className="auth-logo" src="./brand/wf_logo_wide.png" alt="" />
-          <p className="auth-tagline">Sketch the screen. Hand the spec to your LLM.</p>
+          <p className="auth-tagline">{t("auth.tagline")}</p>
           <ul className="auth-points">
-            <li>Wireframes with LLM notes on every element</li>
-            <li>Markdown export an agent can read and rebuild</li>
-            <li>Projects synced to your account</li>
+            <li>{t("auth.point1")}</li>
+            <li>{t("auth.point2")}</li>
+            <li>{t("auth.point3")}</li>
           </ul>
         </div>
       </section>
@@ -220,7 +213,7 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
           <img className="auth-mobile-logo" src="./brand/wf_logo_wide.png" alt="Wirefragma" />
 
           {mode === "signin" || mode === "register" ? (
-            <div className="auth-switch" role="tablist" aria-label="Sign in or create an account">
+            <div className="auth-switch" role="tablist" aria-label={t("auth.switchLabel")}>
               <button
                 type="button"
                 role="tab"
@@ -228,7 +221,7 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
                 className={mode === "signin" ? "active" : ""}
                 onClick={() => switchMode("signin")}
               >
-                Sign in
+                {t("auth.tab.signin")}
               </button>
               <button
                 type="button"
@@ -237,45 +230,35 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
                 className={mode === "register" ? "active" : ""}
                 onClick={() => switchMode("register")}
                 disabled={!status.registrationOpen}
-                title={status.registrationOpen ? undefined : "Registration is closed on this server"}
+                title={status.registrationOpen ? undefined : t("auth.registrationClosed")}
               >
-                Create account
+                {t("auth.tab.register")}
               </button>
             </div>
           ) : null}
 
-          <h1 className="auth-title">{title[mode]}</h1>
-          {subtitle[mode] ? <p className="auth-subtitle">{subtitle[mode]}</p> : null}
+          <h1 className="auth-title">{title}</h1>
+          {subtitle ? <p className="auth-subtitle">{subtitle}</p> : null}
 
           {mode === "sent" ? (
             <div className="auth-sent">
               <div className="auth-sent-icon" aria-hidden="true">✉</div>
               <p>
-                {sentKind === "verify" ? (
-                  <>
-                    We sent a confirmation link to <strong>{email}</strong>. Open it to activate your
-                    account — it is valid for 48 hours.
-                  </>
-                ) : (
-                  <>
-                    If <strong>{email}</strong> has an account, a password reset link is on its way. It is
-                    valid for 1 hour.
-                  </>
-                )}
+                {t(sentKind === "verify" ? "auth.sentVerify" : "auth.sentReset", { email })}
               </p>
-              <p className="auth-hint">No email after a few minutes? Check the spam folder.</p>
+              <p className="auth-hint">{t("auth.spam")}</p>
               <button type="button" className="auth-secondary" onClick={() => switchMode("signin")}>
-                Back to sign in
+                {t("auth.backToSignin")}
               </button>
             </div>
           ) : mode === "verifying" ? (
-            <div className="auth-spinner" aria-label="Loading" />
+            <div className="auth-spinner" aria-label={t("common.loading")} />
           ) : (
             <form className="auth-form" onSubmit={submit} noValidate={false}>
               {mode === "register" ? (
                 <label className="auth-field">
                   <span className="auth-label">
-                    Name <span className="auth-optional">optional</span>
+                    {t("auth.name")} <span className="auth-optional">{t("auth.optional")}</span>
                   </span>
                   <input
                     className="auth-input"
@@ -291,7 +274,7 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
 
               {mode === "signin" ? passwordField("current-password") : null}
               {mode === "register" ? passwordField("new-password") : null}
-              {mode === "reset" ? passwordField("new-password", "New password") : null}
+              {mode === "reset" ? passwordField("new-password", t("auth.newPassword")) : null}
 
               {mode === "register" ? (
                 // Honeypot for bots: visually hidden, skipped by keyboard and screen readers.
@@ -325,11 +308,11 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
                     required
                   />
                   <span>
-                    I have read and accept the{" "}
+                    {t("auth.consentBefore")}{" "}
                     <button type="button" className="auth-link" onClick={() => setPrivacyOpen(true)}>
-                      privacy policy
+                      {t("auth.consentLink")}
                     </button>
-                    .
+                    {t("auth.consentAfter")}
                   </span>
                 </label>
               ) : null}
@@ -339,7 +322,7 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
                   {error}
                   {unverified ? (
                     <button type="button" className="auth-link" onClick={resend} disabled={busy || !email}>
-                      Send the link again
+                      {t("auth.sendAgain")}
                     </button>
                   ) : null}
                 </div>
@@ -347,46 +330,39 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
               {info ? <div className="auth-info">{info}</div> : null}
 
               <button type="submit" className="auth-primary" disabled={busy}>
-                {busy
-                  ? "Please wait…"
-                  : mode === "signin"
-                    ? "Sign in"
-                    : mode === "register"
-                      ? "Create account"
-                      : mode === "forgot"
-                        ? "Send reset link"
-                        : "Save password and sign in"}
+                {busy ? t("auth.wait") : t(`auth.submit.${mode as "signin" | "register" | "forgot" | "reset"}`)}
               </button>
 
               {mode === "signin" ? (
                 <button type="button" className="auth-link auth-forgot" onClick={() => switchMode("forgot")}>
-                  Forgot password?
+                  {t("auth.forgot")}
                 </button>
               ) : null}
               {mode === "forgot" || mode === "reset" ? (
                 <button type="button" className="auth-link auth-forgot" onClick={() => switchMode("signin")}>
-                  Back to sign in
+                  {t("auth.backToSignin")}
                 </button>
               ) : null}
             </form>
           )}
 
           <div className="auth-divider">
-            <span>or</span>
+            <span>{t("auth.or")}</span>
           </div>
           <button type="button" className="auth-guest" onClick={onGuest}>
-            Continue without an account
+            {t("auth.guest")}
           </button>
-          <p className="auth-hint auth-guest-hint">Your work stays in this browser only.</p>
+          <p className="auth-hint auth-guest-hint">{t("auth.guestHint")}</p>
         </div>
 
+        <PreferencesControl compact />
         <footer className="auth-footer">
           <button type="button" className="auth-link" onClick={() => setPrivacyOpen(true)}>
-            Privacy policy
+            {t("auth.privacy")}
           </button>
           <span>·</span>
           <a href="https://github.com/andmkv/wirefragma" target="_blank" rel="noreferrer">
-            Open source on GitHub
+            {t("auth.github")}
           </a>
         </footer>
       </section>

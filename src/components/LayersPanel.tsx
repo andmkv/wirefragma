@@ -1,6 +1,5 @@
 import { useState, type DragEvent } from "react";
 import {
-  ELEMENT_TYPE_LABEL,
   childrenOf,
   effectiveLocked,
   effectiveVisible,
@@ -12,6 +11,7 @@ import {
 } from "../model/project";
 import { CaretIcon, DuplicateIcon, EyeIcon, LockIcon, TrashIcon } from "./icons";
 import { RowMenu } from "./RowMenu";
+import { useT } from "../i18n";
 
 type DragPayload = { kind: "layer" | "element"; id: string; ids: string[] };
 type DropPosition = "above" | "below" | "into";
@@ -83,6 +83,7 @@ export function LayersPanel({
   onMoveElements,
   onNestElements
 }: LayersPanelProps) {
+  const t = useT();
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -198,7 +199,7 @@ export function LayersPanel({
           }
         }}
         draggable
-        title={`${element.name} · ${ELEMENT_TYPE_LABEL[element.type]}${
+        title={`${element.name} · ${t(`type.${element.type}`)}${
           element.label ? ` · "${element.label}"` : ""
         }`}
         onDragStart={(event) => {
@@ -232,7 +233,7 @@ export function LayersPanel({
               event.stopPropagation();
               toggleCollapsed(element.id);
             }}
-            aria-label={isOpen ? `Collapse ${element.name}` : `Expand ${element.name}`}
+            aria-label={t(isOpen ? "layers.element.collapse" : "layers.element.expand", { name: element.name })}
           >
             <CaretIcon open={isOpen} />
           </button>
@@ -243,7 +244,7 @@ export function LayersPanel({
         <button
           type="button"
           className={element.visible ? "row-icon" : "row-icon off"}
-          title={element.visible ? "Hide element" : "Show element"}
+          title={t(element.visible ? "layers.element.hide" : "layers.element.show")}
           onClick={(event) => {
             event.stopPropagation();
             onToggleElementVisible(element.id);
@@ -257,11 +258,11 @@ export function LayersPanel({
           title={
             inheritedLock
               ? element.parentId
-                ? "Locked by a parent element or the layer"
-                : `Locked by layer "${findLayer(project, element.layerId)?.name ?? ""}"`
+                ? t("layers.element.lockedByParent")
+                : t("layers.element.lockedByLayer", { name: findLayer(project, element.layerId)?.name ?? "" })
               : element.locked
-                ? "Unlock element"
-                : "Lock element"
+                ? t("layers.element.unlock")
+                : t("layers.element.lock")
           }
           onClick={(event) => {
             event.stopPropagation();
@@ -273,8 +274,8 @@ export function LayersPanel({
         <button
           type="button"
           className="row-icon"
-          title={`Duplicate ${element.name} in this layer`}
-          aria-label={`Duplicate ${element.name}`}
+          title={t("layers.element.duplicate", { name: element.name })}
+          aria-label={t("layers.element.duplicate", { name: element.name })}
           onClick={(event) => {
             event.stopPropagation();
             onDuplicateElement(element.id);
@@ -290,11 +291,9 @@ export function LayersPanel({
     <div className="layers-panel">
       <div className="layers-toolbar">
         <button type="button" className="layer-add" onClick={onAddLayer}>
-          + Layer
+          {t("layers.add")}
         </button>
-        <span className="layers-count">
-          {project.layers.length} layer{project.layers.length === 1 ? "" : "s"}
-        </span>
+        <span className="layers-count">{t("layers.count", { count: project.layers.length })}</span>
       </div>
 
       <div className="layer-list">
@@ -338,7 +337,7 @@ export function LayersPanel({
                   type="button"
                   className="tree-toggle"
                   onClick={() => toggleCollapsed(layer.id)}
-                  aria-label={isOpen ? "Collapse layer" : "Expand layer"}
+                  aria-label={t(isOpen ? "layers.collapse" : "layers.expand")}
                 >
                   <CaretIcon open={isOpen} />
                 </button>
@@ -359,7 +358,7 @@ export function LayersPanel({
                   <button
                     type="button"
                     className="layer-name"
-                    title={`${layer.name} — click to make active, double-click to rename, drag to reorder`}
+                    title={t("layers.nameTitle", { name: layer.name })}
                     onClick={() => onActivateLayer(layer.id)}
                     onDoubleClick={() => startRename(layer.id, layer.name)}
                   >
@@ -371,7 +370,7 @@ export function LayersPanel({
                 <button
                   type="button"
                   className={layer.visible ? "row-icon" : "row-icon off"}
-                  title={layer.visible ? "Hide layer" : "Show layer"}
+                  title={t(layer.visible ? "layers.hide" : "layers.show")}
                   onClick={() => onToggleLayerVisible(layer.id)}
                 >
                   <EyeIcon off={!layer.visible} />
@@ -379,7 +378,7 @@ export function LayersPanel({
                 <button
                   type="button"
                   className={layer.locked ? "row-icon on" : "row-icon"}
-                  title={layer.locked ? "Unlock layer" : "Lock layer"}
+                  title={t(layer.locked ? "layers.unlock" : "layers.lock")}
                   onClick={() => onToggleLayerLocked(layer.id)}
                 >
                   <LockIcon locked={layer.locked} />
@@ -387,17 +386,17 @@ export function LayersPanel({
                 <button
                   type="button"
                   className="row-icon danger-icon"
-                  title={`Delete layer "${layer.name}"`}
+                  title={t("layers.delete", { name: layer.name })}
                   onClick={() => onDeleteLayer(layer.id)}
                 >
                   <TrashIcon />
                 </button>
                 <RowMenu
-                  label={`More actions for layer "${layer.name}"`}
+                  label={t("layers.moreActions", { name: layer.name })}
                   items={[
-                    { label: "Export layer…", onSelect: () => onExportLayer(layer.id) },
-                    { label: "Rename", onSelect: () => startRename(layer.id, layer.name) },
-                    { label: "Delete layer", danger: true, onSelect: () => onDeleteLayer(layer.id) }
+                    { label: t("layers.menu.export"), onSelect: () => onExportLayer(layer.id) },
+                    { label: t("layers.menu.rename"), onSelect: () => startRename(layer.id, layer.name) },
+                    { label: t("layers.menu.delete"), danger: true, onSelect: () => onDeleteLayer(layer.id) }
                   ]}
                 />
               </div>
@@ -415,7 +414,7 @@ export function LayersPanel({
                   onDrop={(event) => dropOnLayer(event, layer.id, "into")}
                 >
                   {elements.length === 0 ? (
-                    <div className="layer-empty">Drop elements here</div>
+                    <div className="layer-empty">{t("layers.empty")}</div>
                   ) : (
                     renderTree(layer.id, null, 0)
                   )}
@@ -426,11 +425,7 @@ export function LayersPanel({
         })}
       </div>
 
-      <p className="palette-hint">
-        Top of the list is drawn in front. Drag rows to reorder them, drop an element onto the middle
-        of another element to nest it inside (children always draw in front of their parent), or
-        onto a layer to move it there. Double-click a layer name to rename it.
-      </p>
+      <p className="palette-hint">{t("layers.hint")}</p>
     </div>
   );
 }

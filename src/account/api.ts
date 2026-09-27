@@ -7,11 +7,24 @@
 
 import type { WireframeProject } from "../model/project";
 
+export interface AccountSettings {
+  language?: string;
+  theme?: string;
+}
+
 export interface AccountUser {
   id: number;
   email: string;
   displayName: string;
   createdAt: string;
+  /** Interface preferences stored with the account (validated server-side). */
+  settings?: AccountSettings;
+}
+
+/** Names for the starter project, in the user's language. */
+export interface StarterNames {
+  project: string;
+  wireframe: string;
 }
 
 export interface ServerStatus {
@@ -120,17 +133,23 @@ export const api = {
   captcha: () => request<{ image: string | null; question: string | null }>("captcha"),
   register: (body: { email: string; password: string; displayName: string; captcha: string; acceptPrivacy: boolean; website: string }) =>
     request<Ok & { pending: true; mailSent?: boolean }>("register", { body }),
-  verify: (token: string) => request<Session>("verify", { body: { token } }),
+  verify: (token: string, starter?: StarterNames) => request<Session>("verify", { body: { token, starter } }),
   resend: (email: string) => request<Ok>("resend", { body: { email } }),
   login: (email: string, password: string) => request<Session>("login", { body: { email, password } }),
   logout: () => request<Ok>("logout", { body: {} }),
   forgot: (email: string, captcha: string) => request<Ok>("forgot", { body: { email, captcha } }),
-  reset: (token: string, password: string) => request<Session>("reset", { body: { token, password } }),
+  reset: (token: string, password: string, starter?: StarterNames) =>
+    request<Session>("reset", { body: { token, password, starter } }),
   deleteAccount: (password: string) => request<Ok>("delete-account", { body: { password } }),
+  saveSettings: (settings: { displayName?: string; language?: string; theme?: string }) =>
+    request<Ok & { user: AccountUser }>("settings-save", { body: settings }),
+  changePassword: (current: string, next: string) => request<Ok>("password-change", { body: { current, next } }),
 
   projects: () => request<{ projects: ProjectSummary[] }>("projects"),
-  createProject: (name: string) =>
-    request<Ok & { projectId: number; wireframeId: number | null; projects: ProjectSummary[] }>("project-create", { body: { name } }),
+  createProject: (name: string, wireframeTitle?: string) =>
+    request<Ok & { projectId: number; wireframeId: number | null; projects: ProjectSummary[] }>("project-create", {
+      body: { name, wireframeTitle }
+    }),
   renameProject: (id: number, name: string) => request<Ok & { projects: ProjectSummary[] }>("project-rename", { body: { id, name } }),
   deleteProject: (id: number) => request<Ok & { projects: ProjectSummary[] }>("project-delete", { body: { id } }),
 
