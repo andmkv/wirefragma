@@ -357,7 +357,7 @@ function drawElement(c: DrawContext, element: WireframeElement, bounds: Rect, sh
 
     case "avatar":
       ellipse(c, x + width / 2, y + height / 2, Math.min(width, height) / 2, { fill: COLORS.panelAlt, stroke: COLORS.line });
-      drawText(c, (label || "AB").slice(0, 3), bounds, {
+      drawText(c, splitGraphemes(label || "AB").slice(0, 3).join(""), bounds, {
         size: Math.max(10, Math.min(Math.min(width, height) * 0.42, 20)),
         align: "center"
       });
@@ -655,7 +655,10 @@ export function renderScene(
       : undefined;
   const primaryLocked = primaryElement ? isElementLocked(project, primaryElement) : false;
   if (primaryElement && !primaryLocked) {
-    drawHandles(c, activeEdge, elementGeometry(primaryElement, transform).resizeHandles);
+    // Mid-gesture the handles follow the previewed bounds, exactly like the outline does.
+    const previewBounds = previewById.get(primaryElement.id);
+    const handleSource = previewBounds ? { ...primaryElement, ...previewBounds } : primaryElement;
+    drawHandles(c, activeEdge, elementGeometry(handleSource, transform).resizeHandles);
   }
 
   if (input.marquee) {

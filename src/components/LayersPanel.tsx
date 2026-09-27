@@ -181,6 +181,23 @@ export function LayersPanel({
           .filter(Boolean)
           .join(" ")}
         style={{ paddingLeft: 3 + depth * TREE_INDENT_PX }}
+        role="treeitem"
+        aria-selected={isSelected}
+        aria-level={depth + 1}
+        aria-expanded={hasChildren ? isOpen : undefined}
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onActivateLayer(element.layerId);
+            onSelectElement(element.id, event.shiftKey || event.metaKey || event.ctrlKey);
+          } else if (hasChildren && (event.key === "ArrowRight" || event.key === "ArrowLeft")) {
+            event.preventDefault();
+            event.stopPropagation();
+            if ((event.key === "ArrowRight") !== isOpen) toggleCollapsed(element.id);
+          }
+        }}
         draggable
         title={`${element.name} · ${ELEMENT_TYPE_LABEL[element.type]}${
           element.label ? ` · "${element.label}"` : ""

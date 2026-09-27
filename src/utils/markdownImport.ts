@@ -17,15 +17,22 @@ export function extractProjectSource(markdown: string): string {
     throw new MarkdownImportError("The import is empty. Paste a Markdown export that contains a ui-project block.");
   }
 
-  const pattern = new RegExp("```+\\s*" + PROJECT_FENCE + "[^\\n]*\\n([\\s\\S]*?)```+", "i");
-  const match = pattern.exec(markdown);
-  if (!match) {
+  // The canonical block is the LAST opening fence: the export always ends with it, while an LLM
+  // note may legitimately contain an earlier look-alike. Fences at the start of a line win; an
+  // inline opener is only used when there is no line-start one at all.
+  const lineStart = [...markdown.matchAll(new RegExp("^[ \\t]*```+[ \\t]*" + PROJECT_FENCE + "[^\\n]*\\n", "gim"))];
+  const openers =
+    lineStart.length > 0 ? lineStart : [...markdown.matchAll(new RegExp("```+\\s*" + PROJECT_FENCE + "[^\\n]*\\n", "gi"))];
+  const opener = openers.length > 0 ? openers[openers.length - 1] : null;
+  const rest = opener ? markdown.slice((opener.index ?? 0) + opener[0].length) : "";
+  const close = opener ? (/^[ \t]*```+[ \t]*$/m.exec(rest) ?? /```+/.exec(rest)) : null;
+  if (!opener || !close) {
     throw new MarkdownImportError(
       "No ```" + PROJECT_FENCE + " block was found. Export the wireframe from Wirefragma and import that Markdown."
     );
   }
 
-  const body = match[1].trim();
+  const body = rest.slice(0, close.index).trim();
   if (!body) {
     throw new MarkdownImportError("The ui-project block is empty.");
   }

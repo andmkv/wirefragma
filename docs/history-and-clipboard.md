@@ -52,8 +52,12 @@ when the gesture did not change the document, so a stray click never creates an 
 lost capture) calls `endEdit()` exactly once. `App.beginInteraction` / `App.endInteraction` map
 those to `beginTransaction` / `endTransaction`.
 
-This is deliberate: a marquee or a selection click never opens a transaction at all, and a gesture
-cannot leave a dangling one behind.
+A marquee never opens a transaction. A plain click on an element does open one (the engine cannot
+know yet whether the pointer will move), but `endTransaction` records nothing for an unchanged
+document, so a click never creates an undo step. The engine tracks exactly one pointer per
+gesture: a second finger or pen contact is ignored while a gesture runs, so it cannot replace the
+gesture and orphan its transaction. `undo` / `redo` are no-ops while a transaction is open
+(Cmd+Z mid-drag would otherwise discard the transaction base).
 
 ### One gesture = one history step
 

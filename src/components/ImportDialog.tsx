@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ImportDialogProps {
   onClose: () => void;
@@ -10,6 +10,14 @@ export function ImportDialog({ onClose, onImport }: ImportDialogProps) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   const runImport = (value: string, name: string) => {
     if (value.trim() === "") {
@@ -38,7 +46,7 @@ export function ImportDialog({ onClose, onImport }: ImportDialogProps) {
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="modal wide" role="dialog" aria-label="Import">
+      <div className="modal wide" role="dialog" aria-modal="true" aria-label="Import">
         <div className="modal-header">
           <h2>Import</h2>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">

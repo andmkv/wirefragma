@@ -42,7 +42,8 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
   handles so the body stays draggable; Containers only ever offer corner handles.
 * **No canvas accessibility layer.** The `<canvas>` exposes no DOM/ARIA representation of its
   content. The panels (palette, layers, properties) are ordinary semantic HTML, so a keyboard user
-  can select rows in the Layers panel and nudge with the arrow keys — but the drawing itself is
+  can Tab to a Layers element row, select it with Enter/Space, expand/collapse nested rows with
+  the arrow keys and nudge the selection with the arrow keys (reordering is still drag-only) — but the drawing itself is
   invisible to assistive technology.
 * **English only.** All UI strings, Markdown sections and messages are hard-coded English.
 * **Narrow windows** collapse the Layers column; there is no other responsive behaviour.

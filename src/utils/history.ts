@@ -127,7 +127,8 @@ export function canRedo<T>(history: History<T>): boolean {
 }
 
 export function undo<T>(history: History<T>): History<T> {
-  if (history.past.length === 0) return history;
+  // Mid-gesture (open transaction) undo would silently drop the transaction base.
+  if (history.past.length === 0 || history.meta.base !== null) return history;
   const previous = history.past[history.past.length - 1];
   return {
     past: history.past.slice(0, -1),
@@ -138,7 +139,7 @@ export function undo<T>(history: History<T>): History<T> {
 }
 
 export function redo<T>(history: History<T>): History<T> {
-  if (history.future.length === 0) return history;
+  if (history.future.length === 0 || history.meta.base !== null) return history;
   const [next, ...rest] = history.future;
   return {
     past: [...history.past, history.present].slice(-HISTORY_LIMIT),
