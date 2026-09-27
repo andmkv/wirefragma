@@ -4,10 +4,13 @@
  */
 
 import {
-  addElement,
+  cloneElement,
   createId,
+  findElement,
   findLayer,
+  reindexLayers,
   uniqueName,
+  withDescendants,
   type WireframeElement,
   type WireframeProject
 } from "./project";
@@ -19,8 +22,9 @@ export interface WirefragmaClipboard {
   elements: WireframeElement[];
 }
 
+/** Copy the selection together with everything nested inside it (subtrees travel whole). */
 export function copySelection(project: WireframeProject, ids: string[]): WirefragmaClipboard | null {
-  const elements = selectedElements(project, ids).map((element) => ({ ...element, items: element.items ? [...element.items] : undefined, columns: element.columns ? [...element.columns] : undefined, textStyle: element.textStyle ? { ...element.textStyle } : undefined }));
+  const elements = selectedElements(project, withDescendants(project, ids)).map(cloneElement);
   return elements.length > 0 ? { elements } : null;
 }
 
@@ -47,23 +51,29 @@ export function pasteClipboard(
   const minX = Math.min(...clipboard.elements.map((element) => element.x));
   const minY = Math.min(...clipboard.elements.map((element) => element.y));
 
+  // Parent links inside the payload are re-pointed at the new copies. A copied root keeps its
+  // parent only when that parent still exists in the document (e.g. pasting inside a Container).
+  const idMap = new Map(clipboard.elements.map((source) => [source.id, createId(source.type)]));
+
   let next = project;
   const newIds: string[] = [];
   for (const source of clipboard.elements) {
     const layerId = findLayer(project, source.layerId) ? source.layerId : fallbackLayerId;
     const copy: WireframeElement = {
-      ...source,
-      id: createId(source.type),
+      ...cloneElement(source),
+      id: idMap.get(source.id)!,
       name: uniqueName(next, source.name),
       layerId,
       x: Math.round(source.x - minX) + minX + offset,
-      y: Math.round(source.y - minY) + minY + offset,
-      items: source.items ? [...source.items] : undefined,
-      columns: source.columns ? [...source.columns] : undefined,
-      textStyle: source.textStyle ? { ...source.textStyle } : undefined
+      y: Math.round(source.y - minY) + minY + offset
     };
-    newIds.push(copy.id);
-    next = addElement(next, copy);
+    const parentId = source.parentId;
+    if (parentId !== undefined && idMap.has(parentId)) copy.parentId = idMap.get(parentId);
+    else if (parentId !== undefined && findElement(project, parentId)) copy.parentId = parentId;
+    else delete copy.parentId;
+    // Only the pasted roots become the selection; their children come along with them.
+    if (parentId === undefined || !idMap.has(parentId)) newIds.push(copy.id);
+    next = { ...next, elements: [...next.elements, copy] };
   }
-  return { project: next, newIds };
+  return { project: reindexLayers(next), newIds };
 }

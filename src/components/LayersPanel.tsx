@@ -1,10 +1,12 @@
 import { useState, type DragEvent } from "react";
 import {
   ELEMENT_TYPE_LABEL,
+  childrenOf,
   effectiveLocked,
   effectiveVisible,
   elementsOfLayer,
   findLayer,
+  isInSubtree,
   type WireframeElement,
   type WireframeProject
 } from "../model/project";
@@ -41,6 +43,8 @@ export interface LayersPanelProps {
     targetElementId: string | null,
     placeAbove: boolean
   ) => void;
+  /** Drop "into" an element row: nest the dragged element inside that element. */
+  onNestElement: (id: string, parentId: string) => void;
 }
 
 function verticalSplit(event: DragEvent, element: HTMLElement): DropPosition {
@@ -48,6 +52,18 @@ function verticalSplit(event: DragEvent, element: HTMLElement): DropPosition {
   const ratio = (event.clientY - rect.top) / Math.max(1, rect.height);
   return ratio < 0.5 ? "above" : "below";
 }
+
+/** Element rows: top quarter = in front of, bottom quarter = behind, middle = nest inside. */
+function elementDropSplit(event: DragEvent, element: HTMLElement): DropPosition {
+  const rect = element.getBoundingClientRect();
+  const ratio = (event.clientY - rect.top) / Math.max(1, rect.height);
+  if (ratio < 0.28) return "above";
+  if (ratio > 0.72) return "below";
+  return "into";
+}
+
+/** Indentation per nesting level in the element tree, in CSS px. */
+const TREE_INDENT_PX = 12;
 
 export function LayersPanel({
   project,
@@ -65,7 +81,8 @@ export function LayersPanel({
   onDeleteLayer,
   onExportLayer,
   onMoveLayer,
-  onMoveElement
+  onMoveElement,
+  onNestElement
 }: LayersPanelProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -120,11 +137,135 @@ export function LayersPanel({
     if (!drag) return clearDrag();
 
     if (drag.kind === "element") {
-      if (drag.id !== target.id) onMoveElement(drag.id, target.layerId, target.id, position !== "below");
+      // Dropping onto (or next to) something inside the dragged element's own subtree is a no-op.
+      if (!isInSubtree(project, target.id, drag.id)) {
+        if (position === "into") onNestElement(drag.id, target.id);
+        else onMoveElement(drag.id, target.layerId, target.id, position !== "below");
+      }
     } else {
       onMoveLayer(drag.id, target.layerId, position !== "below");
     }
     clearDrag();
+  };
+
+  /** One level of the element tree (front-most first), each row followed by its open subtree. */
+  const renderTree = (layerId: string, parentId: string | null, depth: number): JSX.Element[] =>
+    childrenOf(project, layerId, parentId, { frontFirst: true }).map((element) => {
+      const children = childrenOf(project, layerId, element.id);
+      const hasChildren = children.length > 0;
+      const isOpen = !collapsed.has(element.id);
+      return (
+        <div key={element.id} className="element-node">
+          {renderElementRow(element, depth, hasChildren, isOpen)}
+          {hasChildren && isOpen ? renderTree(layerId, element.id, depth + 1) : null}
+        </div>
+      );
+    });
+
+  const renderElementRow = (element: WireframeElement, depth: number, hasChildren: boolean, isOpen: boolean) => {
+    const isSelected = selectedIds.includes(element.id);
+    const hidden = !effectiveVisible(project, element);
+    const locked = effectiveLocked(project, element);
+    const inheritedLock = locked && !element.locked;
+    const elementDrop =
+      dropTarget?.kind === "element" && dropTarget.id === element.id ? dropTarget.position : null;
+
+    return (
+      <div
+        className={[
+          "element-row",
+          isSelected ? "selected" : "",
+          hidden ? "hidden-row" : "",
+          elementDrop ? `drop-${elementDrop}` : ""
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={{ paddingLeft: 3 + depth * TREE_INDENT_PX }}
+        draggable
+        title={`${element.name} · ${ELEMENT_TYPE_LABEL[element.type]}${
+          element.label ? ` · "${element.label}"` : ""
+        }`}
+        onDragStart={(event) => {
+          event.stopPropagation();
+          setDrag({ kind: "element", id: element.id });
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", element.id);
+        }}
+        onDragEnd={clearDrag}
+        onDragOver={(event) => {
+          if (!drag) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const position =
+            drag.kind === "element" ? elementDropSplit(event, event.currentTarget) : verticalSplit(event, event.currentTarget);
+          setDropTarget({ kind: "element", id: element.id, position });
+        }}
+        onDrop={(event) => dropOnElement(event, element)}
+        onClick={(event) => {
+          onActivateLayer(element.layerId);
+          onSelectElement(element.id, event.shiftKey || event.metaKey || event.ctrlKey);
+        }}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            className="tree-toggle element-toggle"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleCollapsed(element.id);
+            }}
+            aria-label={isOpen ? `Collapse ${element.name}` : `Expand ${element.name}`}
+          >
+            <CaretIcon open={isOpen} />
+          </button>
+        ) : (
+          <span className="tree-spacer" aria-hidden="true" />
+        )}
+        <span className="element-name">{element.name}</span>
+        <button
+          type="button"
+          className={element.visible ? "row-icon" : "row-icon off"}
+          title={element.visible ? "Hide element" : "Show element"}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleElementVisible(element.id);
+          }}
+        >
+          <EyeIcon off={!element.visible} />
+        </button>
+        <button
+          type="button"
+          className={inheritedLock ? "row-icon on inherited" : element.locked ? "row-icon on" : "row-icon"}
+          title={
+            inheritedLock
+              ? element.parentId
+                ? "Locked by a parent element or the layer"
+                : `Locked by layer "${findLayer(project, element.layerId)?.name ?? ""}"`
+              : element.locked
+                ? "Unlock element"
+                : "Lock element"
+          }
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleElementLocked(element.id);
+          }}
+        >
+          <LockIcon locked={locked} />
+        </button>
+        <button
+          type="button"
+          className="row-icon"
+          title={`Duplicate ${element.name} in this layer`}
+          aria-label={`Duplicate ${element.name}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDuplicateElement(element.id);
+          }}
+        >
+          <DuplicateIcon />
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -258,102 +399,7 @@ export function LayersPanel({
                   {elements.length === 0 ? (
                     <div className="layer-empty">Drop elements here</div>
                   ) : (
-                    elements.map((element) => {
-                      const isSelected = selectedIds.includes(element.id);
-                      const hidden = !effectiveVisible(project, element);
-                      const locked = effectiveLocked(project, element);
-                      const inheritedLock = locked && !element.locked;
-                      const elementDrop =
-                        dropTarget?.kind === "element" && dropTarget.id === element.id
-                          ? dropTarget.position
-                          : null;
-
-                      return (
-                        <div
-                          key={element.id}
-                          className={[
-                            "element-row",
-                            isSelected ? "selected" : "",
-                            hidden ? "hidden-row" : "",
-                            elementDrop ? `drop-${elementDrop}` : ""
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          draggable
-                          title={`${element.name} · ${ELEMENT_TYPE_LABEL[element.type]}${
-                            element.label ? ` · "${element.label}"` : ""
-                          }`}
-                          onDragStart={(event) => {
-                            setDrag({ kind: "element", id: element.id });
-                            event.dataTransfer.effectAllowed = "move";
-                            event.dataTransfer.setData("text/plain", element.id);
-                          }}
-                          onDragEnd={clearDrag}
-                          onDragOver={(event) => {
-                            if (!drag) return;
-                            event.preventDefault();
-                            event.stopPropagation();
-                            setDropTarget({
-                              kind: "element",
-                              id: element.id,
-                              position: verticalSplit(event, event.currentTarget)
-                            });
-                          }}
-                          onDrop={(event) => dropOnElement(event, element)}
-                          onClick={(event) => {
-                            onActivateLayer(layer.id);
-                            onSelectElement(
-                              element.id,
-                              event.shiftKey || event.metaKey || event.ctrlKey
-                            );
-                          }}
-                        >
-                          <span className="element-name">{element.name}</span>
-                          <button
-                            type="button"
-                            className={element.visible ? "row-icon" : "row-icon off"}
-                            title={element.visible ? "Hide element" : "Show element"}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onToggleElementVisible(element.id);
-                            }}
-                          >
-                            <EyeIcon off={!element.visible} />
-                          </button>
-                          <button
-                            type="button"
-                            className={
-                              inheritedLock ? "row-icon on inherited" : element.locked ? "row-icon on" : "row-icon"
-                            }
-                            title={
-                              inheritedLock
-                                ? `Locked by layer "${findLayer(project, element.layerId)?.name ?? ""}"`
-                                : element.locked
-                                  ? "Unlock element"
-                                  : "Lock element"
-                            }
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onToggleElementLocked(element.id);
-                            }}
-                          >
-                            <LockIcon locked={locked} />
-                          </button>
-                          <button
-                            type="button"
-                            className="row-icon"
-                            title={`Duplicate ${element.name} in this layer`}
-                            aria-label={`Duplicate ${element.name}`}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onDuplicateElement(element.id);
-                            }}
-                          >
-                            <DuplicateIcon />
-                          </button>
-                        </div>
-                      );
-                    })
+                    renderTree(layer.id, null, 0)
                   )}
                 </div>
               ) : null}
@@ -363,8 +409,9 @@ export function LayersPanel({
       </div>
 
       <p className="palette-hint">
-        Top of the list is drawn in front. Drag rows to reorder them, or drop an element on another
-        layer to move it. Double-click a layer name to rename it.
+        Top of the list is drawn in front. Drag rows to reorder them, drop an element onto the middle
+        of another element to nest it inside (children always draw in front of their parent), or
+        onto a layer to move it there. Double-click a layer name to rename it.
       </p>
     </div>
   );

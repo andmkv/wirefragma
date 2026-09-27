@@ -7,9 +7,11 @@ import {
   MIN_CANVAS_SIZE,
   MIN_CONTENT_SIZE,
   MIN_FONT_SIZE,
+  childrenOf,
   contentSizeOf,
   effectiveLocked,
   mergeTextStyle,
+  parentOf,
   textStyleOf,
   type TextAlign,
   type TextStyle,
@@ -45,6 +47,8 @@ interface PropertiesPanelProps {
   onSendBackward: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
+  /** Move the selected element out of its parent (it stays in front of that parent). */
+  onUnnest: () => void;
 }
 
 function NumberField({
@@ -199,7 +203,8 @@ export function PropertiesPanel({
   onBringForward,
   onSendBackward,
   onBringToFront,
-  onSendToBack
+  onSendToBack,
+  onUnnest
 }: PropertiesPanelProps) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiAnchorRef = useRef<HTMLDivElement>(null);
@@ -297,6 +302,8 @@ export function PropertiesPanel({
 
   /* -------------------------------------------------------------- one element */
 
+  const parent = parentOf(project, element);
+
   const hasItems =
     element.type === "tabs" ||
     element.type === "list" ||
@@ -324,6 +331,14 @@ export function PropertiesPanel({
           {locked ? <span className="lock-badge">locked</span> : null}
           {selectedCount > 1 ? <span className="lock-badge">{selectedCount} selected</span> : null}
         </p>
+        {parent ? (
+          <p className="hint layer-hint">
+            Inside: <strong>{parent.name}</strong>
+            <button type="button" className="link-button" onClick={onUnnest} title="Move out of the parent">
+              Move out
+            </button>
+          </p>
+        ) : null}
 
         {locked ? (
           <div className="locked-banner">
@@ -502,7 +517,8 @@ export function PropertiesPanel({
           </button>
         </div>
         <p className="hint">
-          Order {element.zIndex + 1} of {countInLayer(project, element)}
+          Order {siblingPosition(project, element)} of {siblingCount(project, element)}
+          {parent ? ` inside ${parent.name}` : ""}
           {lockedCount > 0 ? ` · ${lockedCount} locked in the selection` : ""}
         </p>
       </div>
@@ -510,6 +526,11 @@ export function PropertiesPanel({
   );
 }
 
-function countInLayer(project: WireframeProject, element: WireframeElement): number {
-  return project.elements.filter((candidate) => candidate.layerId === element.layerId).length;
+/** 1-based position among the element's siblings (same layer, same parent), back to front. */
+function siblingPosition(project: WireframeProject, element: WireframeElement): number {
+  return childrenOf(project, element.layerId, element.parentId ?? null).indexOf(element) + 1;
+}
+
+function siblingCount(project: WireframeProject, element: WireframeElement): number {
+  return childrenOf(project, element.layerId, element.parentId ?? null).length;
 }

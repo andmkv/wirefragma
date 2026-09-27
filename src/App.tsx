@@ -31,10 +31,14 @@ import {
   layerName,
   moveElement,
   moveLayer,
+  nestElement,
+  removeElements,
   reorderElement,
   sendToBack,
+  unnestElement,
   updateElement,
   updateLayer,
+  withDescendants,
   type CanvasMode,
   type ElementType,
   type WireframeElement,
@@ -305,11 +309,9 @@ export default function App() {
         `Deleted ${removable.length} of ${selection.ids.length} objects — the locked ones stay.`
       );
     }
-    const doomed = new Set(removable);
-    // One delete = one undo step, however many objects it covers.
-    mutate((current) => ({ ...current, elements: current.elements.filter((element) => !doomed.has(element.id)) }), {
-      coalesceKey: null
-    });
+    // One delete = one undo step, however many objects it covers. Nested children go with
+    // their parent, and the remaining elements are re-indexed.
+    mutate((current) => removeElements(current, removable), { coalesceKey: null });
     setSelection(EMPTY_SELECTION);
   }, [flash, mutate, project, selection.ids]);
 
@@ -470,6 +472,20 @@ export default function App() {
     },
     [mutate]
   );
+
+  /** Layers panel "drop into": nest an element inside another one (Unity-style). */
+  const handleNestElement = useCallback(
+    (id: string, parentId: string) => {
+      mutate((current) => nestElement(current, id, parentId), { coalesceKey: null });
+    },
+    [mutate]
+  );
+
+  const handleUnnestSelected = useCallback(() => {
+    if (!selection.primary) return;
+    const id = selection.primary;
+    mutate((current) => unnestElement(current, id), { coalesceKey: null });
+  }, [mutate, selection.primary]);
 
   /* -------------------------------------------------------------- layers */
 
@@ -668,7 +684,8 @@ export default function App() {
     (dx: number, dy: number) => {
       const movable = movableSelection(project, selection.ids);
       if (movable.length === 0) return;
-      const moving = new Set(movable);
+      // A parent always carries its nested children.
+      const moving = new Set(withDescendants(project, movable));
       mutate(
         (current) => {
           let changed = false;
@@ -872,6 +889,7 @@ export default function App() {
               onToggleElementLocked={handleToggleElementLocked}
               onMoveLayer={handleMoveLayer}
               onMoveElement={handleMoveElement}
+              onNestElement={handleNestElement}
             />
           }
         />
@@ -929,6 +947,7 @@ export default function App() {
           onSendBackward={() => handleReorder("backward")}
           onBringToFront={handleBringToFront}
           onSendToBack={handleSendToBack}
+          onUnnest={handleUnnestSelected}
         />
       </main>
 

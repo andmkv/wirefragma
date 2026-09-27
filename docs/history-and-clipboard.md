@@ -126,8 +126,9 @@ to a hidden `<textarea>` + `document.execCommand("copy")`.
 
 ### Copy
 
-`copySelection` deep-copies the selected elements (including `items`, `columns` and `textStyle`)
-into the payload. It returns `null` for an empty or unknown selection.
+`copySelection` deep-copies the selected elements **and everything nested inside them**
+(`withDescendants`; including `items`, `columns` and `textStyle`) into the payload. It returns
+`null` for an empty or unknown selection.
 
 ### Paste
 
@@ -140,7 +141,10 @@ into the payload. It returns `null` for an empty or unknown selection.
   `1` for the first paste, `2` for the next, … so repeated pastes **cascade** (+16, +32, +48, …)
   instead of stacking identical copies;
 * copies `items`, `columns` and `textStyle` per element;
-* returns the new ids, which `App` turns into the new selection.
+* re-points `parentId` links inside the payload at the new copies; a pasted root keeps its
+  original parent only when that parent still exists in the document;
+* returns the ids of the pasted **roots**, which `App` turns into the new selection (their
+  children come along).
 
 `App` keeps `pasteCounterRef`, resets it on every copy, and increments it on every paste. Copy and
 paste both live in a **ref**, not in React state, so a `Cmd+C` immediately followed by `Cmd+V`

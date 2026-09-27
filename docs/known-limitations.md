@@ -11,7 +11,7 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
 | Not supported | Notes |
 | --- | --- |
 | Rotation | no element rotation, no rotated bounds, no rotated hit testing |
-| Grouping | no groups, no group selection objects, no nested groups, no instances/components |
+| Grouping | no group objects or instances/components; elements can be **nested** inside other elements (`parentId`, see [layers-and-z-order.md](./layers-and-z-order.md#nesting-hierarchy)), but a parent has no transform of its own and resizing it does not scale its children |
 | Group resize | a multi-selection can be **moved** but not resized as a unit; handles appear only for a single selected element |
 | Alignment / distribution / guides | none |
 | Auto-layout / constraints | none; positions are explicit numbers |
@@ -96,10 +96,8 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
 
 These are honest observations about the current source, not bugs to fix opportunistically.
 
-* `isElementVisible` / `isElementLocked` exist in **both** `src/canvas/geometry.ts` and
-  `src/model/project.ts` (`effectiveVisible` / `effectiveLocked`) with identical semantics. They
-  must be kept in sync; unifying them is a reasonable small refactor, but do it deliberately with
-  tests, not as a drive-by change.
+* `isElementVisible` / `isElementLocked` (`src/canvas/geometry.ts`) are aliases of the model's
+  `effectiveVisible` / `effectiveLocked`; keep it that way rather than re-implementing the rule.
 * Some exported API surface is currently used only by tests: `selection.toggleSelection`,
   `normalizeSelection`, `replaceSelection`, `selectionHas`, `selectionBounds`, `rectsOverlap`,
   `elementRect`, and `interaction.getCursor` / `isGesturing` / `EMPTY_PREVIEW`. They are kept as

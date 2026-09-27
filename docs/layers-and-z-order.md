@@ -88,7 +88,7 @@ after any structural change.
 | Lock | `layer.locked` toggle |
 | Trash | delete the layer (confirmed, see below) |
 | **…** menu | `RowMenu`: **Export layer…** (opens the Export dialog scoped to this layer, see [import-export.md](./import-export.md#layer-scoped-export)), **Rename**, **Delete layer** |
-| Element row | click selects; Shift/Cmd-click toggles membership; drag to reorder or move between layers |
+| Element row | click selects; Shift/Cmd-click toggles membership; drag to reorder, nest inside another element (drop on the row middle) or move between layers; indented by nesting depth |
 | Element eye / lock | per-element `visible` / `locked` toggle |
 | Element duplicate icon | copies the element **inside its own layer**, offset +16/+16, and selects the copy |
 
@@ -127,9 +127,56 @@ effectiveLocked(project, element)  = element.locked  || layer.locked
   excluded from drag, delete and duplicate; it can still be selected from the Layers panel to be
   inspected, renamed, annotated or unlocked.
 
-The canvas module has local equivalents (`isElementVisible`, `isElementLocked` in
-`src/canvas/geometry.ts`) with identical semantics; see
-[known-limitations.md](./known-limitations.md).
+Both rules also walk the element's **ancestors** (see nesting below): a hidden or locked parent
+hides or locks everything inside it. The canvas names `isElementVisible` / `isElementLocked` in
+`src/canvas/geometry.ts` simply delegate to these two functions.
+
+## Nesting (hierarchy)
+
+Elements can be nested inside other elements, Unity-style, through the optional
+`element.parentId`. A layer is still the top-level bucket; inside it, elements form a tree.
+
+```text
+Layer "UI"
+├── card            (container)        parentId: —
+│   ├── title       (text)             parentId: card
+│   └── actions     (container)        parentId: card
+│       └── ok      (button)           parentId: actions
+└── footer                             parentId: —
+```
+
+Rules (all enforced by `canonicalizeTree`, which `reindexLayers` applies after every structural
+transform and `normalizeProject` applies on import):
+
+* a child always lives in its root ancestor's **layer**;
+* dangling, self-referencing and cyclic `parentId` links are dropped (the element becomes a root);
+* the flat `elements` array is kept in **canonical tree order**: every element is immediately
+  followed by its whole subtree (pre-order), siblings keep their relative order. Because subtrees
+  are contiguous, the per-layer array order is still THE paint order, so a child is **always drawn
+  (and hit-tested) in front of its parent**, and `elementsInDrawOrder`, `zIndex` and the hit order
+  need no special cases.
+
+Coordinates stay absolute world coordinates — a parent has no transform. What nesting changes:
+
+| Action | Effect on the subtree |
+| --- | --- |
+| drag / arrow-nudge the parent | every descendant moves by the same delta (`withDescendants`) |
+| hide / lock the parent | descendants become effectively hidden / locked |
+| delete the parent | the whole subtree is deleted (`removeElements`) |
+| duplicate / copy-paste the parent | the subtree is copied, `parentId`s re-pointed at the copies |
+| move the parent to another layer | the subtree follows it |
+| bring forward / to front … | reorders among **siblings** (same layer, same parent) only |
+
+Transforms: `nestElement(project, id, parentId)` (becomes the parent's front-most child; refuses
+cycles), `unnestElement(project, id)` (becomes a sibling directly in front of its former parent),
+and `moveElement(project, id, layerId, targetId, placeAbove)`, which now makes the element a
+**sibling of the target** (or a layer root when there is no target). Queries: `parentOf`,
+`ancestorsOf`, `childrenOf`, `descendantIds`, `withDescendants`, `topmostIds`, `isInSubtree`.
+
+In the Layers panel the element list is a tree (carets collapse subtrees). Dropping a dragged row
+onto the **middle** of another element row nests it inside that element; the top/bottom quarter
+places it in front of / behind the row as a sibling; dropping on a layer row makes it a root of
+that layer. The Properties panel shows "Inside: <parent>" with a **Move out** action.
 
 ## Layer operations
 

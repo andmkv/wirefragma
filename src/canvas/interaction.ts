@@ -13,7 +13,7 @@
  *   • none
  */
 
-import { findElement, type WireframeProject } from "../model/project";
+import { findElement, withDescendants, type WireframeProject } from "../model/project";
 import {
   EMPTY_SELECTION,
   marqueeSelection,
@@ -300,11 +300,13 @@ export class CanvasInteraction {
 
   /**
    * The snapshot set for a drag: every selected element that may legally move (visible and
-   * unlocked). Locked members of the selection stay exactly where they are.
+   * unlocked), plus everything nested inside those — a parent always carries its children.
+   * Locked members of the selection itself stay exactly where they are.
    */
   private moveStarts(selection: SelectionState): MoveStart[] {
     const starts: MoveStart[] = [];
-    for (const id of movableSelection(this.state.project, selection.ids)) {
+    const movable = movableSelection(this.state.project, selection.ids);
+    for (const id of withDescendants(this.state.project, movable)) {
       const bounds = this.boundsOf(id);
       if (bounds) starts.push({ elementId: id, bounds });
     }

@@ -162,7 +162,9 @@ tries to reconstruct geometry from ASCII.
 
 ### Layers
 
-- flat layers with visibility and locking;
+- layers with visibility and locking;
+- Unity-style nesting: drop an element onto another in the Layers tree to put it inside (children
+  always draw in front of their parent and move, hide, lock, copy and delete with it);
 - per-element visibility and locking;
 - layer and object reordering;
 - moving elements between layers;
@@ -275,7 +277,7 @@ backup. Export important work before clearing site data or moving between deploy
 
 ## Current scope
 
-Wirefragma currently supports one canvas and one autosaved project slot. Layers are flat. There
+Wirefragma currently supports one canvas and one autosaved project slot. Layers are a flat list (elements can nest inside elements). There
 is no rotation, grouping, group resize, alignment system, auto-layout, asset pipeline,
 collaboration, or built-in AI. Multi-selection can move a set but cannot resize it as a group.
 
