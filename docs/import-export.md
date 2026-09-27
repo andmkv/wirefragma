@@ -28,8 +28,21 @@ contract. Do not rename the fence, and do not bump the version for additive, opt
 | Toolbar **Export** | `ExportDialog` -> `projectToMarkdown` | Markdown tab, with Copy and Download `.md` |
 | Export dialog -> **Copy for LLM** tab | `projectToLlmMarkdown` | the same document prefixed with `LLM_PREAMBLE` and a `---` separator |
 | Export dialog -> **Project JSON** tab | `projectToJson` | raw `{ version, title, canvas, layers, elements }`, downloaded as `.json` |
+| Export dialog -> **WIREFRAGMA schema** tab | `wirefragmaSchemaMarkdown` | LLM instructions for generating an importable project (see below) |
 | Layers panel -> layer **…** -> **Export layer…** | `projectForLayer` -> the same three tabs | only that layer's elements, as a standalone project (see below) |
 | Toolbar **Copy for LLM** | `copyText(projectToLlmMarkdown(project))` | straight to the OS clipboard, with a toast |
+
+### WIREFRAGMA schema (for generating projects with an LLM)
+
+The Export dialog's **WIREFRAGMA schema** tab shows `wirefragmaSchemaMarkdown()`
+(`src/utils/schemaExport.ts`): instructions that teach a chat model the project JSON format so it
+can *write* a wireframe — output rules, the coordinate system, the document shape, a table of all
+element types (generated from `ELEMENT_TYPES` / `ELEMENT_DEFAULTS` plus the typed `TYPE_GUIDE`
+record, so a new type without a description is a compile error), layers/stacking/nesting, text
+and symbol rules, note-writing guidance, what the importer repairs, a complete example project
+(`schemaExampleProject()`, pinned by tests to import unchanged) and a JSON Schema
+(`projectJsonSchema()`). It does not depend on the current document. Download:
+`wirefragma-schema.md`.
 
 ### Layer-scoped export
 
@@ -76,13 +89,16 @@ never leak into the export. `version` is written literally as `2`.
 ### Entry points
 
 `ImportDialog` collects text (pasted or from an uploaded `.md` / `.json` file, `accept=".md,.markdown,.txt,.json,text/markdown,application/json"`)
-and calls `App.handleImportText(text, sourceName)`, which decides:
+and calls `App.handleImportText(text, sourceName)`, which runs `projectFromText(text)`
+(`src/utils/markdownImport.ts`). It accepts, in this order:
 
-```ts
-const imported = text.trim().startsWith("{")
-  ? projectFromJson(text)      // raw JSON
-  : projectFromMarkdown(text); // Markdown with a ui-project fence
-```
+1. Markdown with a `ui-project` fence -> `projectFromMarkdown` (the canonical export);
+2. text starting with `{` -> `projectFromJson` (raw project JSON);
+3. a ```` ```json ```` fence -> its body as JSON (chat answers that used the wrong fence name);
+4. prose around one JSON object -> the slice from the first `{` to the last `}`.
+
+Cases 3–4 exist for LLM answers generated from the WIREFRAGMA schema (below); everything still
+goes through `normalizeProject`.
 
 A successful import:
 

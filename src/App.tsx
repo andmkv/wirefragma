@@ -72,7 +72,7 @@ import {
   type CommitOptions
 } from "./utils/history";
 import { projectToLlmMarkdown } from "./utils/markdownExport";
-import { projectFromJson, projectFromMarkdown } from "./utils/markdownImport";
+import { projectFromText } from "./utils/markdownImport";
 import { loadProject, saveProject } from "./utils/storage";
 import { clampZoom, zoomStep, type ZoomMode } from "./utils/zoom";
 
@@ -652,7 +652,7 @@ export default function App() {
   const handleImportText = useCallback(
     (text: string, sourceName: string): string | null => {
       try {
-        const imported = text.trim().startsWith("{") ? projectFromJson(text) : projectFromMarkdown(text);
+        const imported = projectFromText(text);
         setHistory(resetHistory(imported));
         setSelection(EMPTY_SELECTION);
         clipboardRef.current = null;
