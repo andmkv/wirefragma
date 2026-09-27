@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import App from "../App";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { ImportDialog } from "../components/ImportDialog";
+import { ImportDialog, type ImportDestination } from "../components/ImportDialog";
 import { RowMenu } from "../components/RowMenu";
 import { normalizeProject, type WireframeProject } from "../model/project";
 import { createHistory, type History } from "../utils/history";
@@ -488,16 +488,15 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
   /* ------------------------------------------------------------- import */
 
   const handleImport = useCallback(
-    (text: string, sourceName: string): string | null => {
+    (text: string, _sourceName: string, destination?: ImportDestination): string | null => {
       let imported: WireframeProject;
       try {
         imported = projectFromText(text);
       } catch (error) {
         return (error as Error).message;
       }
-      const target = currentProjectId ?? projects?.[0]?.id ?? null;
-      const titled =
-        imported.title && imported.title !== "Untitled" ? imported : { ...imported, title: sourceName.replace(/\.(md|markdown|json|txt)$/i, "") || "Imported" };
+      const target = destination?.projectId ?? currentProjectId ?? projects?.[0]?.id ?? null;
+      const titled = { ...imported, title: destination?.title || imported.title };
       if (target === null) {
         void (async () => {
           try {
@@ -578,7 +577,19 @@ export function Workspace({ user, onSignedOut }: WorkspaceProps) {
 
   const dialogs = (
     <>
-      {importOpen ? <ImportDialog onClose={() => setImportOpen(false)} onImport={handleImport} target="project" /> : null}
+      {importOpen ? (
+        <ImportDialog
+          onClose={() => setImportOpen(false)}
+          onImport={handleImport}
+          target="project"
+          projects={(projects ?? []).map((project) => ({
+            id: project.id,
+            name: project.name,
+            wireframeTitles: project.wireframes.map((wireframe) => wireframe.title)
+          }))}
+          defaultProjectId={currentProjectId}
+        />
+      ) : null}
       {confirm ? (
         <ConfirmDialog
           title={confirm.title}

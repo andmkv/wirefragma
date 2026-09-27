@@ -13,7 +13,7 @@ import {
 import { CaretIcon, DuplicateIcon, EyeIcon, LockIcon, TrashIcon } from "./icons";
 import { RowMenu } from "./RowMenu";
 
-type DragPayload = { kind: "layer" | "element"; id: string };
+type DragPayload = { kind: "layer" | "element"; id: string; ids: string[] };
 type DropPosition = "above" | "below" | "into";
 type DropTarget = { kind: "layer" | "element"; id: string; position: DropPosition };
 
@@ -37,14 +37,13 @@ export interface LayersPanelProps {
   /** Open the Export dialog scoped to this layer's elements only. */
   onExportLayer: (id: string) => void;
   onMoveLayer: (id: string, targetId: string, placeAbove: boolean) => void;
-  onMoveElement: (
-    id: string,
-    targetLayerId: string,
-    targetElementId: string | null,
-    placeAbove: boolean
-  ) => void;
-  /** Drop "into" an element row: nest the dragged element inside that element. */
-  onNestElement: (id: string, parentId: string) => void;
+  /**
+   * Drop next to an element row / onto a layer. `ids` is the dragged row, or the whole selection
+   * when the dragged row is part of a multi-selection.
+   */
+  onMoveElements: (ids: string[], targetLayerId: string, targetElementId: string | null, placeAbove: boolean) => void;
+  /** Drop "into" an element row: nest the dragged element(s) inside that element. */
+  onNestElements: (ids: string[], parentId: string) => void;
 }
 
 function verticalSplit(event: DragEvent, element: HTMLElement): DropPosition {
@@ -81,8 +80,8 @@ export function LayersPanel({
   onDeleteLayer,
   onExportLayer,
   onMoveLayer,
-  onMoveElement,
-  onNestElement
+  onMoveElements,
+  onNestElements
 }: LayersPanelProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -125,7 +124,7 @@ export function LayersPanel({
       if (position !== "into" && drag.id !== layerId) onMoveLayer(drag.id, layerId, position === "above");
     } else {
       // Dropping an element on a layer row puts it on top of that layer.
-      onMoveElement(drag.id, layerId, null, true);
+      onMoveElements(drag.ids, layerId, null, true);
     }
     clearDrag();
   };
@@ -137,10 +136,10 @@ export function LayersPanel({
     if (!drag) return clearDrag();
 
     if (drag.kind === "element") {
-      // Dropping onto (or next to) something inside the dragged element's own subtree is a no-op.
-      if (!isInSubtree(project, target.id, drag.id)) {
-        if (position === "into") onNestElement(drag.id, target.id);
-        else onMoveElement(drag.id, target.layerId, target.id, position !== "below");
+      // Dropping onto (or next to) something inside a dragged element's own subtree is a no-op.
+      if (!drag.ids.some((id) => isInSubtree(project, target.id, id))) {
+        if (position === "into") onNestElements(drag.ids, target.id);
+        else onMoveElements(drag.ids, target.layerId, target.id, position !== "below");
       }
     } else {
       onMoveLayer(drag.id, target.layerId, position !== "below");
@@ -204,7 +203,9 @@ export function LayersPanel({
         }`}
         onDragStart={(event) => {
           event.stopPropagation();
-          setDrag({ kind: "element", id: element.id });
+          // Dragging a row of a multi-selection drags the whole selection.
+          const ids = selectedIds.length > 1 && selectedIds.includes(element.id) ? selectedIds : [element.id];
+          setDrag({ kind: "element", id: element.id, ids });
           event.dataTransfer.effectAllowed = "move";
           event.dataTransfer.setData("text/plain", element.id);
         }}
@@ -315,7 +316,7 @@ export function LayersPanel({
                   .join(" ")}
                 draggable={renamingId !== layer.id}
                 onDragStart={(event) => {
-                  setDrag({ kind: "layer", id: layer.id });
+                  setDrag({ kind: "layer", id: layer.id, ids: [] });
                   event.dataTransfer.effectAllowed = "move";
                   event.dataTransfer.setData("text/plain", layer.id);
                 }}

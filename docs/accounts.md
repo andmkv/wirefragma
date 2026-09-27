@@ -59,9 +59,9 @@ in `ProjectsPanel`.
 
 Codex / Claude Code style: projects are folders, wireframes are rows with a compact age ("5m",
 "2h"). New project (header **+**, opens in rename mode), new wireframe (row **+**), inline rename
-(double-click or **…** → Rename), duplicate, delete (confirmed), **Import** in the footer (the import
-becomes a new wireframe in the current project, via `projectFromText`), collapse to a 44 px rail
-(remembered per browser). The last opened wireframe is remembered per user.
+(double-click or **…** → Rename), duplicate, delete (confirmed), **Import** in the footer (the dialog
+asks for the destination project — current by default — and the wireframe title, default
+"New Wireframe N"; parsed with `projectFromText`), collapse to a rail (remembered per browser). The last opened wireframe is remembered per user.
 
 ## Server (`server/api/index.php`)
 

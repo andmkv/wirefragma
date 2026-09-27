@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { CaretIcon, FolderIcon, ImportIcon, PlusIcon, ScreenIcon, SidebarIcon } from "../components/icons";
+import { CaretIcon, FolderIcon, ImportIcon, PlusIcon, ScreenIcon } from "../components/icons";
+import { CollapsedRail, PanelToggle } from "../components/LeftPanel";
+import { PanelResizeHandle, usePanelWidth } from "../components/PanelResize";
 import { RowMenu } from "../components/RowMenu";
 import type { ProjectSummary } from "./api";
 
@@ -112,6 +114,7 @@ export function ProjectsPanel({
   onRenamingChange: setRenaming
 }: ProjectsPanelProps) {
   const [, setTick] = useState(0);
+  const size = usePanelWidth("wirefragma.panel.projects", 248, 180, 480);
 
   // Keep the relative ages fresh.
   useEffect(() => {
@@ -124,10 +127,7 @@ export function ProjectsPanel({
 
   if (collapsed) {
     return (
-      <aside className="projects-panel collapsed" aria-label="Projects">
-        <button type="button" className="projects-icon-button" onClick={onToggleCollapsed} title="Show projects" aria-label="Show projects">
-          <SidebarIcon />
-        </button>
+      <CollapsedRail label="Projects" onExpand={onToggleCollapsed}>
         <button
           type="button"
           className="projects-icon-button"
@@ -141,21 +141,19 @@ export function ProjectsPanel({
         <button type="button" className="projects-icon-button" onClick={onImport} title="Import into the current project" aria-label="Import">
           <ImportIcon />
         </button>
-        <span className={`projects-save-dot ${saveState}`} title={SAVE_LABEL[saveState]} />
-      </aside>
+        <span className={`projects-save-dot rail-dot ${saveState}`} title={SAVE_LABEL[saveState]} />
+      </CollapsedRail>
     );
   }
 
   return (
-    <aside className="projects-panel" aria-label="Projects">
+    <aside className="projects-panel" aria-label="Projects" style={{ width: size.width }}>
       <div className="projects-header">
         <span className="projects-heading">Projects</span>
         <button type="button" className="projects-icon-button" onClick={onCreateProject} title="New project" aria-label="New project">
           <PlusIcon />
         </button>
-        <button type="button" className="projects-icon-button" onClick={onToggleCollapsed} title="Hide projects" aria-label="Hide projects">
-          <SidebarIcon />
-        </button>
+        <PanelToggle open label="Projects" onToggle={onToggleCollapsed} />
       </div>
 
       <nav className="projects-list">
@@ -298,6 +296,7 @@ export function ProjectsPanel({
           {SAVE_LABEL[saveState]}
         </span>
       </div>
+      <PanelResizeHandle label="Resize the Projects panel" {...size} onResize={size.setWidth} onReset={size.reset} />
     </aside>
   );
 }

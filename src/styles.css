@@ -286,15 +286,12 @@ button.danger {
 
 /* --------------------------------------------------------------- workspace */
 
+/* Side panels size themselves (resizable widths / collapsed rails); the canvas takes the rest. */
 .workspace {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: 190px 236px minmax(0, 1fr) 292px;
+  grid-template-columns: auto auto minmax(0, 1fr) 292px;
   min-height: 0;
-}
-
-.workspace.layers-collapsed {
-  grid-template-columns: 190px 34px minmax(0, 1fr) 292px;
 }
 
 .panel {
@@ -314,26 +311,96 @@ button.danger {
   border-left: 1px solid var(--border);
 }
 
-.panel.layers-column.collapsed .panel-header {
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 4px;
-  writing-mode: vertical-rl;
+.panel.resizable {
+  position: relative;
 }
 
-.panel-collapse {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* 6 px grab strip centred on the panel's right border. */
+.panel-resize {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 7px;
+  z-index: 5;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.panel-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.panel-resize:hover::after,
+.panel-resize:focus-visible::after,
+.panel-resize.active::after {
+  left: 2px;
+  width: 3px;
+  background: var(--accent);
+}
+
+.panel-resize:focus-visible {
+  outline: none;
+}
+
+body.is-resizing-panel,
+body.is-resizing-panel * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* Shared collapse control + collapsed rail (Projects and Layers look and behave the same). */
+.panel-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: -4px -4px -4px 0;
+  padding: 0;
   border: none;
+  border-radius: 7px;
   background: transparent;
   color: var(--muted);
-  padding: 2px;
-  border-radius: 4px;
 }
 
-.panel-collapse:hover:not(:disabled) {
+.panel-toggle:hover:not(:disabled) {
   background: #e8eaee;
+  color: var(--ink);
+}
+
+.panel.panel-rail {
+  width: 40px;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.panel-rail .panel-toggle {
+  margin: 0;
+}
+
+.panel-rail-label {
+  writing-mode: vertical-rl;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel-rail-label:hover:not(:disabled) {
+  background: transparent;
+  color: var(--ink);
 }
 
 .panel-header {
@@ -1794,11 +1861,7 @@ button.danger {
 /* ------------------------------------------------------- projects panel */
 
 .workspace.with-projects {
-  grid-template-columns: auto 190px 236px minmax(0, 1fr) 292px;
-}
-
-.workspace.with-projects.layers-collapsed {
-  grid-template-columns: auto 190px 34px minmax(0, 1fr) 292px;
+  grid-template-columns: auto auto auto minmax(0, 1fr) 292px;
 }
 
 .workspace.empty-workspace {
@@ -1807,7 +1870,7 @@ button.danger {
 }
 
 .projects-panel {
-  width: 248px;
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1815,11 +1878,8 @@ button.danger {
   border-right: 1px solid var(--border);
 }
 
-.projects-panel.collapsed {
-  width: 44px;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 0;
+.projects-panel.panel-rail {
+  background: #f7f8fa;
 }
 
 .projects-header {
@@ -2045,7 +2105,7 @@ button.danger {
   background: #dc2626;
 }
 
-.projects-panel.collapsed .projects-save-dot {
+.projects-save-dot.rail-dot {
   margin-top: auto;
   margin-bottom: 4px;
 }
@@ -2143,4 +2203,16 @@ button.danger {
 
 .workspace-empty-account {
   margin-top: 12px;
+}
+
+.import-destination {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 12px;
+  padding: 12px 16px 0;
+}
+
+.import-destination select,
+.import-destination input {
+  width: 100%;
 }

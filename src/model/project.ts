@@ -947,6 +947,49 @@ export function nestElement(project: WireframeProject, elementId: string, parent
   return reindexLayers({ ...project, elements });
 }
 
+/**
+ * Nest several elements inside `parentId` in one pass (Layers multi-selection drop). Only the
+ * topmost ids move (a selected child travels with its selected parent); ids that are the parent
+ * itself or one of its ancestors are skipped. Their relative order is kept, all in front.
+ */
+export function nestElements(project: WireframeProject, ids: string[], parentId: string): WireframeProject {
+  // Drop the parent and its ancestors first, so their selected descendants still move.
+  const candidates = ids.filter((id) => !isInSubtree(project, parentId, id));
+  const moving = new Set(topmostIds(project, candidates));
+  let next = project;
+  for (const element of project.elements) {
+    if (moving.has(element.id)) next = nestElement(next, element.id, parentId);
+  }
+  return next;
+}
+
+/**
+ * Move several elements next to a target (or onto a layer) in one pass, keeping their relative
+ * back-to-front order. Ids inside another moved id's subtree, and the target itself, are skipped.
+ */
+export function moveElements(
+  project: WireframeProject,
+  ids: string[],
+  targetLayerId: string,
+  targetElementId: string | null = null,
+  placeAbove = true
+): WireframeProject {
+  const ordered = project.elements
+    .map((element) => element.id)
+    .filter((id) => topmostIds(project, ids).includes(id) && id !== targetElementId);
+  if (targetElementId && ordered.some((id) => isInSubtree(project, targetElementId, id))) return project;
+  let next = project;
+  // Placing in front of the target: insert back-most first, each one in front of the previous.
+  // Placing behind: insert front-most first, each one behind the previous.
+  const sequence = placeAbove ? ordered : [...ordered].reverse();
+  let anchor = targetElementId;
+  for (const id of sequence) {
+    next = moveElement(next, id, targetLayerId, anchor, placeAbove);
+    if (anchor) anchor = id;
+  }
+  return next;
+}
+
 /** Move an element out of its parent: it becomes a sibling directly in front of that parent. */
 export function unnestElement(project: WireframeProject, elementId: string): WireframeProject {
   const element = findElement(project, elementId);

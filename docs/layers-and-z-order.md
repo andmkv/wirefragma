@@ -176,7 +176,8 @@ and `moveElement(project, id, layerId, targetId, placeAbove)`, which now makes t
 In the Layers panel the element list is a tree (carets collapse subtrees). Dropping a dragged row
 onto the **middle** of another element row nests it inside that element; the top/bottom quarter
 places it in front of / behind the row as a sibling; dropping on a layer row makes it a root of
-that layer. The Properties panel shows "Inside: <parent>" with a **Move out** action.
+that layer. Dragging a row that is part of a multi-selection drags the **whole selection**
+(`nestElements` / `moveElements`: topmost ids only, relative order kept, one undo step). The Properties panel shows "Inside: <parent>" with a **Move out** action.
 
 ## Layer operations
 

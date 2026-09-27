@@ -10,7 +10,9 @@ import {
   effectiveVisible,
   elementsInDrawOrder,
   moveElement,
+  moveElements,
   nestElement,
+  nestElements,
   normalizeProject,
   removeElements,
   reorderElement,
@@ -194,6 +196,30 @@ describe("structural transforms", () => {
 
   it("withDescendants expands a selection to everything nested inside it", () => {
     expect(withDescendants(makeProject(), ["actions", "footer"])).toEqual(["actions", "ok", "footer"]);
+  });
+});
+
+describe("multi-selection drops", () => {
+  it("nests several elements at once, keeping their order and skipping the target's ancestors", () => {
+    const project = nestElements(makeProject(), ["footer", "title", "card"], "actions");
+    // card is an ancestor of actions -> skipped; title and footer move in document order.
+    expect(ids(childrenOf(project, "ui", "actions"))).toEqual(["ok", "title", "footer"]);
+  });
+
+  it("moves several elements next to a target in one pass", () => {
+    const base = normalizeProject({
+      version: 2,
+      title: "Flat",
+      canvas: { width: 400, height: 400 },
+      layers: [createLayer("A", { id: "a" }), createLayer("B", { id: "b" })],
+      elements: [el("x", "a"), el("y", "a"), el("z", "a"), el("t", "b")]
+    });
+    const above = moveElements(base, ["x", "z"], "b", "t", true);
+    expect(ids(above.elements.filter((e) => e.layerId === "b"))).toEqual(["t", "x", "z"]);
+    const below = moveElements(base, ["x", "z"], "b", "t", false);
+    expect(ids(below.elements.filter((e) => e.layerId === "b"))).toEqual(["x", "z", "t"]);
+    const onLayer = moveElements(base, ["z", "x"], "b", null, true);
+    expect(ids(onLayer.elements.filter((e) => e.layerId === "b"))).toEqual(["t", "x", "z"]);
   });
 });
 
