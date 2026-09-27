@@ -93,6 +93,8 @@ export default function App() {
   const pasteCounterRef = useRef(0);
   const [activeLayerId, setActiveLayerId] = useState<string | null>(boot.project.layers[0]?.id ?? null);
   const [dialog, setDialog] = useState<Dialog>("none");
+  /** Layer the Export dialog is scoped to (Layers "…" → Export layer), or null for the whole project. */
+  const [exportLayerId, setExportLayerId] = useState<string | null>(null);
   const [pendingLayerDelete, setPendingLayerDelete] = useState<string | null>(null);
   const [pendingNewProject, setPendingNewProject] = useState(false);
   const [layersOpen, setLayersOpen] = useState(true);
@@ -606,6 +608,8 @@ export default function App() {
     [mutate]
   );
 
+  const closeDialog = useCallback(() => setDialog("none"), []);
+
   const handleUndo = useCallback(() => setHistory((current) => undo(current)), []);
   const handleRedo = useCallback(() => setHistory((current) => redo(current)), []);
 
@@ -799,7 +803,10 @@ export default function App() {
         onRedo={handleRedo}
         onNew={handleNew}
         onImport={() => setDialog("import")}
-        onExport={() => setDialog("export")}
+        onExport={() => {
+          setExportLayerId(null);
+          setDialog("export");
+        }}
         onCopyForLlm={() => void handleCopyForLlm()}
         onToggleGrid={() => setShowGrid((value) => !value)}
         onToggleSnap={() => setSnapToGrid((value) => !value)}
@@ -857,6 +864,10 @@ export default function App() {
               onToggleLayerVisible={handleToggleLayerVisible}
               onToggleLayerLocked={handleToggleLayerLocked}
               onDeleteLayer={handleDeleteLayer}
+              onExportLayer={(layerId) => {
+                setExportLayerId(layerId);
+                setDialog("export");
+              }}
               onToggleElementVisible={handleToggleElementVisible}
               onToggleElementLocked={handleToggleElementLocked}
               onMoveLayer={handleMoveLayer}
@@ -921,9 +932,11 @@ export default function App() {
         />
       </main>
 
-      {dialog === "export" ? <ExportDialog project={project} onClose={() => setDialog("none")} /> : null}
+      {dialog === "export" ? (
+        <ExportDialog project={project} layerId={exportLayerId} onClose={closeDialog} />
+      ) : null}
       {dialog === "import" ? (
-        <ImportDialog onClose={() => setDialog("none")} onImport={handleImportText} />
+        <ImportDialog onClose={closeDialog} onImport={handleImportText} />
       ) : null}
 
       {pendingDeleteLayer ? (

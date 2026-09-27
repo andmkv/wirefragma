@@ -77,3 +77,13 @@ export function DuplicateIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function MoreIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 12 12" width="12" height="12" className={className} aria-hidden="true">
+      <circle cx="2.4" cy="6" r="1.05" fill="currentColor" />
+      <circle cx="6" cy="6" r="1.05" fill="currentColor" />
+      <circle cx="9.6" cy="6" r="1.05" fill="currentColor" />
+    </svg>
+  );
+}

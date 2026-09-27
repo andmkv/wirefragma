@@ -28,7 +28,19 @@ contract. Do not rename the fence, and do not bump the version for additive, opt
 | Toolbar **Export** | `ExportDialog` -> `projectToMarkdown` | Markdown tab, with Copy and Download `.md` |
 | Export dialog -> **Copy for LLM** tab | `projectToLlmMarkdown` | the same document prefixed with `LLM_PREAMBLE` and a `---` separator |
 | Export dialog -> **Project JSON** tab | `projectToJson` | raw `{ version, title, canvas, layers, elements }`, downloaded as `.json` |
+| Layers panel -> layer **…** -> **Export layer…** | `projectForLayer` -> the same three tabs | only that layer's elements, as a standalone project (see below) |
 | Toolbar **Copy for LLM** | `copyText(projectToLlmMarkdown(project))` | straight to the OS clipboard, with a toast |
+
+### Layer-scoped export
+
+`projectForLayer(project, layerId, { crop })` (`src/model/layerExport.ts`) turns one layer into an
+ordinary `WireframeProject`: title `"<project> — <layer>"`, a single layer (forced visible),
+only that layer's elements (element-level visibility is kept), `zIndex` recomputed. With **Crop
+canvas to the layer content** (on by default) the canvas shrinks to the visible content plus
+`LAYER_EXPORT_PADDING = 16` on every side (never below 120 × 120, mode `custom`) and the elements
+are shifted by the same offset. Because the result is a normal project, every serializer works
+on it unchanged and the exported Markdown re-imports as a standalone project. The source
+document is never mutated.
 
 `markdownFilename(project, extension)` slugifies the title
 (`"Settings Screen"` -> `settings-screen.md`; an empty slug falls back to `wireframe`).

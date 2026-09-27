@@ -1,28 +1,51 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { markdownFilename, projectToJson, projectToLlmMarkdown, projectToMarkdown } from "../utils/markdownExport";
 import { copyText, downloadText } from "../utils/clipboard";
-import type { WireframeProject } from "../model/project";
+import { findLayer, type WireframeProject } from "../model/project";
+import { projectForLayer } from "../model/layerExport";
 
 interface ExportDialogProps {
   project: WireframeProject;
+  /** When set, only this layer's elements are exported (Layers panel → "…" → Export layer). */
+  layerId?: string | null;
   onClose: () => void;
 }
 
 type Tab = "markdown" | "llm" | "json";
 
-export function ExportDialog({ project, onClose }: ExportDialogProps) {
+export function ExportDialog({ project, layerId = null, onClose }: ExportDialogProps) {
   const [tab, setTab] = useState<Tab>("markdown");
   const [status, setStatus] = useState<string | null>(null);
+  const [crop, setCrop] = useState(true);
+  const statusTimer = useRef<number | null>(null);
 
-  const markdown = useMemo(() => projectToMarkdown(project), [project]);
-  const llmMarkdown = useMemo(() => projectToLlmMarkdown(project), [project]);
-  const json = useMemo(() => projectToJson(project), [project]);
+  const layer = layerId ? findLayer(project, layerId) : null;
+  const scoped = useMemo(
+    () => (layerId ? projectForLayer(project, layerId, { crop }) : null) ?? project,
+    [crop, layerId, project]
+  );
+
+  const markdown = useMemo(() => projectToMarkdown(scoped), [scoped]);
+  const llmMarkdown = useMemo(() => projectToLlmMarkdown(scoped), [scoped]);
+  const json = useMemo(() => projectToJson(scoped), [scoped]);
 
   const content = tab === "markdown" ? markdown : tab === "llm" ? llmMarkdown : json;
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (statusTimer.current !== null) window.clearTimeout(statusTimer.current);
+    };
+  }, [onClose]);
+
   const flash = (message: string) => {
     setStatus(message);
-    window.setTimeout(() => setStatus(null), 2200);
+    if (statusTimer.current !== null) window.clearTimeout(statusTimer.current);
+    statusTimer.current = window.setTimeout(() => setStatus(null), 2200);
   };
 
   const handleCopy = async () => {
@@ -32,18 +55,20 @@ export function ExportDialog({ project, onClose }: ExportDialogProps) {
 
   const handleDownload = () => {
     if (tab === "json") {
-      downloadText(markdownFilename(project, "json"), json, "application/json");
+      downloadText(markdownFilename(scoped, "json"), json, "application/json");
     } else {
-      downloadText(markdownFilename(project), content, "text/markdown");
+      downloadText(markdownFilename(scoped), content, "text/markdown");
     }
     flash("Download started.");
   };
 
+  const title = layer ? `Export layer “${layer.name}”` : "Export";
+
   return (
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="modal wide" role="dialog" aria-label="Export">
+      <div className="modal wide" role="dialog" aria-label={title}>
         <div className="modal-header">
-          <h2>Export</h2>
+          <h2>{title}</h2>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
             ✕
           </button>
@@ -60,6 +85,19 @@ export function ExportDialog({ project, onClose }: ExportDialogProps) {
             Project JSON
           </button>
         </div>
+
+        {layer ? (
+          <div className="modal-note export-scope">
+            <span>
+              Only the <strong>{scoped.elements.length}</strong> element
+              {scoped.elements.length === 1 ? "" : "s"} of layer <strong>{layer.name}</strong> are exported.
+            </span>
+            <label className="inline-check">
+              <input type="checkbox" checked={crop} onChange={(event) => setCrop(event.target.checked)} />
+              Crop canvas to the layer content
+            </label>
+          </div>
+        ) : null}
 
         <p className="modal-note">
           The Markdown contains the ASCII wireframe, the semantic element list, your LLM notes and the
