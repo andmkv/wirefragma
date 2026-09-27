@@ -4,9 +4,11 @@ interface ImportDialogProps {
   onClose: () => void;
   /** Returns an error message, or null when the import succeeded. */
   onImport: (text: string, sourceName: string) => string | null;
+  /** "replace" (guest editor) or "project" (signed-in: add as a new wireframe). */
+  target?: "replace" | "project";
 }
 
-export function ImportDialog({ onClose, onImport }: ImportDialogProps) {
+export function ImportDialog({ onClose, onImport, target = "replace" }: ImportDialogProps) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,8 +59,10 @@ export function ImportDialog({ onClose, onImport }: ImportDialogProps) {
         <p className="modal-note">
           Paste a Markdown export, raw project JSON, or an LLM answer generated from the WIREFRAGMA
           schema (Export → WIREFRAGMA schema). The importer reads the <code>ui-project</code> block, so
-          the ASCII drawing is not used for reconstruction. Importing replaces the current project and
-          clears the undo history.
+          the ASCII drawing is not used for reconstruction.{" "}
+          {target === "project"
+            ? "The import becomes a new wireframe in the current project."
+            : "Importing replaces the current project and clears the undo history."}
         </p>
 
         <textarea

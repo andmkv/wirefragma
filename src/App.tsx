@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BUILD_ID, INPUT_DEBUG_ENABLED, VITE_MODE } from "./buildIdentity";
 import { AppToolbar } from "./components/AppToolbar";
 import { CanvasEditor } from "./components/CanvasEditor";
@@ -69,7 +69,8 @@ import {
   redo,
   resetHistory,
   undo,
-  type CommitOptions
+  type CommitOptions,
+  type History
 } from "./utils/history";
 import { projectToLlmMarkdown } from "./utils/markdownExport";
 import { projectFromText } from "./utils/markdownImport";
@@ -78,14 +79,41 @@ import { clampZoom, zoomStep, type ZoomMode } from "./utils/zoom";
 
 type Dialog = "none" | "export" | "import";
 
-export default function App() {
+/**
+ * Signed-in mode: the document comes from (and goes back to) the account workspace instead of
+ * the single localStorage slot. Without a host the editor behaves exactly as the guest editor.
+ */
+export interface EditorHost {
+  /** History to open with (restored when switching back to a wireframe keeps its undo stack). */
+  initialHistory: History<WireframeProject>;
+  /** Every history change, so the host can cache it and autosave `history.present`. */
+  onHistoryChange: (history: History<WireframeProject>) => void;
+  /** The projects panel, rendered as the first workspace column. */
+  sidebar: ReactNode;
+  /** Account controls at the right end of the toolbar. */
+  accountSlot: ReactNode;
+  /** Toolbar "New": create a new wireframe in the current project. */
+  onNewWireframe: () => void;
+  /** Transient message from the host (saving errors, conflicts) shown in the notice banner. */
+  notice?: ReactNode;
+}
+
+export default function App({ host, guestSlot }: { host?: EditorHost; guestSlot?: ReactNode } = {}) {
   const boot = useMemo(() => {
+    if (host) {
+      return { project: host.initialHistory.present, error: null, migrated: false, freshStart: false };
+    }
     const { project, error, migrated } = loadProject();
     const bootProject = project ?? createBlankProject();
     return { project: bootProject, error, migrated, freshStart: project === null };
+    // The host is fixed for the lifetime of this editor (the workspace re-keys it per wireframe).
   }, []);
 
-  const [history, setHistory] = useState(() => createHistory<WireframeProject>(boot.project));
+  const [history, setHistory] = useState(() => host?.initialHistory ?? createHistory<WireframeProject>(boot.project));
+  const onHistoryChange = host?.onHistoryChange;
+  useEffect(() => {
+    onHistoryChange?.(history);
+  }, [history, onHistoryChange]);
   const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
   /**
    * Internal clipboard — core copy/paste never depends on OS clipboard permissions, and it is a
@@ -139,8 +167,10 @@ export default function App() {
    */
   const latestProjectRef = useRef(project);
   latestProjectRef.current = project;
-  const autosaveArmedRef = useRef(!boot.error);
+  // Signed-in documents are saved by the workspace, never into the guest localStorage slot.
+  const autosaveArmedRef = useRef(!boot.error && !host);
   useEffect(() => {
+    if (host) return;
     if (!autosaveArmedRef.current) {
       if (project === boot.project) return;
       autosaveArmedRef.current = true;
@@ -150,6 +180,7 @@ export default function App() {
       if (error) setNotice(error);
     }, 350);
     return () => window.clearTimeout(timer);
+    // `host` never changes for a mounted editor.
   }, [boot.project, project]);
 
   // Flush the pending autosave when the tab is hidden or closed (the 350 ms debounce would lose it).
@@ -684,12 +715,16 @@ export default function App() {
   }, [flash]);
 
   const handleNew = useCallback(() => {
+    if (host) {
+      host.onNewWireframe();
+      return;
+    }
     if (project.elements.length === 0) {
       startBlankProject();
       return;
     }
     setPendingNewProject(true);
-  }, [project.elements.length, startBlankProject]);
+  }, [host, project.elements.length, startBlankProject]);
 
   const handleImportText = useCallback(
     (text: string, sourceName: string): string | null => {
@@ -875,7 +910,12 @@ export default function App() {
         onZoomFit={handleZoomFit}
         onZoomPreset={applyZoom}
         onToggleLayers={() => setLayersOpen((value) => !value)}
+        showImport={!host}
+        newTitle={host ? "Add a new wireframe to the current project" : undefined}
+        accountSlot={host ? host.accountSlot : guestSlot}
       />
+
+      {host?.notice ? <div className="notice-banner host-notice">{host.notice}</div> : null}
 
       {notice ? (
         <div className="notice-banner">
@@ -905,7 +945,16 @@ export default function App() {
         </div>
       ) : null}
 
-      <main className={layersOpen ? "workspace" : "workspace layers-collapsed"}>
+      <main
+        className={[
+          "workspace",
+          layersOpen ? "" : "layers-collapsed",
+          host ? "with-projects" : ""
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {host?.sidebar}
         <LeftPanel
           layersOpen={layersOpen}
           onToggleLayers={() => setLayersOpen((value) => !value)}
