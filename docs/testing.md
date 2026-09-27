@@ -32,7 +32,7 @@ There is **no jsdom, no happy-dom and no browser test runner**. That shapes the 
 Manual, human-verified checks (visual quality, real emoji rendering, an actual trackpad pinch) are
 not automated and must not be claimed as automated.
 
-## Test inventory (24 files, 254 cases)
+## Test inventory (31 files, 319 cases)
 
 | File | Cases | Covers |
 | --- | --- | --- |
@@ -60,6 +60,13 @@ not automated and must not be claimed as automated.
 | `src/utils/spatialSummary.test.ts` | 3 | deterministic prose, hidden elements ignored, empty canvas |
 | `src/utils/markdownRoundTrip.test.ts` | 32 | the full export/import contract, v1 import, all element types, invalid input, the `## Screen` mode label |
 | `src/utils/markdownSemantics.test.ts` | 8 | `Typography:` / `Content size:` output and the emoji round trip |
+| `src/model/hierarchy.test.ts` | 19 | nesting: canonical tree order, repair of bad links, inheritance, nest/unnest/move, subtree delete/duplicate/copy, multi-row drops, round trip |
+| `src/model/layerExport.test.ts` | 5 | layer-scoped export: filtering, crop, minimum canvas, immutability, re-import |
+| `src/canvas/pointerGuard.test.ts` | 2 | one pointer per gesture (no orphaned transaction), parents drag their children |
+| `src/utils/auditRegressions.test.ts` | 5 | backticks in notes round-trip, undo inert mid-gesture, unreadable-storage backup, font-size clamp, DPR cap |
+| `src/utils/schemaExport.test.ts` | 6 | WIREFRAGMA schema covers every type, its example imports unchanged, lenient LLM-answer import |
+| `src/i18n/i18n.test.ts` | 26 | every locale has every key, keeps placeholders and covers its plural categories; `translate` fallback |
+| `src/account/projectsPanel.test.ts` | 2 | compact relative ages for the projects panel |
 
 ## House rules for writing tests
 
@@ -109,6 +116,14 @@ Manual caveats: the harness clears and rewrites `localStorage`, so run it on a t
 profile if you care about the project currently stored there (see
 [persistence-and-migrations.md](./persistence-and-migrations.md#origin-scoping)).
 
+## Server (accounts backend)
+
+`server/tests/api-smoke.sh` drives the whole PHP API against a **local** `npm run dev:api` server
+with the `log` mail transport: registration with captcha, email confirmation, sessions and CSRF,
+optimistic-concurrency saves, settings, password change and reset, account deletion. It reads the
+captcha answer from the PHP session file, so it cannot run against a real deployment. Run
+`php -l` on `server/api/**/*.php` after editing PHP.
+
 ## What is not verified automatically
 
 * Visual quality of the rendered wireframe (only a few pixel-level assertions exist — the
@@ -116,6 +131,7 @@ profile if you care about the project currently stored there (see
 * Platform emoji glyph appearance (it depends on the OS font).
 * Real trackpad pinch and multi-touch behaviour (the wheel path is tested; the hardware is not).
 * Real `localStorage` quota behaviour, private-mode quirks and cross-browser scrolling.
+* Email delivery (only that `mail()` / SMTP accepted the message) and the translations' wording.
 
 ## Related documents
 

@@ -2,11 +2,14 @@
 
 ## Layers of the application
 
-Wirefragma is a one-page React application with a hand-written Canvas 2D engine. There are five
-conceptual layers, and dependencies only ever point downwards.
+Wirefragma is a one-page React application with a hand-written Canvas 2D engine, plus an
+**optional** PHP + MySQL backend for accounts ([accounts.md](./accounts.md)). There are five
+conceptual layers in the client, and dependencies only ever point downwards.
 
 ```text
-1. React shell            src/App.tsx, src/components/*, src/main.tsx
+0. Start-up / app shell   src/main.tsx, src/Root.tsx, src/i18n/*, src/account/*
+   PreferencesProvider (language, theme) - backend probe - sign-in / guest / signed-in workspace
+1. React shell            src/App.tsx, src/components/*
    document state - editor state - shortcuts - dialogs - panels
 2. Model (pure)           src/model/*
    WireframeProject - layers - elements - selection - clipboard
@@ -15,8 +18,12 @@ conceptual layers, and dependencies only ever point downwards.
    transform - geometry - hitTest - render - interaction
 4. Serialization (pure)   src/utils/markdown*.ts, asciiRenderer.ts,
    spatialSummary.ts, history.ts, zoom.ts, storage.ts
-5. Platform               DOM, Canvas 2D, Pointer Events, localStorage
+5. Platform               DOM, Canvas 2D, Pointer Events, localStorage, fetch (accounts only)
 ```
+
+The server (`server/api/`, plain PHP, query-string routed) only stores accounts, preferences and
+project documents; it never interprets the wireframe beyond "a JSON object with `elements`". The
+client normalizes everything it loads with `normalizeProject`, exactly as for an import.
 
 Invariant: `src/model/**` and the pure helpers in `src/utils/**` must not import React or touch
 the DOM, so they keep running under Vitest's `environment: "node"`. The single exception is
@@ -117,11 +124,17 @@ See [testing.md](./testing.md).
 ## Dependency rules
 
 ```text
-components/*, App.tsx  ->  model/*, canvas/*, utils/*
+Root.tsx, account/*    ->  App.tsx, components/*, i18n/*, model/*, utils/*
+components/*, App.tsx  ->  model/*, canvas/*, utils/*, i18n/*
 canvas/*               ->  model/*, canvas/transform
 utils/*                ->  model/*
+i18n/*                ->  (nothing but React)
 model/*                ->  (nothing)
 ```
+
+Invariant: the editor (`App`) never talks to the server. In signed-in mode it receives its
+document through the `EditorHost` prop and reports history changes back; `account/Workspace.tsx`
+owns loading, caching and saving.
 
 Invariant: `canvas/*` may import `model/*`, but `model/*` never imports `canvas/*` or
 `components/*`. The model is the bottom of the stack.

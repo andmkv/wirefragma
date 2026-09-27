@@ -1,7 +1,7 @@
 {
   "name": "wirefragma",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "Visual wireframe editor that exports LLM-readable UI specifications",
   "scripts": {
