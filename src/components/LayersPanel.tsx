@@ -9,6 +9,7 @@ import {
   type WireframeProject
 } from "../model/project";
 import { CaretIcon, DuplicateIcon, EyeIcon, LockIcon, TrashIcon } from "./icons";
+import { RowMenu } from "./RowMenu";
 
 type DragPayload = { kind: "layer" | "element"; id: string };
 type DropPosition = "above" | "below" | "into";
@@ -31,6 +32,8 @@ export interface LayersPanelProps {
   onToggleElementVisible: (id: string) => void;
   onToggleElementLocked: (id: string) => void;
   onDeleteLayer: (id: string) => void;
+  /** Open the Export dialog scoped to this layer's elements only. */
+  onExportLayer: (id: string) => void;
   onMoveLayer: (id: string, targetId: string, placeAbove: boolean) => void;
   onMoveElement: (
     id: string,
@@ -60,6 +63,7 @@ export function LayersPanel({
   onToggleElementVisible,
   onToggleElementLocked,
   onDeleteLayer,
+  onExportLayer,
   onMoveLayer,
   onMoveElement
 }: LayersPanelProps) {
@@ -76,6 +80,11 @@ export function LayersPanel({
       else next.add(layerId);
       return next;
     });
+  };
+
+  const startRename = (layerId: string, name: string) => {
+    setRenamingId(layerId);
+    setDraftName(name);
   };
 
   const commitRename = () => {
@@ -193,10 +202,7 @@ export function LayersPanel({
                     className="layer-name"
                     title={`${layer.name} — click to make active, double-click to rename, drag to reorder`}
                     onClick={() => onActivateLayer(layer.id)}
-                    onDoubleClick={() => {
-                      setRenamingId(layer.id);
-                      setDraftName(layer.name);
-                    }}
+                    onDoubleClick={() => startRename(layer.id, layer.name)}
                   >
                     {layer.name}
                   </button>
@@ -227,6 +233,14 @@ export function LayersPanel({
                 >
                   <TrashIcon />
                 </button>
+                <RowMenu
+                  label={`More actions for layer "${layer.name}"`}
+                  items={[
+                    { label: "Export layer…", onSelect: () => onExportLayer(layer.id) },
+                    { label: "Rename", onSelect: () => startRename(layer.id, layer.name) },
+                    { label: "Delete layer", danger: true, onSelect: () => onDeleteLayer(layer.id) }
+                  ]}
+                />
               </div>
 
               {isOpen ? (

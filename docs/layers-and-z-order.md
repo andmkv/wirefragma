@@ -87,6 +87,7 @@ after any structural change.
 | Eye | `layer.visible` toggle |
 | Lock | `layer.locked` toggle |
 | Trash | delete the layer (confirmed, see below) |
+| **…** menu | `RowMenu`: **Export layer…** (opens the Export dialog scoped to this layer, see [import-export.md](./import-export.md#layer-scoped-export)), **Rename**, **Delete layer** |
 | Element row | click selects; Shift/Cmd-click toggles membership; drag to reorder or move between layers |
 | Element eye / lock | per-element `visible` / `locked` toggle |
 | Element duplicate icon | copies the element **inside its own layer**, offset +16/+16, and selects the copy |
