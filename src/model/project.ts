@@ -158,6 +158,7 @@ export function contentSizeOf(element: WireframeElement): number {
  */
 export function mergeTextStyle(element: WireframeElement, patch: TextStyle): TextStyle | undefined {
   const next = { ...textStyleOf(element), ...patch };
+  next.fontSize = clamp(Math.round(Number.isFinite(next.fontSize) ? next.fontSize : DEFAULT_TEXT_STYLE.fontSize), MIN_FONT_SIZE, MAX_FONT_SIZE);
   const stored: TextStyle = {};
   if (next.fontSize !== DEFAULT_TEXT_STYLE.fontSize) stored.fontSize = next.fontSize;
   if (next.bold) stored.bold = true;

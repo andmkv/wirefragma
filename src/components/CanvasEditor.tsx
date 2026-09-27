@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MIN_ELEMENT_SIZE, findElement, type WireframeProject } from "../model/project";
 import type { SelectionState } from "../model/selection";
-import { INPUT_DEBUG_ENABLED } from "../buildIdentity";
 import { visibleGeometries, type ResizeEdge } from "../canvas/geometry";
 import { hitTestProject } from "../canvas/hitTest";
 import { CanvasInteraction, type InteractionState } from "../canvas/interaction";
@@ -67,7 +66,7 @@ export function CanvasEditor({
   const interactionRef = useRef<CanvasInteraction | null>(null);
   const pendingZoomRef = useRef<PendingZoom | null>(null);
   const [viewport, setViewport] = useState({ width: 960, height: 640 });
-  const [dpr, setDpr] = useState(() =>
+  const [deviceDpr, setDpr] = useState(() =>
     typeof window === "undefined" ? 1 : Math.max(1, window.devicePixelRatio || 1)
   );
 
@@ -77,6 +76,12 @@ export function CanvasEditor({
     [viewport, canvasWidth, canvasHeight]
   );
   const scale = scaleForMode(zoomMode, manualScale, automaticScale);
+  // Browsers refuse (blank canvas / OOM) backing stores beyond ~16k px per side or ~16.7M px of
+  // area, e.g. a 6000×6000 canvas at 200% on a 2× display. Lower the effective DPR instead.
+  const dpr = useMemo(
+    () => cappedDpr(deviceDpr, canvasWidth * scale, canvasHeight * scale),
+    [canvasHeight, canvasWidth, deviceDpr, scale]
+  );
   const transform = useMemo(() => createTransform(scale, 0, 0), [scale]);
 
   // Latest values for the imperative renderer/interaction (no re-render per pointermove).
@@ -251,7 +256,7 @@ export function CanvasEditor({
   useEffect(() => {
     // Invisible JS diagnostics (no UI): available to the dev self-test harness and to
     // `?inputdebug=1`. The visible banner is gated separately in App.tsx.
-    if (!import.meta.env.DEV && !INPUT_DEBUG_ENABLED) return;
+    if (!import.meta.env.DEV) return;
     const devWindow = window as unknown as {
       __wirefragmaCanvas?: {
         transform: () => ViewTransform;
@@ -325,4 +330,17 @@ export function CanvasEditor({
       </div>
     </div>
   );
+}
+
+/** Largest backing store side / area the canvas may use (conservative cross-browser limits). */
+export const MAX_CANVAS_BACKING_SIDE = 16384;
+export const MAX_CANVAS_BACKING_AREA = 16_777_216;
+
+/** DPR reduced (never below a fraction of 1) so the backing store stays inside browser limits. */
+export function cappedDpr(dpr: number, cssWidth: number, cssHeight: number): number {
+  const width = Math.max(1, cssWidth);
+  const height = Math.max(1, cssHeight);
+  const bySide = MAX_CANVAS_BACKING_SIDE / Math.max(width, height);
+  const byArea = Math.sqrt(MAX_CANVAS_BACKING_AREA / (width * height));
+  return Math.max(0.1, Math.min(dpr, bySide, byArea));
 }

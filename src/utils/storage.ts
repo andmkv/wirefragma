@@ -4,6 +4,8 @@ import { normalizeProject, type WireframeProject } from "../model/project";
 export const STORAGE_KEY = "wirefragma.project.v1";
 /** Key used before the rename; still read so existing projects are not lost. */
 export const LEGACY_STORAGE_KEY = "ui-sketch.project.v1";
+/** Copy of stored data that could not be read, kept before anything can overwrite it. */
+export const BACKUP_STORAGE_KEY = "wirefragma.project.v1.unreadable";
 
 export interface LoadResult {
   project: WireframeProject | null;
@@ -45,7 +47,19 @@ export function loadFrom(storage: StorageLike): LoadResult {
     return { project: null, error: "Browser storage is not available; changes will not be saved.", migrated: false };
   }
 
-  if (raw) return parse(raw);
+  if (raw) {
+    const result = parse(raw);
+    if (!result.project) {
+      // Keep the unreadable data (e.g. written by a newer build) so it is never silently lost.
+      try {
+        storage.setItem(BACKUP_STORAGE_KEY, raw);
+        result.error = `${result.error} A copy was kept in browser storage under "${BACKUP_STORAGE_KEY}".`;
+      } catch {
+        /* storage full or blocked — the app still will not autosave over it before an edit */
+      }
+    }
+    return result;
+  }
 
   let legacy: string | null = null;
   try {

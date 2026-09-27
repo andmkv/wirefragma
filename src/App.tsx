@@ -132,13 +132,41 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [status]);
 
+  /**
+   * Autosave. When the stored project could not be read (corrupt, or written by a newer build),
+   * the blank boot project must not overwrite it: saving starts only after the first real edit,
+   * and `saveProject` keeps a one-time backup of the unreadable data.
+   */
+  const latestProjectRef = useRef(project);
+  latestProjectRef.current = project;
+  const autosaveArmedRef = useRef(!boot.error);
   useEffect(() => {
+    if (!autosaveArmedRef.current) {
+      if (project === boot.project) return;
+      autosaveArmedRef.current = true;
+    }
     const timer = window.setTimeout(() => {
       const error = saveProject(project);
       if (error) setNotice(error);
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [project]);
+  }, [boot.project, project]);
+
+  // Flush the pending autosave when the tab is hidden or closed (the 350 ms debounce would lose it).
+  useEffect(() => {
+    const flush = () => {
+      if (autosaveArmedRef.current) saveProject(latestProjectRef.current);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   // Keep the active layer valid and never keep a hidden element selected.
   useEffect(() => {
@@ -156,10 +184,15 @@ export default function App() {
 
   // Narrow windows start with the layers panel collapsed so the canvas keeps its room.
   useEffect(() => {
+    let wasNarrow = window.innerWidth < 1024;
+    if (wasNarrow) setLayersOpen(false);
+    // Only crossing the breakpoint collapses the panel, so a panel the user reopened on a narrow
+    // screen does not snap shut on every resize (e.g. a mobile URL bar showing/hiding).
     const onResize = () => {
-      if (window.innerWidth < 1024) setLayersOpen(false);
+      const narrow = window.innerWidth < 1024;
+      if (narrow && !wasNarrow) setLayersOpen(false);
+      wasNarrow = narrow;
     };
-    onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -368,9 +401,17 @@ export default function App() {
     if (result.newIds.length === 0) return;
     mutate(() => result.project, { coalesceKey: null });
     setSelection(selectionOf(result.newIds));
+    const layerNames = [
+      ...new Set(
+        result.newIds
+          .map((id) => findElement(result.project, id))
+          .map((element) => (element ? findLayer(result.project, element.layerId)?.name : undefined))
+          .filter((name): name is string => !!name)
+      )
+    ];
     flash(
       `Pasted ${result.newIds.length} object${result.newIds.length === 1 ? "" : "s"} into ${
-        findLayer(result.project, activeLayerId)?.name ?? "the active layer"
+        layerNames.length > 0 ? layerNames.join(", ") : "the active layer"
       }.`
     );
   }, [activeLayerId, flash, mutate, project]);
@@ -576,6 +617,7 @@ export default function App() {
   }, [activeLayerId, flash, mutate, pendingLayerDelete, project]);
 
   const pendingDeleteLayer = findLayer(project, pendingLayerDelete);
+  const modalOpen = dialog !== "none" || pendingLayerDelete !== null || pendingNewProject;
   const pendingDeleteCount = pendingLayerDelete
     ? project.elements.filter((element) => element.layerId === pendingLayerDelete).length
     : 0;
@@ -704,8 +746,10 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      // Never steal shortcuts while the user is typing in a field, textarea or contentEditable.
+      // Never steal shortcuts while the user is typing in a field, textarea or contentEditable,
+      // and never act on the canvas behind an open modal.
       if (isEditingTextInput(event.target)) return;
+      if (modalOpen) return;
       const mod = event.metaKey || event.ctrlKey;
       const key = event.key;
 
@@ -737,10 +781,7 @@ export default function App() {
       }
       if (mod && key.toLowerCase() === "d") {
         event.preventDefault();
-        if (selectedLocked) {
-          flash("That element is locked — unlock it before duplicating.");
-          return;
-        }
+        // handleDuplicate skips locked members itself (and explains when nothing is left).
         handleDuplicate();
         return;
       }
@@ -767,7 +808,8 @@ export default function App() {
         return;
       }
       if (key.startsWith("Arrow")) {
-        if (selectedIds.length === 0 || selectedLocked) return;
+        // moveSelected moves the movable members only; locked ones stay put.
+        if (selectedIds.length === 0) return;
         const step = event.shiftKey ? Math.max(1, gridSize) : 1;
         const delta: Record<string, [number, number]> = {
           ArrowLeft: [-step, 0],
@@ -797,9 +839,9 @@ export default function App() {
     handleZoomFit,
     handleZoomIn,
     handleZoomOut,
+    modalOpen,
     moveSelected,
-    selectedIds,
-    selectedLocked
+    selectedIds
   ]);
 
   return (

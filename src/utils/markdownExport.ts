@@ -233,7 +233,9 @@ export function projectToMarkdown(project: WireframeProject): string {
   sections.push("## Editable Project Source");
   sections.push("");
   sections.push(`\`\`\`${PROJECT_FENCE}`);
-  sections.push(projectToJson(project));
+  // A backtick run inside a note or label ("```js") would close the fence early. `\u0060` is the
+  // same character in JSON, so the block still parses to exactly the same project.
+  sections.push(projectToJson(project).replace(/`/g, "\\u0060"));
   sections.push("```");
   sections.push("");
 

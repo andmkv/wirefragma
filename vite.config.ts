@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "dist",
       sourcemap: false,
-      // Single-page static tool: React + Konva in one intentional chunk.
+      // Single-page static tool: React + the Canvas 2D engine in one intentional chunk.
       chunkSizeWarningLimit: 800
     },
     test: {

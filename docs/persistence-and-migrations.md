@@ -9,6 +9,7 @@ Source: [`src/utils/storage.ts`](../src/utils/storage.ts),
 ```ts
 export const STORAGE_KEY = "wirefragma.project.v1";        // current
 export const LEGACY_STORAGE_KEY = "ui-sketch.project.v1";  // pre-rename key
+export const BACKUP_STORAGE_KEY = "wirefragma.project.v1.unreadable"; // copy of unreadable data
 ```
 
 Both live in `localStorage` under the page origin. `saveProject` **only** writes
@@ -40,7 +41,7 @@ loadProject() / loadFrom(storage)
 | --- | --- |
 | `localStorage` unavailable (SSR, privacy mode, blocked) | `loadProject()` returns `{ project: null, error: null }`; `saveProject()` returns `null`; the app keeps working in memory |
 | JSON.parse fails | notice: *"The saved project data was corrupted and has been ignored."* |
-| `normalizeProject` rejects the data | notice: *"The saved project could not be restored (<reason>)…"* |
+| `normalizeProject` rejects the data | notice: *"The saved project could not be restored (<reason>)…"*; the raw string is copied to `BACKUP_STORAGE_KEY`, and autosave stays **disarmed until the first real edit**, so opening the app never overwrites data a newer build wrote |
 | storage write fails (quota/disabled) | notice: *"Could not save to browser storage (it may be full or disabled)."* |
 | legacy key unreadable | migration silently skipped |
 
@@ -60,7 +61,9 @@ useEffect(() => {
 ```
 
 Every committed document change (`history.present` identity change) schedules a debounced write
-350 ms later. View state — zoom, scroll, selection, grid, active layer — never triggers a save
+350 ms later (the real effect also skips the untouched boot project after a load error, see
+above). A pending write is flushed on `pagehide` and when the tab becomes hidden, so closing the
+tab right after an edit does not lose it. View state — zoom, scroll, selection, grid, active layer — never triggers a save
 except through a document change, and is never written to storage.
 
 ## Fresh start / New

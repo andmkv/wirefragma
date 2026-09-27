@@ -1,4 +1,5 @@
-import { CANVAS_MODES, type CanvasMode, type WireframeProject } from "../model/project";
+import { CANVAS_MODES, MAX_CANVAS_SIZE, MIN_CANVAS_SIZE, type CanvasMode, type WireframeProject } from "../model/project";
+import { DraftNumberInput } from "./DraftNumberInput";
 import { ZOOM_PRESETS, formatZoom, type ZoomMode } from "../utils/zoom";
 
 interface AppToolbarProps {
@@ -90,29 +91,21 @@ export function AppToolbar({
 
         {isCustom ? (
           <div className="size-inputs">
-            <input
-              type="number"
-              min={120}
-              max={6000}
+            <DraftNumberInput
+              min={MIN_CANVAS_SIZE}
+              max={MAX_CANVAS_SIZE}
               step={10}
-              value={Math.round(project.canvas.width)}
-              onChange={(event) => {
-                const value = Number(event.target.value);
-                if (Number.isFinite(value)) onCanvasSizeChange(value, project.canvas.height);
-              }}
+              value={project.canvas.width}
+              onCommit={(value) => onCanvasSizeChange(value, project.canvas.height)}
               aria-label="Canvas width"
             />
             <span className="times">×</span>
-            <input
-              type="number"
-              min={120}
-              max={6000}
+            <DraftNumberInput
+              min={MIN_CANVAS_SIZE}
+              max={MAX_CANVAS_SIZE}
               step={10}
-              value={Math.round(project.canvas.height)}
-              onChange={(event) => {
-                const value = Number(event.target.value);
-                if (Number.isFinite(value)) onCanvasSizeChange(project.canvas.width, value);
-              }}
+              value={project.canvas.height}
+              onCommit={(value) => onCanvasSizeChange(project.canvas.width, value)}
               aria-label="Canvas height"
             />
           </div>

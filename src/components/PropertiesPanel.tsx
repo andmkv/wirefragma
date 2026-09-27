@@ -18,6 +18,7 @@ import {
   type WireframeElement,
   type WireframeProject
 } from "../model/project";
+import { DraftNumberInput } from "./DraftNumberInput";
 import { EmojiPicker } from "./EmojiPicker";
 
 interface ChangeOptions {
@@ -157,18 +158,13 @@ function TypographySection({
       <div className="section-label">Typography</div>
       <div className="field">
         <span className="field-label">Size</span>
-        <input
-          type="number"
+        <DraftNumberInput
           min={MIN_FONT_SIZE}
           max={MAX_FONT_SIZE}
           value={style.fontSize}
           disabled={disabled}
           aria-label="Font size"
-          onChange={(event) => {
-            const parsed = Number(event.target.value);
-            if (!Number.isFinite(parsed)) return;
-            patch({ fontSize: Math.round(parsed) }, "text-size");
-          }}
+          onCommit={(value) => patch({ fontSize: value }, "text-size")}
         />
       </div>
       <div className="field">

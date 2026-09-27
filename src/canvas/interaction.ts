@@ -321,6 +321,9 @@ export class CanvasInteraction {
 
   private onPointerDown = (event: PointerEvent): void => {
     if (event.button !== 0) return;
+    // One gesture at a time: a second finger/pen must not replace a running gesture (that would
+    // orphan its history transaction).
+    if (this.gesture.kind !== "none") return;
     const world = this.worldAt(event);
     const target = this.hit(world);
     const selection = this.state.selection;
@@ -377,8 +380,9 @@ export class CanvasInteraction {
   };
 
   private onPointerMove = (event: PointerEvent): void => {
-    const world = this.worldAt(event);
     const gesture = this.gesture;
+    if (gesture.kind !== "none" && event.pointerId !== gesture.pointerId) return;
+    const world = this.worldAt(event);
 
     if (gesture.kind === "move") {
       this.preview = {
@@ -435,6 +439,7 @@ export class CanvasInteraction {
   private onPointerUp = (event: PointerEvent): void => {
     const gesture = this.gesture;
     if (gesture.kind === "none") return;
+    if (event.pointerId !== gesture.pointerId) return;
     const preview = this.preview;
     this.gesture = { kind: "none" };
     this.preview = null;
