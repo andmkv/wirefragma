@@ -1,6 +1,24 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError, api, type AccountUser, type ServerStatus, type StarterNames } from "./api";
-import { PreferencesControl } from "../components/PreferencesControl";
+import { LOCALES, usePreferences, type Locale } from "../i18n";
+
+/** Compact language menu for the sign-in screen (the theme lives in the editor / settings). */
+function LanguageSelect({ className }: { className: string }) {
+  const { locale, setLocale, t } = usePreferences();
+  return (
+    <label className={className}>
+      <span className="visually-hidden">{t("settings.language")}</span>
+      <span aria-hidden="true">🌐</span>
+      <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)} aria-label={t("settings.language")}>
+        {LOCALES.map((entry) => (
+          <option key={entry.code} value={entry.code}>
+            {entry.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 import { Captcha } from "./Captcha";
 import { PrivacyPolicy } from "./PrivacyPolicy";
 import { errorMessage } from "./errors";
@@ -187,9 +205,9 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
 
   return (
     <div className="auth-screen">
-      <section className="auth-hero" aria-hidden="true">
-        <div className="auth-hero-grid" />
-        <div className="auth-hero-sketch">
+      <section className="auth-hero">
+        <div className="auth-hero-grid" aria-hidden="true" />
+        <div className="auth-hero-sketch" aria-hidden="true">
           <span className="sketch-box sketch-bar" />
           <span className="sketch-box sketch-side" />
           <span className="sketch-box sketch-card" />
@@ -197,6 +215,7 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
           <span className="sketch-box sketch-line" />
           <span className="sketch-box sketch-line short" />
         </div>
+        <LanguageSelect className="auth-language hero" />
         <div className="auth-hero-content">
           <img className="auth-logo" src="./brand/wf_logo_wide.png" alt="" />
           <p className="auth-tagline">{t("auth.tagline")}</p>
@@ -211,6 +230,7 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
       <section className="auth-panel">
         <div className="auth-card">
           <img className="auth-mobile-logo" src="./brand/wf_logo_wide.png" alt="Wirefragma" />
+          <LanguageSelect className="auth-language mobile" />
 
           {mode === "signin" || mode === "register" ? (
             <div className="auth-switch" role="tablist" aria-label={t("auth.switchLabel")}>
@@ -355,7 +375,6 @@ export function AuthScreen({ status, initialMode, token, initialMessage, onSigne
           <p className="auth-hint auth-guest-hint">{t("auth.guestHint")}</p>
         </div>
 
-        <PreferencesControl compact />
         <footer className="auth-footer">
           <button type="button" className="auth-link" onClick={() => setPrivacyOpen(true)}>
             {t("auth.privacy")}

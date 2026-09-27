@@ -2370,6 +2370,49 @@ body.is-resizing-panel * {
   border-top: 1px solid var(--border);
 }
 
+.auth-language {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.auth-language select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  background: var(--surface);
+}
+
+.auth-language.hero {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  z-index: 2;
+}
+
+.auth-language.mobile {
+  display: none;
+  align-self: center;
+  margin: -12px 0 20px;
+}
+
+@media (max-width: 900px) {
+  .auth-language.mobile {
+    display: inline-flex;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .auth-panel > .preferences {
   flex-direction: row;
   width: 100%;

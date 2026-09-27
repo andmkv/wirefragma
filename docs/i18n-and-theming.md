@@ -50,7 +50,7 @@ inverted with `--logo-filter`.
 
 | User | Switcher | Storage |
 | --- | --- | --- |
-| guest | Properties panel footer ("Preferences") and the sign-in screen | `localStorage["wirefragma.preferences"]` |
+| guest | Properties panel footer ("Preferences"); the sign-in screen has only a language menu (top-left of the logo side, under the logo on phones) | `localStorage["wirefragma.preferences"]` |
 | signed in | avatar menu → **Settings…** → Appearance | the account (`wf_user_settings`, via `settings-save`) + the same localStorage key |
 
 After sign-in the account's stored preferences are applied (they win over the browser's guest
