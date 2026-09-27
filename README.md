@@ -277,7 +277,7 @@ canonical geometry + coordinate transform
 Canvas 2D renderer + hit testing + interaction engine
 
 project model
-   ├── localStorage autosave
+   ├── localStorage autosave (guest) / optional PHP + MySQL API (signed in)
    ├── ASCII renderer + spatial summary
    └── Markdown / JSON / ui-project export
 ```

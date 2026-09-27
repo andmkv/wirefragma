@@ -9,3 +9,10 @@ coverage
 server/api/config.php
 server/mail.log
 .claude/
+
+# Deployment secrets that must never be committed
+wirefragma-config.php
+*.log
+my.cnf
+*.pem
+*.key

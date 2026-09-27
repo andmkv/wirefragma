@@ -33,9 +33,12 @@ clone. See [agent-guide.md](./agent-guide.md) before adding features.
 | Build | Vite 5 (`base: "./"`, static output in `dist/`) |
 | Tests | Vitest 2 (`environment: "node"`, `globals: true`, `src/**/*.test.ts`) |
 | Rendering | Canvas 2D + Pointer Events, hand-written engine in `src/canvas/` |
-| Persistence | `localStorage` (one autosaved slot), plus `.md` / `.json` downloads |
+| Persistence | guests: `localStorage` (one autosaved slot); signed in: optional PHP + MySQL API; plus `.md` / `.json` downloads |
+| i18n / themes | own typed dictionaries (8 languages), CSS-token light/dark themes |
+| Server (optional) | plain PHP 7.4+ with PDO MySQL, no Composer (`server/`) |
 
-No Konva, no react-konva, no Fabric, no state-management library, no CSS framework, no backend.
+No Konva, no react-konva, no Fabric, no state-management library, no CSS framework, no i18n
+library, and no backend requirement.
 `package.json` has exactly two runtime dependencies.
 
 ## Repository map
@@ -57,8 +60,9 @@ src/account/          sign-in screen, captcha, privacy policy, projects panel, w
 server/               optional PHP accounts API (server/api), MySQL schema, API smoke test
 ```
 
-Rough size for orientation (non-test source, ~10.7k lines total; tests add ~4.0k): `components`
-~1.9k, `dev` ~1.9k, `model` ~1.8k, `canvas` ~1.6k, `utils` ~1.4k, root `App.tsx` + helpers ~1.0k.
+Rough size for orientation (non-test source, ~17k lines; tests add ~4.6k): `i18n` ~3.9k (mostly
+translations), `components` ~2.6k, `model` ~2.2k, `account` ~2.0k, `dev` ~1.9k, `utils` ~1.8k,
+`canvas` ~1.6k, root `App.tsx` / `Root.tsx` + helpers ~1.3k; `server/api` ~1.3k lines of PHP.
 
 ## High-level architecture
 

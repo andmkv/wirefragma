@@ -91,6 +91,12 @@ Apache with `.htaccess`, `mail()`. No Node.js, SSH or Composer is needed on the 
 8. **Optional captcha upgrade:** create a free Cloudflare Turnstile widget for the domain and set
    `'captcha' => ['provider' => 'turnstile', 'turnstile_site_key' => …, 'turnstile_secret' => …]`.
 
+Recommended extras (templates in `deploy/`): `deploy/htaccess.example` as the site root
+`.htaccess` (HTTPS redirect, no-cache `index.html`, long-cache hashed assets), and — when the
+config file cannot sit two levels above `api/` — `deploy/config-pointer.php.example` as
+`api/config.php`, which only `require`s the real file from a private folder. When re-uploading
+with `rsync --delete`, exclude `api/config.php`, `.well-known/` and `cgi-bin/`.
+
 Updating later: rebuild and re-upload `dist/` (the config lives outside it and is untouched). The
 schema file is idempotent; re-importing it is harmless.
 

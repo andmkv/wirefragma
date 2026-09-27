@@ -1,0 +1,4 @@
+<?php
+// Optional: copy to <web root>/api/config.php when the real config must live elsewhere
+// (e.g. a private folder that is not two levels above api/). No secrets in this file.
+return require "/absolute/path/to/private/wirefragma-config.php";
