@@ -103,6 +103,7 @@ testing, rendering and pointer gestures; the two meet through a very small callb
 | [persistence-and-migrations.md](./persistence-and-migrations.md) | storage keys, autosave, legacy migration, corrupt data |
 | [testing.md](./testing.md) | test strategy, commands, the browser self-test harness |
 | [deployment.md](./deployment.md) | static build, hosting, storage behaviour per origin, Namecheap deployment with accounts |
+| [i18n-and-theming.md](./i18n-and-theming.md) | UI languages, translations, dark theme, where preferences are stored |
 | [accounts.md](./accounts.md) | the optional accounts backend, sign-in, projects panel, autosave, API and security |
 | [agent-guide.md](./agent-guide.md) | the invariants and rules a coding agent must not break |
 | [known-limitations.md](./known-limitations.md) | what Wirefragma deliberately does not do |

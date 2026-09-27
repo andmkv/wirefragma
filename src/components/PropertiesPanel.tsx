@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useT } from "../i18n";
 import {
-  ELEMENT_TYPE_LABEL,
   MAX_CANVAS_SIZE,
   MAX_CONTENT_SIZE,
   MAX_FONT_SIZE,
@@ -50,6 +50,8 @@ interface PropertiesPanelProps {
   onSendToBack: () => void;
   /** Move the selected element out of its parent (it stays in front of that parent). */
   onUnnest: () => void;
+  /** Rendered at the bottom of the panel in every state (guest language / theme switcher). */
+  footer?: ReactNode;
 }
 
 function NumberField({
@@ -121,6 +123,7 @@ function TypographySection({
     options?: ChangeOptions
   ) => void;
 }) {
+  const t = useT();
   const style = textStyleOf(element);
   // Toggles read the previous value, so the patch is computed inside the document updater.
   const patch = (next: Partial<TextStyle>, key: string) =>
@@ -132,7 +135,7 @@ function TypographySection({
       className={style[key] ? "toggle-button active" : "toggle-button"}
       aria-pressed={style[key]}
       disabled={disabled}
-      title={key}
+      title={t(`props.${key}`)}
       onClick={() => patch({ [key]: !style[key] }, `text-${key}`)}
     >
       {key === "bold" ? <strong>B</strong> : key === "italic" ? <em>I</em> : <span className="underline">U</span>}
@@ -146,38 +149,38 @@ function TypographySection({
       className={style.align === value ? "toggle-button active" : "toggle-button"}
       aria-pressed={style.align === value}
       disabled={disabled}
-      title={`Align ${value}`}
+      title={t(value === "left" ? "props.alignLeft" : value === "center" ? "props.alignCenter" : "props.alignRight")}
       onClick={() => patch({ align: value }, "text-align")}
     >
-      {value === "left" ? "Left" : value === "center" ? "Center" : "Right"}
+      {t(value === "left" ? "props.alignLeft" : value === "center" ? "props.alignCenter" : "props.alignRight")}
     </button>
   );
 
   return (
     <>
-      <div className="section-label">Typography</div>
+      <div className="section-label">{t("props.typography")}</div>
       <div className="field">
-        <span className="field-label">Size</span>
+        <span className="field-label">{t("props.size")}</span>
         <DraftNumberInput
           min={MIN_FONT_SIZE}
           max={MAX_FONT_SIZE}
           value={style.fontSize}
           disabled={disabled}
-          aria-label="Font size"
+          aria-label={t("props.fontSize")}
           onCommit={(value) => patch({ fontSize: value }, "text-size")}
         />
       </div>
       <div className="field">
-        <span className="field-label">Style</span>
-        <div className="toggle-group" role="group" aria-label="Text style">
+        <span className="field-label">{t("props.style")}</span>
+        <div className="toggle-group" role="group" aria-label={t("props.textStyle")}>
           {toggle("bold")}
           {toggle("italic")}
           {toggle("underline")}
         </div>
       </div>
       <div className="field">
-        <span className="field-label">Alignment</span>
-        <div className="toggle-group" role="group" aria-label="Text alignment">
+        <span className="field-label">{t("props.alignment")}</span>
+        <div className="toggle-group" role="group" aria-label={t("props.textAlignment")}>
           {(["left", "center", "right"] as TextAlign[]).map(align)}
         </div>
       </div>
@@ -200,8 +203,10 @@ export function PropertiesPanel({
   onSendBackward,
   onBringToFront,
   onSendToBack,
-  onUnnest
+  onUnnest,
+  footer
 }: PropertiesPanelProps) {
+  const t = useT();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiAnchorRef = useRef<HTMLDivElement>(null);
 
@@ -223,29 +228,24 @@ export function PropertiesPanel({
       return (
         <aside className="panel properties">
           <div className="panel-header">
-            Properties
-            <span className="panel-header-sub">Selection</span>
+            {t("panel.properties")}
+            <span className="panel-header-sub">{t("props.selection")}</span>
           </div>
           <div className="panel-body">
             <div className="selection-count">
-              <strong>{selectedCount} objects selected</strong>
+              <strong>{t("props.objectsSelected", { count: selectedCount })}</strong>
             </div>
-            <p className="hint">
-              Drag any one of them to move the whole set. Shift-click (or ⌘/Ctrl-click) adds and
-              removes objects.
-            </p>
+            <p className="hint">{t("props.multiHint")}</p>
             <div className="button-row">
               <button type="button" onClick={onDuplicate} title="Cmd/Ctrl+D">
-                Duplicate
+                {t("common.duplicate")}
               </button>
-              <button type="button" className="danger" onClick={onDelete} title="Delete / Backspace">
-                Delete
+              <button type="button" className="danger" onClick={onDelete} title={t("props.deleteTitle")}>
+                {t("common.delete")}
               </button>
             </div>
-            <p className="hint">
-              Mixed values are not editable in this pass — select a single object to change its
-              size, label or typography.
-            </p>
+            <p className="hint">{t("props.mixedHint")}</p>
+            {footer}
           </div>
         </aside>
       );
@@ -253,11 +253,11 @@ export function PropertiesPanel({
 
     return (
       <aside className="panel properties">
-        <div className="panel-header">Properties</div>
+        <div className="panel-header">{t("panel.properties")}</div>
         <div className="panel-body">
-          <div className="empty-state">Nothing selected</div>
+          <div className="empty-state">{t("props.nothingSelected")}</div>
           <label className="field">
-            <span className="field-label">Project title</span>
+            <span className="field-label">{t("props.projectTitle")}</span>
             <input
               type="text"
               value={project.title}
@@ -266,7 +266,7 @@ export function PropertiesPanel({
           </label>
           <div className="field-row">
             <NumberField
-              label="Canvas width"
+              label={t("props.canvasWidth")}
               value={project.canvas.width}
               min={MIN_CANVAS_SIZE}
               max={MAX_CANVAS_SIZE}
@@ -274,7 +274,7 @@ export function PropertiesPanel({
               onCommit={(value) => onChangeProject({ width: value })}
             />
             <NumberField
-              label="Canvas height"
+              label={t("props.canvasHeight")}
               value={project.canvas.height}
               min={MIN_CANVAS_SIZE}
               max={MAX_CANVAS_SIZE}
@@ -283,14 +283,15 @@ export function PropertiesPanel({
             />
           </div>
           <p className="hint">
-            Canvas: {Math.round(project.canvas.width)} × {Math.round(project.canvas.height)} ·{" "}
-            {project.elements.length} element{project.elements.length === 1 ? "" : "s"} in{" "}
-            {project.layers.length} layer{project.layers.length === 1 ? "" : "s"}
+            {t("props.canvasSummary", {
+              width: Math.round(project.canvas.width),
+              height: Math.round(project.canvas.height),
+              count: project.elements.length,
+              layers: t("count.layers", { count: project.layers.length })
+            })}
           </p>
-          <p className="hint">
-            Select an element on the canvas — or in the Layers tab — to edit its name, visible label
-            and LLM note.
-          </p>
+          <p className="hint">{t("props.selectHint")}</p>
+          {footer}
         </div>
       </aside>
     );
@@ -308,42 +309,35 @@ export function PropertiesPanel({
     element.type === "bottomNav";
   const showLabel = element.type !== "tabs" && element.type !== "list";
   const isSymbol = element.type === "icon" || element.type === "image";
-  const itemsLabel =
-    element.type === "table"
-      ? "Rows (cells separated by |)"
-      : element.type === "bottomNav"
-        ? "Items (one per line)"
-        : "Items (one per line)";
+  const itemsLabel = element.type === "table" ? t("props.rows") : t("props.items");
 
   return (
     <aside className="panel properties">
       <div className="panel-header">
-        Properties
-        <span className="panel-header-sub">{ELEMENT_TYPE_LABEL[element.type]}</span>
+        {t("panel.properties")}
+        <span className="panel-header-sub">{t(`type.${element.type}`)}</span>
       </div>
       <div className="panel-body">
         <p className="hint layer-hint">
-          Layer: <strong>{layerName ?? "—"}</strong>
-          {locked ? <span className="lock-badge">locked</span> : null}
-          {selectedCount > 1 ? <span className="lock-badge">{selectedCount} selected</span> : null}
+          {t("props.layer")} <strong>{layerName ?? "—"}</strong>
+          {locked ? <span className="lock-badge">{t("props.locked")}</span> : null}
+          {selectedCount > 1 ? <span className="lock-badge">{t("props.selectedBadge", { count: selectedCount })}</span> : null}
         </p>
         {parent ? (
           <p className="hint layer-hint">
-            Inside: <strong>{parent.name}</strong>
-            <button type="button" className="link-button" onClick={onUnnest} title="Move out of the parent">
-              Move out
+            {t("props.inside")} <strong>{parent.name}</strong>
+            <button type="button" className="link-button" onClick={onUnnest} title={t("props.moveOutTitle")}>
+              {t("props.moveOut")}
             </button>
           </p>
         ) : null}
 
         {locked ? (
-          <div className="locked-banner">
-            Locked — unlock this element (or its layer) in the Layers tab to move, resize or delete it.
-          </div>
+          <div className="locked-banner">{t("props.lockedBanner")}</div>
         ) : null}
 
         <label className="field">
-          <span className="field-label">Name</span>
+          <span className="field-label">{t("props.name")}</span>
           <input
             type="text"
             value={element.name}
@@ -356,12 +350,12 @@ export function PropertiesPanel({
 
         {showLabel ? (
           <div className="field" ref={emojiAnchorRef}>
-            <span className="field-label">Label</span>
+            <span className="field-label">{t("props.label")}</span>
             <div className="label-with-picker">
               <input
                 type="text"
                 value={element.label}
-                placeholder={isSymbol ? "🚀 or a short caption" : "Visible text"}
+                placeholder={t(isSymbol ? "props.labelSymbolPlaceholder" : "props.labelPlaceholder")}
                 onChange={(event) =>
                   onChangeElement({ label: event.target.value }, { coalesceKey: "label" })
                 }
@@ -372,7 +366,7 @@ export function PropertiesPanel({
                   className="emoji-open"
                   aria-haspopup="dialog"
                   aria-expanded={emojiOpen}
-                  title="Choose an emoji"
+                  title={t("props.chooseEmoji")}
                   onClick={() => setEmojiOpen((value) => !value)}
                 >
                   🙂
@@ -392,7 +386,7 @@ export function PropertiesPanel({
 
         {isSymbol ? (
           <NumberField
-            label="Content size (px)"
+            label={t("props.contentSize")}
             value={contentSizeOf(element)}
             min={MIN_CONTENT_SIZE}
             max={MAX_CONTENT_SIZE}
@@ -419,7 +413,7 @@ export function PropertiesPanel({
 
         {element.type === "table" ? (
           <label className="field">
-            <span className="field-label">Columns (one per line)</span>
+            <span className="field-label">{t("props.columns")}</span>
             <textarea
               rows={3}
               value={(element.columns ?? []).join("\n")}
@@ -434,11 +428,11 @@ export function PropertiesPanel({
         ) : null}
 
         <label className="field">
-          <span className="field-label">LLM note</span>
+          <span className="field-label">{t("props.note")}</span>
           <textarea
             rows={5}
             value={element.note}
-            placeholder="What is this element for? How should it behave?"
+            placeholder={t("props.notePlaceholder")}
             onChange={(event) =>
               onChangeElement({ note: event.target.value }, { coalesceKey: "note" })
             }
@@ -449,16 +443,16 @@ export function PropertiesPanel({
           <TypographySection element={element} disabled={locked} onUpdateElement={onUpdateElement} />
         ) : null}
 
-        <div className="section-label">Position &amp; size</div>
+        <div className="section-label">{t("props.positionSize")}</div>
         <div className="field-row">
           <NumberField
-            label="X"
+            label={t("props.x")}
             value={element.x}
             disabled={locked}
             onCommit={(value) => onChangeElement({ x: value }, { coalesceKey: "x" })}
           />
           <NumberField
-            label="Y"
+            label={t("props.y")}
             value={element.y}
             disabled={locked}
             onCommit={(value) => onChangeElement({ y: value }, { coalesceKey: "y" })}
@@ -466,14 +460,14 @@ export function PropertiesPanel({
         </div>
         <div className="field-row">
           <NumberField
-            label="Width"
+            label={t("props.width")}
             value={element.width}
             min={8}
             disabled={locked}
             onCommit={(value) => onChangeElement({ width: value }, { coalesceKey: "width" })}
           />
           <NumberField
-            label="Height"
+            label={t("props.height")}
             value={element.height}
             min={8}
             disabled={locked}
@@ -481,42 +475,43 @@ export function PropertiesPanel({
           />
         </div>
 
-        <div className="section-label">Arrange in layer</div>
+        <div className="section-label">{t("props.arrange")}</div>
         <div className="button-row">
-          <button type="button" onClick={onBringToFront} title="Move to the front of its layer">
-            Bring to front
+          <button type="button" onClick={onBringToFront} title={t("props.bringToFrontTitle")}>
+            {t("props.bringToFront")}
           </button>
-          <button type="button" onClick={onSendToBack} title="Move to the back of its layer">
-            Send to back
+          <button type="button" onClick={onSendToBack} title={t("props.sendToBackTitle")}>
+            {t("props.sendToBack")}
           </button>
         </div>
         <div className="button-row">
           <button type="button" onClick={onBringForward}>
-            Bring forward
+            {t("props.bringForward")}
           </button>
           <button type="button" onClick={onSendBackward}>
-            Send backward
+            {t("props.sendBackward")}
           </button>
         </div>
         <div className="button-row">
           <button type="button" onClick={onDuplicate} title="Cmd/Ctrl+D">
-            Duplicate
+            {t("common.duplicate")}
           </button>
           <button
             type="button"
             className="danger"
             onClick={onDelete}
             disabled={locked}
-            title={locked ? "Locked elements cannot be deleted" : "Delete / Backspace"}
+            title={t(locked ? "props.deleteLockedTitle" : "props.deleteTitle")}
           >
-            Delete
+            {t("common.delete")}
           </button>
         </div>
         <p className="hint">
-          Order {siblingPosition(project, element)} of {siblingCount(project, element)}
-          {parent ? ` inside ${parent.name}` : ""}
-          {lockedCount > 0 ? ` · ${lockedCount} locked in the selection` : ""}
+          {t("props.order", { position: siblingPosition(project, element), total: siblingCount(project, element) })}
+          {parent ? ` ${t("props.orderInside", { name: parent.name })}` : ""}
+          {lockedCount > 0 ? ` · ${t("props.lockedInSelection", { count: lockedCount })}` : ""}
         </p>
+        {footer}
       </div>
     </aside>
   );

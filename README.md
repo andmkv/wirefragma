@@ -187,6 +187,12 @@ an LLM note.
 - configurable symbol content size;
 - Unicode-safe label fitting.
 
+### Languages and themes
+
+- UI in English (default), Russian, German, French, Spanish, Serbian, Japanese and Simplified
+  Chinese; light, dark or system theme. Guests switch in the Properties panel, signed-in users in
+  their account settings. The Markdown export always stays English.
+
 ### Accounts and projects (optional)
 
 - sign-up with captcha, email confirmation and privacy-policy consent; sign-in, password reset,

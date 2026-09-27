@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useT } from "../i18n";
 
 export interface ImportDestination {
   projectId: number;
@@ -16,18 +17,22 @@ interface ImportDialogProps {
   defaultProjectId?: number | null;
 }
 
-/** "New Wireframe N" with the smallest N not used in that project yet. */
-export function nextWireframeTitle(existing: string[]): string {
+/** "New Wireframe N" (in the UI language) with the smallest N not used in that project yet. */
+export function nextWireframeTitle(existing: string[], format: (n: number) => string = (n) => `New Wireframe ${n}`): string {
   const taken = new Set(existing.map((title) => title.trim().toLowerCase()));
   let counter = 1;
-  while (taken.has(`new wireframe ${counter}`)) counter += 1;
-  return `New Wireframe ${counter}`;
+  while (taken.has(format(counter).toLowerCase())) counter += 1;
+  return format(counter);
 }
 
 export function ImportDialog({ onClose, onImport, target = "replace", projects = [], defaultProjectId = null }: ImportDialogProps) {
+  const t = useT();
   const [projectId, setProjectId] = useState<number | null>(defaultProjectId ?? projects[0]?.id ?? null);
   const [title, setTitle] = useState("");
-  const defaultTitle = nextWireframeTitle(projects.find((project) => project.id === projectId)?.wireframeTitles ?? []);
+  const defaultTitle = nextWireframeTitle(
+    projects.find((project) => project.id === projectId)?.wireframeTitles ?? [],
+    (n) => t("import.defaultTitle", { n })
+  );
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +47,7 @@ export function ImportDialog({ onClose, onImport, target = "replace", projects =
 
   const runImport = (value: string, name: string) => {
     if (value.trim() === "") {
-      setError("Nothing to import yet. Paste Markdown or choose a .md file.");
+      setError(t("import.empty"));
       return;
     }
     const destination =
@@ -63,33 +68,28 @@ export function ImportDialog({ onClose, onImport, target = "replace", projects =
       setText(content);
       runImport(content, file.name);
     } catch {
-      setError("That file could not be read.");
+      setError(t("import.unreadable"));
     }
   };
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="modal wide" role="dialog" aria-modal="true" aria-label="Import">
+      <div className="modal wide" role="dialog" aria-modal="true" aria-label={t("import.title")}>
         <div className="modal-header">
-          <h2>Import</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
+          <h2>{t("import.title")}</h2>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={t("common.close")}>
             ✕
           </button>
         </div>
 
         <p className="modal-note">
-          Paste a Markdown export, raw project JSON, or an LLM answer generated from the WIREFRAGMA
-          schema (Export → WIREFRAGMA schema). The importer reads the <code>ui-project</code> block, so
-          the ASCII drawing is not used for reconstruction.{" "}
-          {target === "project"
-            ? "The import becomes a new wireframe in the chosen project."
-            : "Importing replaces the current project and clears the undo history."}
+          {t("import.note")} {t(target === "project" ? "import.noteProject" : "import.noteReplace")}
         </p>
 
         {target === "project" && projects.length > 0 ? (
           <div className="import-destination">
             <label className="field">
-              <span className="field-label">Project</span>
+              <span className="field-label">{t("import.project")}</span>
               <select value={projectId ?? ""} onChange={(event) => setProjectId(Number(event.target.value))}>
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
@@ -99,7 +99,7 @@ export function ImportDialog({ onClose, onImport, target = "replace", projects =
               </select>
             </label>
             <label className="field">
-              <span className="field-label">Wireframe title</span>
+              <span className="field-label">{t("import.wireframeTitle")}</span>
               <input value={title} placeholder={defaultTitle} maxLength={160} onChange={(event) => setTitle(event.target.value)} />
             </label>
           </div>
@@ -131,10 +131,10 @@ export function ImportDialog({ onClose, onImport, target = "replace", projects =
               }}
             />
             <button type="button" onClick={() => fileInputRef.current?.click()}>
-              Upload .md
+              {t("import.upload")}
             </button>
-            <button type="button" className="primary" onClick={() => runImport(text, "pasted text")}>
-              Import
+            <button type="button" className="primary" onClick={() => runImport(text, t("toast.pastedText"))}>
+              {t("import.button")}
             </button>
           </div>
         </div>

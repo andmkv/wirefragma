@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { CANVAS_MODES, MAX_CANVAS_SIZE, MIN_CANVAS_SIZE, type CanvasMode, type WireframeProject } from "../model/project";
 import { DraftNumberInput } from "./DraftNumberInput";
+import { useT } from "../i18n";
 import { ZOOM_PRESETS, formatZoom, type ZoomMode } from "../utils/zoom";
 
 interface AppToolbarProps {
@@ -37,12 +38,6 @@ interface AppToolbarProps {
   accountSlot?: ReactNode;
 }
 
-const MODE_LABEL: Record<CanvasMode, string> = {
-  desktop: "Desktop 1200×800",
-  mobile: "Mobile portrait 390×844",
-  mobileLandscape: "Mobile landscape 844×390",
-  custom: "Custom…"
-};
 
 export function AppToolbar({
   project,
@@ -71,9 +66,10 @@ export function AppToolbar({
   onZoomPreset,
   onToggleLayers,
   showImport = true,
-  newTitle = "Start a new blank project",
+  newTitle,
   accountSlot
 }: AppToolbarProps) {
+  const t = useT();
   const isCustom = project.canvas.mode === "custom";
 
   return (
@@ -81,19 +77,19 @@ export function AppToolbar({
       <div className="toolbar-brand">
         <img className="brand-mark" src="./wf_logo_w_white.png" alt="" aria-hidden="true" />
         <span className="brand-name">Wirefragma</span>
-        <span className="brand-tag">wireframe → LLM spec</span>
+        <span className="brand-tag">{t("toolbar.tagline")}</span>
       </div>
 
       <div className="toolbar-group">
         <label className="field inline">
-          <span className="field-label">Canvas</span>
+          <span className="field-label">{t("toolbar.canvas")}</span>
           <select
             value={project.canvas.mode}
             onChange={(event) => onModeChange(event.target.value as CanvasMode)}
           >
             {CANVAS_MODES.map((mode) => (
               <option key={mode} value={mode}>
-                {MODE_LABEL[mode]}
+                {t(`toolbar.mode.${mode}`)}
               </option>
             ))}
           </select>
@@ -107,7 +103,7 @@ export function AppToolbar({
               step={10}
               value={project.canvas.width}
               onCommit={(value) => onCanvasSizeChange(value, project.canvas.height)}
-              aria-label="Canvas width"
+              aria-label={t("toolbar.canvasWidth")}
             />
             <span className="times">×</span>
             <DraftNumberInput
@@ -116,7 +112,7 @@ export function AppToolbar({
               step={10}
               value={project.canvas.height}
               onCommit={(value) => onCanvasSizeChange(project.canvas.width, value)}
-              aria-label="Canvas height"
+              aria-label={t("toolbar.canvasHeight")}
             />
           </div>
         ) : null}
@@ -125,23 +121,23 @@ export function AppToolbar({
           type="button"
           className={showGrid ? "toggle-button active" : "toggle-button"}
           onClick={onToggleGrid}
-          title="Show or hide the grid"
+          title={t("toolbar.gridTitle")}
         >
-          Grid
+          {t("toolbar.grid")}
         </button>
         <button
           type="button"
           className={snapToGrid ? "toggle-button active" : "toggle-button"}
           onClick={onToggleSnap}
-          title="Snap position and size to the grid"
+          title={t("toolbar.snapTitle")}
         >
-          Snap
+          {t("toolbar.snap")}
         </button>
         <select
           className="grid-size"
           value={gridSize}
           onChange={(event) => onGridSizeChange(Number(event.target.value))}
-          title="Grid size"
+          title={t("toolbar.gridSize")}
         >
           {[4, 8, 16, 20].map((size) => (
             <option key={size} value={size}>
@@ -151,7 +147,7 @@ export function AppToolbar({
         </select>
 
         <div className="zoom-group">
-          <button type="button" onClick={onZoomOut} title="Zoom out (Cmd/Ctrl -)" aria-label="Zoom out">
+          <button type="button" onClick={onZoomOut} title={t("toolbar.zoomOutTitle")} aria-label={t("toolbar.zoomOut")}>
             −
           </button>
           <select
@@ -162,59 +158,59 @@ export function AppToolbar({
               if (value === "fit") onZoomFit();
               else onZoomPreset(Number(value));
             }}
-            title="Zoom level"
+            title={t("toolbar.zoomLevel")}
           >
-            <option value="fit">Fit ({formatZoom(zoomScale)})</option>
+            <option value="fit">{t("toolbar.fitWith", { zoom: formatZoom(zoomScale) })}</option>
             {ZOOM_PRESETS.map((preset) => (
               <option key={preset} value={String(preset)}>
                 {formatZoom(preset)}
               </option>
             ))}
           </select>
-          <button type="button" onClick={onZoomIn} title="Zoom in (Cmd/Ctrl +)" aria-label="Zoom in">
+          <button type="button" onClick={onZoomIn} title={t("toolbar.zoomInTitle")} aria-label={t("toolbar.zoomIn")}>
             +
           </button>
           <button
             type="button"
             className={zoomMode === "fit" ? "toggle-button active" : "toggle-button"}
             onClick={onZoomFit}
-            title="Fit the canvas to the window"
+            title={t("toolbar.fitTitle")}
           >
-            Fit
+            {t("toolbar.fit")}
           </button>
           <span className="zoom-readout">{formatZoom(zoomScale)}</span>
         </div>
       </div>
 
       <div className="toolbar-actions">
-        <button type="button" onClick={onUndo} disabled={!canUndo} title="Undo (Cmd/Ctrl+Z)">
-          Undo
+        <button type="button" onClick={onUndo} disabled={!canUndo} title={t("toolbar.undoTitle")}>
+          {t("toolbar.undo")}
         </button>
-        <button type="button" onClick={onRedo} disabled={!canRedo} title="Redo (Cmd/Ctrl+Shift+Z)">
-          Redo
+        <button type="button" onClick={onRedo} disabled={!canRedo} title={t("toolbar.redoTitle")}>
+          {t("toolbar.redo")}
         </button>
         <span className="divider" />
-        <button type="button" onClick={onNew} title={newTitle}>
-          New
+        <button type="button" onClick={onNew} title={newTitle ?? t("toolbar.newTitle")}>
+          {t("toolbar.new")}
         </button>
         <button
           type="button"
           className={layersOpen ? "toggle-button active" : "toggle-button"}
           onClick={onToggleLayers}
-          title="Show or hide the layers panel"
+          title={t("toolbar.layersTitle")}
         >
-          Layers
+          {t("toolbar.layers")}
         </button>
         {showImport ? (
-          <button type="button" onClick={onImport} title="Import Markdown or JSON">
-            Import
+          <button type="button" onClick={onImport} title={t("toolbar.importTitle")}>
+            {t("toolbar.import")}
           </button>
         ) : null}
-        <button type="button" onClick={onCopyForLlm} title="Copy the Markdown export for an LLM">
-          Copy for LLM
+        <button type="button" onClick={onCopyForLlm} title={t("toolbar.copyForLlmTitle")}>
+          {t("toolbar.copyForLlm")}
         </button>
-        <button type="button" className="primary" onClick={onExport} title="Export Markdown">
-          Export
+        <button type="button" className="primary" onClick={onExport} title={t("toolbar.exportTitle")}>
+          {t("toolbar.export")}
         </button>
         {accountSlot}
       </div>

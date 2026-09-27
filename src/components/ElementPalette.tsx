@@ -1,4 +1,5 @@
-import { ELEMENT_TYPE_LABEL, type ElementType } from "../model/project";
+import type { ElementType } from "../model/project";
+import { useT } from "../i18n";
 import { PALETTE_GROUPS } from "../model/defaults";
 
 interface ElementPaletteProps {
@@ -35,11 +36,12 @@ const GLYPH: Record<ElementType, string> = {
 
 /** Contents of the "Add" tab of the left panel. */
 export function ElementPalette({ onAdd, activeLayerName }: ElementPaletteProps) {
+  const t = useT();
   return (
     <>
       {PALETTE_GROUPS.map((group) => (
         <div className="palette-group" key={group.title}>
-          <div className="palette-group-title">{group.title}</div>
+          <div className="palette-group-title">{t(`palette.group.${group.title as "Layout" | "Content" | "Controls"}`)}</div>
           <div className="palette-items">
             {group.types.map((type) => (
               <button
@@ -47,12 +49,12 @@ export function ElementPalette({ onAdd, activeLayerName }: ElementPaletteProps) 
                 type="button"
                 className="palette-item"
                 onClick={() => onAdd(type)}
-                title={`Add ${ELEMENT_TYPE_LABEL[type]} to layer "${activeLayerName}"`}
+                title={t("palette.addTo", { type: t(`type.${type}`), layer: activeLayerName })}
               >
                 <span className="palette-glyph" aria-hidden="true">
                   {GLYPH[type]}
                 </span>
-                <span>{ELEMENT_TYPE_LABEL[type]}</span>
+                <span>{t(`type.${type}`)}</span>
               </button>
             ))}
           </div>

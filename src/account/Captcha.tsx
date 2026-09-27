@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { errorMessage } from "./errors";
+import { useT } from "../i18n";
 
 interface CaptchaProps {
   provider: "builtin" | "turnstile";
@@ -39,6 +41,9 @@ function loadTurnstile(): Promise<void> {
 
 /** Built-in image captcha, or a Cloudflare Turnstile widget when the server is configured for it. */
 export function Captcha({ provider, siteKey, value, onChange, refreshKey }: CaptchaProps) {
+  const t = useT();
+  const tRef = useRef(t);
+  tRef.current = t;
   const [image, setImage] = useState<string | null>(null);
   const [question, setQuestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +58,7 @@ export function Captcha({ provider, siteKey, value, onChange, refreshKey }: Capt
       setImage(challenge.image);
       setQuestion(challenge.question);
     } catch (reason) {
-      setError((reason as Error).message);
+      setError(errorMessage(tRef.current, reason));
     }
   }, [onChange]);
 
@@ -75,7 +80,7 @@ export function Captcha({ provider, siteKey, value, onChange, refreshKey }: Capt
           "error-callback": () => onChange("")
         });
       })
-      .catch(() => setError("The captcha could not be loaded. Disable content blockers and reload."));
+      .catch(() => setError(tRef.current("captcha.turnstileFailed")));
     return () => {
       cancelled = true;
       if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
@@ -94,14 +99,14 @@ export function Captcha({ provider, siteKey, value, onChange, refreshKey }: Capt
 
   return (
     <div className="auth-captcha">
-      <span className="auth-label">Type the characters you see</span>
+      <span className="auth-label">{t("captcha.label")}</span>
       <div className="captcha-row">
         {image ? (
-          <img className="captcha-image" src={image} alt="Captcha: distorted characters" width={220} height={72} />
+          <img className="captcha-image" src={image} alt={t("captcha.alt")} width={220} height={72} />
         ) : (
           <div className="captcha-image captcha-question">{question ?? "…"}</div>
         )}
-        <button type="button" className="captcha-refresh" onClick={() => void reload()} title="Show a new image" aria-label="Show a new captcha image">
+        <button type="button" className="captcha-refresh" onClick={() => void reload()} title={t("captcha.refresh")} aria-label={t("captcha.refresh")}>
           ↻
         </button>
       </div>
@@ -114,8 +119,8 @@ export function Captcha({ provider, siteKey, value, onChange, refreshKey }: Capt
         spellCheck={false}
         maxLength={12}
         required
-        aria-label="Captcha answer"
-        placeholder={question ? "Answer" : "ABCDE"}
+        aria-label={t("captcha.answer")}
+        placeholder={question ? t("captcha.answerPlaceholder") : "ABCDE"}
       />
       {error ? <p className="auth-field-error">{error}</p> : null}
     </div>

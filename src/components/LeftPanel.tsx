@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { SidebarIcon } from "./icons";
 import { PanelResizeHandle, usePanelWidth } from "./PanelResize";
+import { useT } from "../i18n";
 
 interface LeftPanelProps {
   addPanel: ReactNode;
@@ -11,7 +12,8 @@ interface LeftPanelProps {
 
 /** The collapse / expand control shared by every collapsible side panel (Projects, Layers). */
 export function PanelToggle({ open, label, onToggle }: { open: boolean; label: string; onToggle: () => void }) {
-  const text = open ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`;
+  const t = useT();
+  const text = t(open ? "panel.hide" : "panel.show", { panel: label });
   return (
     <button type="button" className="panel-toggle" onClick={onToggle} title={text} aria-label={text} aria-expanded={open}>
       <SidebarIcon />
@@ -38,28 +40,29 @@ export function CollapsedRail({ label, onExpand, children }: { label: string; on
  * can also collapse to a rail.
  */
 export function LeftPanel({ addPanel, layersPanel, layersOpen, onToggleLayers }: LeftPanelProps) {
+  const t = useT();
   const add = usePanelWidth("wirefragma.panel.add", 190, 150, 360);
   const layers = usePanelWidth("wirefragma.panel.layers", 236, 180, 520);
 
   return (
     <>
       <aside className="panel palette resizable" style={{ width: add.width }}>
-        <div className="panel-header">Add</div>
+        <div className="panel-header">{t("panel.add")}</div>
         <div className="panel-body">{addPanel}</div>
-        <PanelResizeHandle label="Resize the Add panel" {...add} onResize={add.setWidth} onReset={add.reset} />
+        <PanelResizeHandle label={t("panel.resize", { panel: t("panel.add") })} {...add} onResize={add.setWidth} onReset={add.reset} />
       </aside>
 
       {layersOpen ? (
         <aside className="panel layers-column resizable" style={{ width: layers.width }}>
           <div className="panel-header">
-            Layers
-            <PanelToggle open label="Layers" onToggle={onToggleLayers} />
+            {t("panel.layers")}
+            <PanelToggle open label={t("panel.layers")} onToggle={onToggleLayers} />
           </div>
           <div className="panel-body">{layersPanel}</div>
-          <PanelResizeHandle label="Resize the Layers panel" {...layers} onResize={layers.setWidth} onReset={layers.reset} />
+          <PanelResizeHandle label={t("panel.resize", { panel: t("panel.layers") })} {...layers} onResize={layers.setWidth} onReset={layers.reset} />
         </aside>
       ) : (
-        <CollapsedRail label="Layers" onExpand={onToggleLayers} />
+        <CollapsedRail label={t("panel.layers")} onExpand={onToggleLayers} />
       )}
     </>
   );

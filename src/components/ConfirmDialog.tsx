@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useT } from "../i18n";
 
 interface ConfirmDialogProps {
   title: string;
@@ -10,6 +11,7 @@ interface ConfirmDialogProps {
 
 /** Small in-app confirmation dialog (no native window.confirm). */
 export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+  const t = useT();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -29,7 +31,7 @@ export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCance
       <div className="modal narrow" role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-header">
           <h2>{title}</h2>
-          <button type="button" className="icon-button" onClick={onCancel} aria-label="Close">
+          <button type="button" className="icon-button" onClick={onCancel} aria-label={t("common.close")}>
             ✕
           </button>
         </div>
@@ -37,7 +39,7 @@ export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCance
         <div className="modal-footer">
           <div className="modal-actions">
             <button type="button" ref={cancelRef} onClick={onCancel}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="button" className="primary danger-solid" onClick={onConfirm}>
               {confirmLabel}

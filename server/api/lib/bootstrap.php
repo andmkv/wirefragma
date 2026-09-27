@@ -214,7 +214,41 @@ function wf_public_user(array $user): array
         'email' => $user['email'],
         'displayName' => $user['display_name'],
         'createdAt' => $user['created_at'],
+        'settings' => wf_user_settings((int)$user['id']),
     ];
+}
+
+const WF_LANGUAGES = ['en', 'ru', 'de', 'fr', 'es', 'sr', 'ja', 'zh'];
+const WF_THEMES = ['light', 'dark', 'system'];
+
+/** Created on demand so databases from the first release upgrade without a manual migration. */
+function wf_ensure_settings_table(): void
+{
+    static $done = false;
+    if ($done) return;
+    wf_db()->exec(
+        'CREATE TABLE IF NOT EXISTS wf_user_settings (
+           user_id INT UNSIGNED NOT NULL, data TEXT NOT NULL, updated_at DATETIME NOT NULL,
+           PRIMARY KEY (user_id),
+           CONSTRAINT fk_wf_user_settings_user FOREIGN KEY (user_id) REFERENCES wf_users (id) ON DELETE CASCADE
+         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+    $done = true;
+}
+
+/** Interface preferences stored with the account, validated on the way out. */
+function wf_user_settings(int $userId): array
+{
+    wf_ensure_settings_table();
+    $statement = wf_db()->prepare('SELECT data FROM wf_user_settings WHERE user_id = ?');
+    $statement->execute([$userId]);
+    $data = json_decode((string)$statement->fetchColumn(), true);
+    $settings = [];
+    if (is_array($data)) {
+        if (in_array($data['language'] ?? null, WF_LANGUAGES, true)) $settings['language'] = $data['language'];
+        if (in_array($data['theme'] ?? null, WF_THEMES, true)) $settings['theme'] = $data['theme'];
+    }
+    return $settings;
 }
 
 function wf_normalize_email(string $email): string
