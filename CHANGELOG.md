@@ -23,9 +23,12 @@
 - Public documentation site at `/docs/`.
 
 ### Editor
-- **Canvas** and **Drawing** scene elements (palette group "Custom"): model, rendering and export
-  (Canvas: ASCII sketch, primitive list, relationships; Drawing: LLM description only). The popup
-  scene editor is not wired up yet.
+- **Canvas** and **Drawing** scene elements (palette group "Custom"): a small structured-diagram
+  editor (lines, arrows, rectangles, ellipses, bezier curves, text, labels) and a freehand editor
+  (pen, eraser, widths), opened by double-click, a hover pencil or Properties. Canvas exports as a
+  nested ASCII sketch, a primitive list and relationships; a Drawing exports only its LLM
+  description and shows a ⚠ badge until it has one.
+- The Add panel collapses to a two-column icon grid; long element names are truncated.
 
 ### Server
 - Project and wireframe persistence moved from `api/index.php` into the shared

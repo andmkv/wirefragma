@@ -5,6 +5,8 @@ import { PALETTE_GROUPS } from "../model/defaults";
 interface ElementPaletteProps {
   onAdd: (type: ElementType) => void;
   activeLayerName: string;
+  /** The collapsed Add panel: a two-column grid of glyph buttons. */
+  compact?: boolean;
 }
 
 const GLYPH: Record<ElementType, string> = {
@@ -36,14 +38,47 @@ const GLYPH: Record<ElementType, string> = {
   drawing: "✎"
 };
 
-/** Contents of the "Add" tab of the left panel. */
-export function ElementPalette({ onAdd, activeLayerName }: ElementPaletteProps) {
+/**
+ * Contents of the Add panel. `compact` is the collapsed panel: MS Paint-style glyph buttons in two
+ * columns under (truncated) group titles, with the element name as tooltip.
+ */
+export function ElementPalette({ onAdd, activeLayerName, compact = false }: ElementPaletteProps) {
   const t = useT();
+  const groupTitle = (title: string) => t(`palette.group.${title as "Layout" | "Content" | "Controls" | "Custom"}`);
+  if (compact) {
+    return (
+      <>
+        {PALETTE_GROUPS.map((group) => (
+          <div className="palette-group compact" key={group.title}>
+            <div className="palette-group-title" title={groupTitle(group.title)}>
+              {groupTitle(group.title)}
+            </div>
+            <div className="palette-grid">
+              {group.types.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className="palette-tile"
+                  onClick={() => onAdd(type)}
+                  title={t("palette.addTo", { type: t(`type.${type}`), layer: activeLayerName })}
+                  aria-label={t("palette.addTo", { type: t(`type.${type}`), layer: activeLayerName })}
+                >
+                  <span aria-hidden="true">{GLYPH[type]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  }
   return (
     <>
       {PALETTE_GROUPS.map((group) => (
         <div className="palette-group" key={group.title}>
-          <div className="palette-group-title">{t(`palette.group.${group.title as "Layout" | "Content" | "Controls" | "Custom"}`)}</div>
+          <div className="palette-group-title" title={groupTitle(group.title)}>
+            {groupTitle(group.title)}
+          </div>
           <div className="palette-items">
             {group.types.map((type) => (
               <button
@@ -56,7 +91,7 @@ export function ElementPalette({ onAdd, activeLayerName }: ElementPaletteProps) 
                 <span className="palette-glyph" aria-hidden="true">
                   {GLYPH[type]}
                 </span>
-                <span>{t(`type.${type}`)}</span>
+                <span className="palette-label">{t(`type.${type}`)}</span>
               </button>
             ))}
           </div>

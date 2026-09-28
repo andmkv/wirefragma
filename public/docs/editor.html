@@ -29,7 +29,7 @@
 <h2 id="layout">The workspace</h2>
 <ul>
   <li><b>Toolbar</b> — canvas preset (desktop 1200×800, mobile portrait 390×844, mobile landscape 844×390, custom), grid and snap, zoom, undo/redo, <i>New</i>, <i>Layers</i>, <i>Import</i>, <i>Copy for LLM</i>, <i>Export</i>.</li>
-  <li><b>Add</b> — the element palette; new elements go into the active layer.</li>
+  <li><b>Add</b> — the element palette; new elements go into the active layer. Collapse it (panel button) to a compact two-column grid of icons.</li>
   <li><b>Layers</b> — layers and their elements as a tree: reorder by drag and drop, drop onto an element to nest, toggle visibility and lock.</li>
   <li><b>Canvas</b> — select, drag, resize, marquee-select.</li>
   <li><b>Properties</b> — name, label, <b>LLM note</b>, position and size, typography, symbol size, arrange controls.</li>
@@ -67,7 +67,12 @@
 <tr><td>Custom</td><td><b>Canvas</b></td><td><code>diagram</code></td><td>A small structured diagram: rectangles, ellipses, text, lines, arrows and curves in their own coordinate space. Exported as an ASCII sketch, a primitive list and relationships.</td></tr>
 <tr><td>Custom</td><td><b>Drawing</b></td><td><code>drawing</code></td><td>A freehand sketch plus a written description; only the description goes into the LLM export.</td></tr>
 </table></div>
-<div class="callout"><strong>Canvas and Drawing are new.</strong> Both can be placed, rendered and exported today; their popup scene editor is still being connected. Until then their contents come from an imported project or from a coding agent over <a href="mcp.html">MCP</a>.</div>
+<h3 id="canvas-drawing">Canvas and Drawing</h3>
+<p>Double-click a Canvas or Drawing, click the ✎ pencil that appears when you hover it, or use <i>Edit canvas / Edit drawing</i> in Properties. The popup edits a draft: <b>Done</b> applies everything as one undo step, <b>×</b> or <kbd>Esc</kbd> discards it.</p>
+<ul>
+  <li><b>Canvas</b> — tools Select, Line, Arrow, Rectangle, Ellipse, Bezier and Text. Drag to draw, drag a shape to move it, drag its handles to reshape. Give shapes <b>labels</b> — they turn the diagram into a readable spec (“an arrow connects <i>Login</i> to <i>User</i>”). Bring forward / Send backward change the order; <kbd>Delete</kbd> removes the selected shape. An LLM description is optional.</li>
+  <li><b>Drawing</b> — pen with three widths, an eraser that removes whole strokes, Undo/Redo, Clear. The export cannot read a sketch, so write an <b>LLM description</b>: without it the Drawing shows a ⚠ badge and is left out of the LLM export (it is still saved).</li>
+</ul>
 
 <h2 id="notes">LLM notes</h2>
 <p>The note is where a wireframe carries intent. Good notes say what happens on click or tap, the states (empty, loading, error, disabled), where data comes from, validation rules and emphasis (primary, destructive). One to three sentences per element is plenty. Give every element a meaningful <b>name</b> such as <code>emailInput</code> or <code>saveButton</code> — names become the headings of the export.</p>

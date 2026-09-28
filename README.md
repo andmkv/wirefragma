@@ -177,7 +177,7 @@ icons, avatars, lists, tables, tabs, buttons, icon buttons, inputs, textareas, d
 checkboxes, radio controls, toggles, sliders, progress indicators, and badges/chips — plus two
 scene elements: a **Canvas** for small structured diagrams (shapes, arrows, curves, labels, exported
 as an ASCII sketch, a primitive list and relationships) and a **Drawing** for freehand sketches
-described in words (their popup editor is still being wired up).
+described in words. Double-click either one (or use its hover pencil) to edit it in a popup.
 
 These are deliberately generic wireframe primitives rather than native platform widgets.
 Specialized patterns such as a search field or date picker can be expressed with a primitive plus

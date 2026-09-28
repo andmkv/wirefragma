@@ -252,8 +252,8 @@ write and a read through both APIs.
 `diagram` ("Canvas": structured shapes in `element.diagram`) and `drawing` (freehand strokes +
 `description` in `element.drawing`) are ordinary fields of the canonical document, described by the
 generated schema. MCP reads and writes them like everything else and never strips raw stroke data.
-Today the browser can place both types but their scene editor is not wired up yet, so an agent is
-currently the practical way to fill a Canvas. A compact MCP representation that omits Drawing
+Agents and the browser's popup editors write the same fields, so a Canvas drawn by an agent opens
+in the browser editor and vice versa. A compact MCP representation that omits Drawing
 strokes (for token efficiency) may be added later; it is not needed yet.
 
 ## Limits

@@ -109,9 +109,10 @@ format version bump (both payloads are optional additive fields):
   `ui-project`).
 
 `normalizeProject` repairs both payloads (a missing scene is recreated empty); `cloneElement` deep
-copies them. The popup scene editor (`src/components/SceneEditorShell.tsx`) exists but is not wired
-into the editor yet — placed Canvas/Drawing elements render their stored scene, and their contents
-currently come from import or an MCP agent ([mcp.md](./mcp.md)).
+copies them. Both are edited in popups (`src/components/DiagramEditor.tsx`,
+`src/components/DrawingEditor.tsx`, sharing `SceneEditorShell.tsx`), opened by double-click, the
+hover pencil or Properties → *Edit canvas / Edit drawing*. A popup edits a draft with its own undo
+stack; **Done** commits the whole session as one history step, Close/Escape discards it.
 
 `ELEMENT_TYPE_LABEL` maps each type to its human label used by the palette, the Properties panel
 and the Markdown export (`iconButton -> "Icon Button"`, `badge -> "Badge / Chip"`,

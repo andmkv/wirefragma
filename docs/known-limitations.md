@@ -21,7 +21,7 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
 | Rich text | no font-family picker, no colours, no per-span styling, no text boxes with wrapping/line breaks in the model |
 | Collaboration / sync | accounts and server storage are optional ([accounts.md](./accounts.md)); no realtime co-editing, no sharing, no comments; concurrent edits of one wireframe resolve by choosing a version; changes made elsewhere (another device, an MCP agent) arrive by polling within ~5 s |
 | AI features | none; the "LLM" part of the product is the export format and the MCP endpoint for **external** agents ([mcp.md](./mcp.md)) — Wirefragma itself never calls a model |
-| Scene editing | Canvas and Drawing elements can be placed and are rendered/exported, but their popup editor is not wired yet; their contents come from import or MCP |
+| Scene editing | the Canvas and Drawing popups are deliberately small: no layers, fills, colours, grouping or snapping inside a scene; a Drawing's eraser removes whole strokes |
 
 ## Editor behaviour
 
