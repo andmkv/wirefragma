@@ -10,7 +10,7 @@ import { hitRectsFor, isBorderOnlyHit } from "../model/hitAreas";
 import type { ElementType, WireframeElement, WireframeProject } from "../model/project";
 import { effectiveLocked, effectiveVisible, elementsInDrawOrder } from "../model/project";
 import type { Point, Rect, ViewTransform } from "./transform";
-import { worldToScreen } from "./transform";
+import { worldRectToScreen, worldToScreen } from "./transform";
 
 export type ResizeEdge =
   | "left"
@@ -190,4 +190,58 @@ export function visibleGeometries(
   return elementsInDrawOrder(project)
     .filter((element) => isElementVisible(project, element))
     .map((element) => elementGeometry(element, transform));
+}
+
+/* ------------------------------------------------------------ nested scenes */
+
+/** Height reserved above a titled Canvas scene for its title, in world units. */
+export const SCENE_TITLE_HEIGHT = 18;
+
+export interface SceneViewport {
+  /** World position of the scene's (0, 0). */
+  x: number;
+  y: number;
+  /** World units per scene unit (uniform: the scene is fitted, never distorted). */
+  scale: number;
+}
+
+/**
+ * Where a Canvas/Drawing scene sits inside its element: fitted (contain) and centred in the
+ * bounds, below an optional title band. The stored scene coordinates are never rewritten by an
+ * element resize — only this mapping changes.
+ */
+export function sceneViewport(
+  bounds: Rect,
+  scene: { width: number; height: number },
+  reservedTop = 0
+): SceneViewport {
+  const inset = 4;
+  const areaWidth = Math.max(1, bounds.width - inset * 2);
+  const areaHeight = Math.max(1, bounds.height - inset * 2 - reservedTop);
+  const scale = Math.max(0.0001, Math.min(areaWidth / scene.width, areaHeight / scene.height));
+  return {
+    x: bounds.x + inset + (areaWidth - scene.width * scale) / 2,
+    y: bounds.y + inset + reservedTop + (areaHeight - scene.height * scale) / 2,
+    scale
+  };
+}
+
+/** On-screen size of the "no LLM description" warning badge on a Drawing, in CSS pixels. */
+export const WARNING_BADGE_PX = 16;
+const WARNING_BADGE_INSET_PX = 6;
+
+/**
+ * Screen rect (canvas-local CSS px) of a Drawing's warning badge: top-right corner, inset so it
+ * never sits under a resize handle. The renderer draws it and the hover tooltip tests it from
+ * this one function.
+ */
+export function warningBadgeRect(bounds: Rect, transform: ViewTransform): Rect {
+  const screen = worldRectToScreen(transform, bounds);
+  const size = Math.min(WARNING_BADGE_PX, Math.max(8, Math.min(screen.width, screen.height) - WARNING_BADGE_INSET_PX * 2));
+  return {
+    x: screen.x + screen.width - size - WARNING_BADGE_INSET_PX,
+    y: screen.y + WARNING_BADGE_INSET_PX,
+    width: size,
+    height: size
+  };
 }

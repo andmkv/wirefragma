@@ -74,6 +74,7 @@ export const en = {
   "palette.group.Layout": "Layout",
   "palette.group.Content": "Content",
   "palette.group.Controls": "Controls",
+  "palette.group.Custom": "Custom",
   "palette.addTo": "Add {type} to layer \"{layer}\"",
 
   "type.container": "Container",
@@ -100,6 +101,8 @@ export const en = {
   "type.sidebar": "Sidebar",
   "type.bottomNav": "Bottom Navigation",
   "type.dialog": "Dialog",
+  "type.diagram": "Canvas",
+  "type.drawing": "Drawing",
 
   // ---------------------------------------------------------------- layers
   "layers.add": "+ Layer",
@@ -455,7 +458,44 @@ export const en = {
   "settings.deleteTitle": "Delete your account?",
   "settings.deleteMessage": "This permanently deletes {email} with every project and wireframe. Export anything you want to keep first.",
   "settings.confirmPassword": "Confirm with your password",
-  "settings.deleteButton": "Delete account"
+  "settings.deleteButton": "Delete account",
+
+  // ------------------------------------------------- canvas & drawing
+  "scene.drawingWarning": "Drawing can't be exported as text wireframe, only the LLM description can be exported. Add description or this element will be ignored on export",
+  "scene.description": "LLM description",
+  "scene.descriptionOptional": "LLM description (optional)",
+  "scene.drawingDescriptionPlaceholder": "Rough sketch of a cat mascot sitting above the empty-state message.",
+  "scene.diagramDescriptionPlaceholder": "Simplified authentication flow. Arrows show navigation after submitting the login form.",
+  "scene.editDrawing": "Edit drawing",
+  "scene.editCanvas": "Edit canvas",
+  "scene.drawingSummary": "Strokes: {count} · drawing space {width} × {height}",
+  "scene.diagramSummary": "Shapes: {count} · canvas space {width} × {height}",
+  "scene.canvasTitle": "Canvas: {name}",
+  "scene.done": "Done",
+  "scene.undo": "Undo",
+  "scene.redo": "Redo",
+  "scene.clear": "Clear",
+  "scene.discardQuestion": "Discard your changes?",
+  "scene.discard": "Discard",
+  "scene.keepEditing": "Keep editing",
+  "scene.pen": "Pen",
+  "scene.eraser": "Eraser",
+  "scene.thin": "Thin",
+  "scene.medium": "Medium",
+  "scene.thick": "Thick",
+  "scene.drawingHint": "Draw with the pen. The eraser removes whole strokes.",
+  "scene.tool.select": "Select",
+  "scene.tool.line": "Line",
+  "scene.tool.arrow": "Arrow",
+  "scene.tool.rectangle": "Rectangle",
+  "scene.tool.ellipse": "Ellipse",
+  "scene.tool.bezier": "Bezier",
+  "scene.tool.text": "Text",
+  "scene.label": "Label",
+  "scene.text": "Text",
+  "scene.forward": "Bring forward",
+  "scene.backward": "Send backward",
+  "scene.diagramHint": "Pick a tool and drag on the canvas to add a shape. Drag the handles to reshape; Delete removes the selected shape."
 } as const;
 
 export type MessageKey = keyof typeof en;

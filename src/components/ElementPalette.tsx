@@ -31,7 +31,9 @@ const GLYPH: Record<ElementType, string> = {
   toolbar: "▬",
   sidebar: "▮",
   bottomNav: "⊞",
-  dialog: "▣"
+  dialog: "▣",
+  diagram: "◇",
+  drawing: "✎"
 };
 
 /** Contents of the "Add" tab of the left panel. */
@@ -41,7 +43,7 @@ export function ElementPalette({ onAdd, activeLayerName }: ElementPaletteProps) 
     <>
       {PALETTE_GROUPS.map((group) => (
         <div className="palette-group" key={group.title}>
-          <div className="palette-group-title">{t(`palette.group.${group.title as "Layout" | "Content" | "Controls"}`)}</div>
+          <div className="palette-group-title">{t(`palette.group.${group.title as "Layout" | "Content" | "Controls" | "Custom"}`)}</div>
           <div className="palette-items">
             {group.types.map((type) => (
               <button

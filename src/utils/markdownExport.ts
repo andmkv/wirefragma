@@ -5,6 +5,8 @@ import {
   ELEMENT_TYPE_LABEL,
   PROJECT_VERSION,
   contentSizeOf,
+  exportedElementsInDrawOrder,
+  isOmittedFromLlmExport,
   layerName,
   parentOf,
   textStyleOf,
@@ -13,6 +15,7 @@ import {
   type WireframeProject
 } from "../model/project";
 import { renderAscii } from "./asciiRenderer";
+import { diagramContents, diagramRelationships, renderDiagramAscii } from "./diagramText";
 import { buildSpatialSummary } from "./spatialSummary";
 
 /**
@@ -93,9 +96,43 @@ function contentSizeLine(element: WireframeElement): string | null {
   return size === fallback ? null : `Content size: ${size}px`;
 }
 
+/** Canvas: description, scene size, nested sketch, primitive list and relationships. */
+function diagramSections(element: WireframeElement): string[] {
+  const data = element.diagram;
+  if (element.type !== "diagram" || !data) return [];
+  const parts: string[] = [];
+  const description = (data.description ?? "").trim();
+  if (description) parts.push("", "LLM description:", "", description);
+  parts.push("", "Canvas size:", "", `${Math.round(data.width)} × ${Math.round(data.height)}`);
+  if (data.objects.length === 0) {
+    parts.push("", "Canvas contents:", "", "_The canvas is empty._");
+    return parts;
+  }
+  parts.push("", "Canvas sketch:", "", "```text", renderDiagramAscii(data), "```");
+  parts.push("", "Canvas contents:", "", ...diagramContents(data));
+  const relationships = diagramRelationships(data);
+  if (relationships.length > 0) parts.push("", "Relationships:", "", ...relationships);
+  return parts;
+}
+
+/** Drawing: only the human-written description stands in for the sketch. */
+function drawingSections(element: WireframeElement): string[] {
+  if (element.type !== "drawing") return [];
+  return [
+    "",
+    "LLM description:",
+    "",
+    (element.drawing?.description ?? "").trim(),
+    "",
+    "Note:",
+    "The visual content of this Drawing is not represented in the text wireframe.",
+    "Use the LLM description as its semantic representation."
+  ];
+}
+
 function visibleContent(element: WireframeElement): string[] {
   const lines: string[] = [];
-  if (element.type === "table") return lines;
+  if (element.type === "table" || element.type === "diagram" || element.type === "drawing") return lines;
   if (element.items && element.items.length > 0 && element.type !== "text") {
     lines.push(
       ...element.items
@@ -123,7 +160,8 @@ function elementSection(project: WireframeProject, element: WireframeElement): s
   parts.push("");
   parts.push(`Layer: ${layerName(project, element.layerId)}`);
   const parent = parentOf(project, element);
-  if (parent) {
+  // A parent that is itself left out of the export (an undescribed Drawing) is not referenced.
+  if (parent && !isOmittedFromLlmExport(parent)) {
     parts.push("");
     parts.push(`Inside: \`${fenceSafe(parent.name)}\``);
   }
@@ -162,6 +200,8 @@ function elementSection(project: WireframeProject, element: WireframeElement): s
     parts.push(...table);
   }
 
+  parts.push(...diagramSections(element), ...drawingSections(element));
+
   if (element.note.trim()) {
     parts.push("");
     parts.push("LLM note:");
@@ -187,6 +227,8 @@ export function projectToMarkdown(project: WireframeProject): string {
   // The human/LLM sections describe the currently visible interface; hidden elements and
   // layers survive only in the canonical `ui-project` source below.
   const visible = visibleElementsInDrawOrder(project);
+  // Drawings without an LLM description are ignored by every LLM-facing section below.
+  const exported = exportedElementsInDrawOrder(project);
   const sections: string[] = [];
 
   sections.push(`# UI Wireframe: ${project.title}`);
@@ -198,9 +240,12 @@ export function projectToMarkdown(project: WireframeProject): string {
   sections.push("");
   sections.push(`Type: ${canvasModeLabel(project)}`);
   sections.push(`Canvas: ${Math.round(project.canvas.width)} × ${Math.round(project.canvas.height)}`);
-  sections.push(`Elements: ${visible.length}`);
+  sections.push(`Elements: ${exported.length}`);
   if (visible.length !== project.elements.length) {
     sections.push(`Hidden elements omitted: ${project.elements.length - visible.length}`);
+  }
+  if (exported.length !== visible.length) {
+    sections.push(`Drawings without an LLM description omitted: ${visible.length - exported.length}`);
   }
   const layerList = project.layers.map((layer) => `${layer.name}${layer.visible ? "" : " (hidden)"}`);
   sections.push(`Layers (front to back): ${layerList.join(" → ")}`);
@@ -214,11 +259,11 @@ export function projectToMarkdown(project: WireframeProject): string {
 
   sections.push("");
   sections.push("## UI Elements");
-  if (visible.length === 0) {
+  if (exported.length === 0) {
     sections.push("");
     sections.push("_No elements on the canvas._");
   } else {
-    for (const element of visible) {
+    for (const element of exported) {
       sections.push("");
       sections.push(elementSection(project, element));
     }

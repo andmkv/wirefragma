@@ -26,7 +26,15 @@ import {
   PROJECT_VERSION,
   type ElementType
 } from "../model/project";
+import { DIAGRAM_OBJECT_TYPES, DEFAULT_DIAGRAM_SIZE } from "../model/diagram";
+import { DEFAULT_DRAWING_SIZE, DRAWING_PEN_WIDTHS, MAX_SCENE_SIZE, MIN_SCENE_SIZE } from "../model/drawing";
 import { PROJECT_FENCE } from "./markdownExport";
+
+const scenePoint = { type: "object", required: ["x", "y"], properties: { x: { type: "number" }, y: { type: "number" } } };
+const sceneSize = {
+  width: { type: "number", minimum: MIN_SCENE_SIZE, maximum: MAX_SCENE_SIZE },
+  height: { type: "number", minimum: MIN_SCENE_SIZE, maximum: MAX_SCENE_SIZE }
+};
 
 /** What `label` / `items` / `columns` mean for each type — the part a model cannot guess. */
 export const TYPE_GUIDE: Record<ElementType, string> = {
@@ -56,7 +64,11 @@ export const TYPE_GUIDE: Record<ElementType, string> = {
   toolbar: "Top app bar / header strip. `label` is its title; put its buttons inside it with `parentId`.",
   sidebar: "Side navigation. `label` is the header; `items` are the navigation entries, top to bottom.",
   bottomNav: "Mobile bottom navigation bar. `items` are the destinations, left to right.",
-  dialog: "Modal window. `label` is its title; put its content inside it with `parentId`."
+  dialog: "Modal window. `label` is its title; put its content inside it with `parentId`.",
+  diagram:
+    "\"Canvas\": a small structured diagram (flow, schema, map). `label` is its title; the shapes go in `diagram` (see below), never as separate elements.",
+  drawing:
+    "Freehand sketch. The strokes go in `drawing.strokes`; `drawing.description` says what it shows — without a description the sketch is left out of the LLM export."
 };
 
 function typeTable(): string[] {
@@ -267,7 +279,58 @@ export function projectJsonSchema() {
                 align: { enum: ["left", "center", "right"] }
               }
             },
-            contentSize: { type: "integer", minimum: MIN_CONTENT_SIZE, maximum: MAX_CONTENT_SIZE }
+            contentSize: { type: "integer", minimum: MIN_CONTENT_SIZE, maximum: MAX_CONTENT_SIZE },
+            diagram: {
+              type: "object",
+              description: "`diagram` (Canvas) elements only: shapes in the scene's own coordinate space.",
+              required: ["width", "height", "objects"],
+              properties: {
+                ...sceneSize,
+                description: { type: "string" },
+                objects: {
+                  type: "array",
+                  description: "Back-to-front paint order.",
+                  items: {
+                    type: "object",
+                    required: ["id", "type"],
+                    properties: {
+                      id: { type: "string" },
+                      type: { enum: [...DIAGRAM_OBJECT_TYPES] },
+                      label: { type: "string" },
+                      x: { type: "number" },
+                      y: { type: "number" },
+                      width: { type: "number" },
+                      height: { type: "number" },
+                      x1: { type: "number" },
+                      y1: { type: "number" },
+                      x2: { type: "number" },
+                      y2: { type: "number" },
+                      start: scenePoint,
+                      control1: scenePoint,
+                      control2: scenePoint,
+                      end: scenePoint
+                    }
+                  }
+                }
+              }
+            },
+            drawing: {
+              type: "object",
+              description: "`drawing` elements only: freehand strokes in the drawing's own coordinate space.",
+              required: ["width", "height", "strokes"],
+              properties: {
+                ...sceneSize,
+                description: { type: "string" },
+                strokes: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["points", "width"],
+                    properties: { points: { type: "array", items: scenePoint }, width: { type: "number" } }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -335,6 +398,8 @@ export function wirefragmaSchemaMarkdown(): string {
     "  textStyle?: { fontSize?: number; bold?: boolean; italic?: boolean; underline?: boolean;",
     "                align?: \"left\" | \"center\" | \"right\" };   // `text` only",
     "  contentSize?: number;             // `icon` / `image` symbol size",
+    "  diagram?: Diagram;                // `diagram` (Canvas) only, see below",
+    "  drawing?: Drawing;                // `drawing` only, see below",
     "}",
     "```",
     "",
@@ -360,6 +425,28 @@ export function wirefragmaSchemaMarkdown(): string {
     `- \`contentSize\` applies to \`icon\` and \`image\` (default ${DEFAULT_ICON_CONTENT_SIZE} for icons, ${DEFAULT_IMAGE_CONTENT_SIZE} for images; range ${MIN_CONTENT_SIZE}–${MAX_CONTENT_SIZE}).`,
     "- Emoji are welcome as icon/iconButton/avatar/image labels (`🔍`, `⚙️`, `🛒`).",
     "- Omit `items`/`columns` for types that do not use them.",
+    "",
+    "## Canvas (`diagram`) and Drawing",
+    "",
+    "Both hold a small scene in their OWN coordinate space (`width` × `height`, origin top-left, y down),",
+    "fitted into the element's bounds. Scene coordinates never change when the element is moved or resized.",
+    "",
+    "```ts",
+    `Diagram = { width: number; height: number;            // e.g. ${DEFAULT_DIAGRAM_SIZE.width} × ${DEFAULT_DIAGRAM_SIZE.height}`,
+    "            description?: string;                     // optional context for the whole diagram",
+    "            objects: DiagramObject[] }                // back-to-front",
+    "DiagramObject =",
+    "  | { id; type: \"rectangle\" | \"ellipse\" | \"text\"; x; y; width; height; label? }   // text: label is the text",
+    "  | { id; type: \"line\" | \"arrow\"; x1; y1; x2; y2; label? }                       // arrow points at (x2, y2)",
+    "  | { id; type: \"bezier\"; start; control1; control2; end; label? }                 // points are { x, y }",
+    `Drawing = { width: number; height: number;            // e.g. ${DEFAULT_DRAWING_SIZE.width} × ${DEFAULT_DRAWING_SIZE.height}`,
+    `            strokes: { points: { x; y }[]; width: number }[];   // pen widths ${DRAWING_PEN_WIDTHS.join(" / ")}`,
+    "            description?: string }",
+    "```",
+    "",
+    "- Prefer a Canvas for anything structural (flows, schemas, maps): label every shape and connector,",
+    "  and start/end arrows on the shapes they connect — the export derives relationships from that geometry.",
+    "- A Drawing is for illustrations only. Always write its `description`; an empty `strokes` array is fine.",
     "",
     "## Writing good notes",
     "",

@@ -24,6 +24,9 @@
  *    applied by `reindexLayers`, which every structural transform funnels through.
  */
 
+import { normalizeDiagramData, type DiagramData } from "./diagram";
+import { hasDrawingDescription, normalizeDrawingData, type DrawingData } from "./drawing";
+
 export const ELEMENT_TYPES = [
   "container",
   "text",
@@ -48,7 +51,9 @@ export const ELEMENT_TYPES = [
   "toolbar",
   "sidebar",
   "bottomNav",
-  "dialog"
+  "dialog",
+  "diagram",
+  "drawing"
 ] as const;
 
 export type ElementType = (typeof ELEMENT_TYPES)[number];
@@ -104,6 +109,12 @@ export interface WireframeElement {
 
   /** Rendered size of an `icon` / `image` symbol or emoji label, in logical px. */
   contentSize?: number;
+
+  /** Scene of a `diagram` (shown as "Canvas" in the UI): structured shapes in their own space. */
+  diagram?: DiagramData;
+
+  /** Freehand strokes + LLM description of a `drawing`. */
+  drawing?: DrawingData;
 }
 
 export type TextAlign = "left" | "center" | "right";
@@ -213,7 +224,9 @@ export const ELEMENT_TYPE_LABEL: Record<ElementType, string> = {
   toolbar: "Toolbar",
   sidebar: "Sidebar",
   bottomNav: "Bottom Navigation",
-  dialog: "Dialog"
+  dialog: "Dialog",
+  diagram: "Canvas",
+  drawing: "Drawing"
 };
 
 export class ProjectValidationError extends Error {
@@ -523,6 +536,10 @@ export function normalizeProject(raw: unknown): WireframeProject {
     const contentSize = normalizeContentSize(element.contentSize);
     if (contentSize !== undefined) normalized.contentSize = contentSize;
 
+    // Scene data belongs to its own type only; a missing scene is recreated empty.
+    if (element.type === "diagram") normalized.diagram = normalizeDiagramData(element.diagram);
+    if (element.type === "drawing") normalized.drawing = normalizeDrawingData(element.drawing);
+
     // Validated against the final id set by `canonicalizeTree` (via `reindexLayers`) below.
     const parentId = asString(element.parentId).trim();
     if (parentId) normalized.parentId = parentId;
@@ -689,6 +706,20 @@ export function visibleElementsInDrawOrder(project: WireframeProject): Wireframe
   return elementsInDrawOrder(project).filter((element) => effectiveVisible(project, element));
 }
 
+/**
+ * A Drawing without an LLM description is left out of every LLM-facing section (ASCII, UI
+ * Elements, Spatial Summary): Wirefragma cannot say what the sketch means. Its strokes still
+ * travel in the canonical `ui-project` block so nothing is lost on re-import.
+ */
+export function isOmittedFromLlmExport(element: WireframeElement): boolean {
+  return element.type === "drawing" && !hasDrawingDescription(element.drawing);
+}
+
+/** Visible elements that take part in the LLM-facing export, back → front. */
+export function exportedElementsInDrawOrder(project: WireframeProject): WireframeElement[] {
+  return visibleElementsInDrawOrder(project).filter((element) => !isOmittedFromLlmExport(element));
+}
+
 /** Elements of one layer. `frontFirst` matches the Layers panel convention. */
 export function elementsOfLayer(
   project: WireframeProject,
@@ -783,6 +814,8 @@ export function cloneElement(element: WireframeElement): WireframeElement {
   if (element.items) copy.items = [...element.items];
   if (element.columns) copy.columns = [...element.columns];
   if (element.textStyle) copy.textStyle = { ...element.textStyle };
+  if (element.diagram) copy.diagram = JSON.parse(JSON.stringify(element.diagram)) as DiagramData;
+  if (element.drawing) copy.drawing = JSON.parse(JSON.stringify(element.drawing)) as DrawingData;
   return copy;
 }
 

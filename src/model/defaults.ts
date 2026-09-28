@@ -9,6 +9,8 @@ import {
   type WireframeLayer,
   type WireframeProject
 } from "./project";
+import { createDiagramData } from "./diagram";
+import { createDrawingData } from "./drawing";
 
 export const CANVAS_PRESETS: Record<Exclude<CanvasMode, "custom">, { width: number; height: number }> = {
   desktop: { width: 1200, height: 800 },
@@ -56,7 +58,10 @@ export const ELEMENT_DEFAULTS: Record<ElementType, ElementDefaults> = {
   toolbar: { width: 480, height: 48, label: "Toolbar" },
   sidebar: { width: 220, height: 400, label: "Sidebar", items: ["Item 1", "Item 2", "Item 3"] },
   bottomNav: { width: 360, height: 64, label: "", items: ["Home", "Search", "Profile"] },
-  dialog: { width: 360, height: 240, label: "Dialog" }
+  dialog: { width: 360, height: 240, label: "Dialog" },
+  // Same aspect ratio as the default scene (600×400 / 480×360), so a fresh scene fills its box.
+  diagram: { width: 450, height: 300, label: "" },
+  drawing: { width: 240, height: 180, label: "" }
 };
 
 /** Palette groups shown in the left "Add" tab. */
@@ -77,16 +82,21 @@ export const PALETTE_GROUPS: { title: string; types: ElementType[] }[] = [
       "slider",
       "progress"
     ]
-  }
+  },
+  { title: "Custom", types: ["diagram", "drawing"] }
 ];
 
+/** Name stem for generated names when it differs from the type id (`diagram` is "Canvas"). */
+const NAME_STEM: Partial<Record<ElementType, string>> = { diagram: "canvas" };
+
 export function defaultNameFor(type: ElementType, project: WireframeProject): string {
+  const base = NAME_STEM[type] ?? type;
   const taken = new Set(project.elements.map((element) => element.name));
-  const stem = `${type}${taken.has(type) ? 2 : 1}`;
+  const stem = `${base}${taken.has(base) ? 2 : 1}`;
   if (!taken.has(stem)) return stem;
   let counter = 3;
-  while (taken.has(`${type}${counter}`)) counter += 1;
-  return `${type}${counter}`;
+  while (taken.has(`${base}${counter}`)) counter += 1;
+  return `${base}${counter}`;
 }
 
 export interface CreateElementOptions {
@@ -126,6 +136,8 @@ export function createElement(
   if (items) element.items = [...items];
   const columns = options.columns ?? defaults.columns;
   if (columns) element.columns = [...columns];
+  if (type === "diagram") element.diagram = createDiagramData();
+  if (type === "drawing") element.drawing = createDrawingData();
   return element;
 }
 

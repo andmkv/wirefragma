@@ -1,6 +1,6 @@
 import {
   ELEMENT_TYPE_LABEL,
-  visibleElementsInDrawOrder,
+  exportedElementsInDrawOrder,
   type WireframeElement,
   type WireframeProject
 } from "../model/project";
@@ -77,8 +77,8 @@ function describeLayoutElement(
 
 export function buildSpatialSummary(project: WireframeProject): string[] {
   const { canvas } = project;
-  // The summary describes what the user actually sees.
-  const elements = visibleElementsInDrawOrder(project);
+  // The summary describes what the user actually sees (minus undescribed Drawings).
+  const elements = exportedElementsInDrawOrder(project);
   if (elements.length === 0) return ["- The screen is empty."];
 
   const lines: string[] = [];
