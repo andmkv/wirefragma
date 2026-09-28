@@ -55,6 +55,29 @@ export interface WireframeRecord extends WireframeSummary {
   data: unknown;
 }
 
+/** MCP permission a personal access token can carry (`write` never implies `delete`). */
+export type McpScope = "read" | "write" | "delete";
+
+/** A personal MCP token as the browser sees it: never the secret, never its hash. */
+export interface McpToken {
+  id: number;
+  name: string;
+  /** First characters of the token ("wf_mcp_a1b2c"), for recognising it. */
+  prefix: string;
+  scopes: McpScope[];
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  expired: boolean;
+}
+
+export interface McpEndpointInfo {
+  /** Public URL MCP clients connect to (from the server's `app_url`). */
+  endpoint: string;
+  /** False when the MCP endpoint is not installed / disabled on this host. */
+  available: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -170,5 +193,11 @@ export const api = {
     request<Ok & { revision: number; projects: ProjectSummary[] }>("wireframe-rename", { body: { id, title } }),
   duplicateWireframe: (id: number) =>
     request<Ok & { wireframeId: number; projects: ProjectSummary[] }>("wireframe-duplicate", { body: { id } }),
-  deleteWireframe: (id: number) => request<Ok & { projects: ProjectSummary[] }>("wireframe-delete", { body: { id } })
+  deleteWireframe: (id: number) => request<Ok & { projects: ProjectSummary[] }>("wireframe-delete", { body: { id } }),
+
+  mcpTokens: () => request<{ mcp: McpEndpointInfo; tokens: McpToken[] }>("mcp-tokens"),
+  /** The raw `token` is returned by this call only; it is shown once and never stored by the app. */
+  createMcpToken: (body: { name: string; scopes: McpScope[]; expiresInDays: number | null; password: string }) =>
+    request<Ok & { token: string; record: McpToken; tokens: McpToken[] }>("mcp-token-create", { body }),
+  revokeMcpToken: (id: number) => request<Ok & { tokens: McpToken[] }>("mcp-token-revoke", { body: { id } })
 };

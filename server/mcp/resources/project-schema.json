@@ -1,0 +1,407 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Wirefragma project",
+  "type": "object",
+  "required": [
+    "version",
+    "title",
+    "canvas",
+    "layers",
+    "elements"
+  ],
+  "properties": {
+    "version": {
+      "const": 2
+    },
+    "title": {
+      "type": "string"
+    },
+    "canvas": {
+      "type": "object",
+      "required": [
+        "mode",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "desktop",
+            "mobile",
+            "mobileLandscape",
+            "custom"
+          ]
+        },
+        "width": {
+          "type": "number",
+          "minimum": 120,
+          "maximum": 6000
+        },
+        "height": {
+          "type": "number",
+          "minimum": 120,
+          "maximum": 6000
+        }
+      }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Front-most layer first.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "visible": {
+            "type": "boolean",
+            "default": true
+          },
+          "locked": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      }
+    },
+    "elements": {
+      "type": "array",
+      "description": "Back-to-front paint order; children after their parent.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "name",
+          "x",
+          "y",
+          "width",
+          "height",
+          "layerId"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "container",
+              "text",
+              "button",
+              "input",
+              "textarea",
+              "checkbox",
+              "radio",
+              "toggle",
+              "dropdown",
+              "slider",
+              "progress",
+              "iconButton",
+              "tabs",
+              "list",
+              "table",
+              "image",
+              "icon",
+              "avatar",
+              "badge",
+              "divider",
+              "toolbar",
+              "sidebar",
+              "bottomNav",
+              "dialog",
+              "diagram",
+              "drawing"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "default": ""
+          },
+          "note": {
+            "type": "string",
+            "default": ""
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number",
+            "minimum": 8
+          },
+          "height": {
+            "type": "number",
+            "minimum": 8
+          },
+          "layerId": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": "string"
+          },
+          "visible": {
+            "type": "boolean",
+            "default": true
+          },
+          "locked": {
+            "type": "boolean",
+            "default": false
+          },
+          "zIndex": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "textStyle": {
+            "type": "object",
+            "properties": {
+              "fontSize": {
+                "type": "integer",
+                "minimum": 8,
+                "maximum": 96
+              },
+              "bold": {
+                "type": "boolean"
+              },
+              "italic": {
+                "type": "boolean"
+              },
+              "underline": {
+                "type": "boolean"
+              },
+              "align": {
+                "enum": [
+                  "left",
+                  "center",
+                  "right"
+                ]
+              }
+            }
+          },
+          "contentSize": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 256
+          },
+          "diagram": {
+            "type": "object",
+            "description": "`diagram` (Canvas) elements only: shapes in the scene's own coordinate space.",
+            "required": [
+              "width",
+              "height",
+              "objects"
+            ],
+            "properties": {
+              "width": {
+                "type": "number",
+                "minimum": 40,
+                "maximum": 4000
+              },
+              "height": {
+                "type": "number",
+                "minimum": 40,
+                "maximum": 4000
+              },
+              "description": {
+                "type": "string"
+              },
+              "objects": {
+                "type": "array",
+                "description": "Back-to-front paint order.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "type"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "rectangle",
+                        "ellipse",
+                        "line",
+                        "arrow",
+                        "bezier",
+                        "text"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    },
+                    "width": {
+                      "type": "number"
+                    },
+                    "height": {
+                      "type": "number"
+                    },
+                    "x1": {
+                      "type": "number"
+                    },
+                    "y1": {
+                      "type": "number"
+                    },
+                    "x2": {
+                      "type": "number"
+                    },
+                    "y2": {
+                      "type": "number"
+                    },
+                    "start": {
+                      "type": "object",
+                      "required": [
+                        "x",
+                        "y"
+                      ],
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "control1": {
+                      "type": "object",
+                      "required": [
+                        "x",
+                        "y"
+                      ],
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "control2": {
+                      "type": "object",
+                      "required": [
+                        "x",
+                        "y"
+                      ],
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "end": {
+                      "type": "object",
+                      "required": [
+                        "x",
+                        "y"
+                      ],
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "drawing": {
+            "type": "object",
+            "description": "`drawing` elements only: freehand strokes in the drawing's own coordinate space.",
+            "required": [
+              "width",
+              "height",
+              "strokes"
+            ],
+            "properties": {
+              "width": {
+                "type": "number",
+                "minimum": 40,
+                "maximum": 4000
+              },
+              "height": {
+                "type": "number",
+                "minimum": 40,
+                "maximum": 4000
+              },
+              "description": {
+                "type": "string"
+              },
+              "strokes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "points",
+                    "width"
+                  ],
+                  "properties": {
+                    "points": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "properties": {
+                          "x": {
+                            "type": "number"
+                          },
+                          "y": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "width": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

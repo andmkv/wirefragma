@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Accounts & projects — Wirefragma docs</title>
+  <meta name="description" content="Wirefragma accounts: projects panel, autosave, conflicts, changes made on other devices or by agents, settings and privacy." />
+  <link rel="icon" href="../brand/wf_logo_square.png" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button type="button" class="menu-toggle" aria-label="Toggle navigation">Menu</button>
+    <a class="brand" href="index.html"><img src="../brand/wf_logo_square.png" alt="" /> Wirefragma <small>Docs</small></a>
+    <span class="spacer"></span>
+    <a class="gh" href="https://github.com/andmkv/wirefragma">GitHub</a>
+    <a class="open-app" href="../">Open the app</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" data-nav aria-label="Documentation">
+      <a href="index.html">Overview</a>
+    </nav>
+    <main>
+      <article>
+<p class="eyebrow">Accounts</p>
+<h1>Accounts &amp; projects</h1>
+<p class="lead">With an account, wireframes live on the server, grouped in projects, available on every device — and optionally to your coding agents.</p>
+
+<h2 id="modes">Signing in is optional</h2>
+<p>If the site runs the accounts backend you see a sign-in screen; <i>Continue without an account</i> keeps the guest editor. Sign-up needs an email confirmation; password reset works by email. On a purely static host there is no backend and Wirefragma is always the guest editor.</p>
+
+<h2 id="projects">The projects panel</h2>
+<ul>
+  <li>Projects are folders; wireframes are the rows inside, with a compact age (“5m”, “2h”).</li>
+  <li><b>+</b> in the header creates a project (with a first wireframe); <b>+</b> on a project row adds a wireframe.</li>
+  <li><b>…</b> on a row: rename (or double-click), duplicate, delete (with confirmation).</li>
+  <li><i>Import</i> at the bottom adds an exported Markdown/JSON as a new wireframe in a project you choose.</li>
+  <li>The panel collapses to a narrow rail; switching wireframes is instant and keeps each one's undo history.</li>
+</ul>
+
+<h2 id="autosave">Autosave and conflicts</h2>
+<p>Edits save about 0.7 s after you stop. Each save says which revision it was based on; if the wireframe changed in the meantime (another tab, another device, an agent), nothing is overwritten and a banner offers:</p>
+<ul>
+  <li><b>Keep my version</b> — save yours over the newer one;</li>
+  <li><b>Load the other version</b> — discard your unsaved edits and load the latest copy.</li>
+</ul>
+<p>The footer of the panel shows the save state: saved, saving, unsaved changes, offline (retrying every 5 s) or changed elsewhere.</p>
+
+<h2 id="elsewhere">Changes made elsewhere</h2>
+<p>While the tab is visible, Wirefragma checks every few seconds (and whenever you return to the tab) whether anything changed:</p>
+<ul>
+  <li>an open wireframe without unsaved edits is reloaded, with a short <i>Updated elsewhere</i> notice;</li>
+  <li>if you do have unsaved edits, you get the conflict banner above — your work is never replaced silently;</li>
+  <li>new, renamed, duplicated or deleted projects and wireframes appear in the panel; if the open wireframe was deleted, another one opens.</li>
+</ul>
+<p>This is how edits from an <a href="mcp.html">MCP agent</a> show up while you watch.</p>
+
+<h2 id="settings">Settings</h2>
+<p>Avatar menu → <i>Settings…</i>: display name, language and theme (stored with the account), password, <b>MCP access</b> (tokens for coding agents) and account deletion. Deleting the account removes every project, wireframe and token.</p>
+
+<h2 id="privacy">Privacy and security</h2>
+<ul>
+  <li>Passwords are hashed; sessions use an HttpOnly cookie; every change is protected against cross-site requests.</li>
+  <li>Your wireframes are only readable with your session, or with an MCP token you created.</li>
+  <li>Wirefragma sends your wireframes nowhere and calls no AI service.</li>
+</ul>
+      </article>
+      <footer class="site">Wirefragma is open source (MIT). Found a mistake in these pages? <a href="https://github.com/andmkv/wirefragma/issues">Open an issue</a>.</footer>
+    </main>
+    <aside class="toc" data-toc></aside>
+  </div>
+  <script src="docs.js"></script>
+</body>
+</html>

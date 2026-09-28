@@ -3,6 +3,7 @@ import { PreferencesControl } from "../components/PreferencesControl";
 import { useT, type Locale, type ThemePreference } from "../i18n";
 import { api, type AccountUser } from "./api";
 import { errorMessage } from "./errors";
+import { McpAccessSection } from "./McpAccess";
 
 function useEscape(onClose: () => void) {
   useEffect(() => {
@@ -24,7 +25,7 @@ interface SettingsDialogProps {
 
 /**
  * Account settings: profile, interface language and theme (stored with the account), password,
- * and account deletion.
+ * MCP access tokens, and account deletion.
  */
 export function SettingsDialog({ user, onClose, onUserUpdated, onAccountDeleted }: SettingsDialogProps) {
   const t = useT();
@@ -136,6 +137,8 @@ export function SettingsDialog({ user, onClose, onUserUpdated, onAccountDeleted 
               </button>
             </form>
           </section>
+
+          <McpAccessSection />
 
           <section className="settings-section danger-zone">
             <h3>{t("settings.danger")}</h3>

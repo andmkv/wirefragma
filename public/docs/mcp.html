@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MCP for coding agents — Wirefragma docs</title>
+  <meta name="description" content="Connect Claude Code, Codex, Cursor or the MCP Inspector to your Wirefragma projects: personal tokens, endpoint, tools, resources, conflicts and limits." />
+  <link rel="icon" href="../brand/wf_logo_square.png" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button type="button" class="menu-toggle" aria-label="Toggle navigation">Menu</button>
+    <a class="brand" href="index.html"><img src="../brand/wf_logo_square.png" alt="" /> Wirefragma <small>Docs</small></a>
+    <span class="spacer"></span>
+    <a class="gh" href="https://github.com/andmkv/wirefragma">GitHub</a>
+    <a class="open-app" href="../">Open the app</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" data-nav aria-label="Documentation">
+      <a href="index.html">Overview</a>
+    </nav>
+    <main>
+      <article>
+<p class="eyebrow">Agents &amp; API</p>
+<h1>MCP for coding agents</h1>
+<p class="lead">Let an agent read your wireframes and design new ones while you keep editing visually — the same documents, the same revisions, one account.</p>
+
+<pre class="diagram"><code>  you, in the browser                      your coding agent
+        │  session                                │  Bearer wf_mcp_…
+        ▼                                         ▼
+  Wirefragma account API ───── same storage ───── Wirefragma MCP endpoint
+                     projects · wireframes · revisions</code></pre>
+
+<div class="callout"><strong>Wirefragma calls no AI.</strong> Your agent (Claude Code, Codex, Cursor, …) is the LLM. Wirefragma stores, validates and serves the wireframe documents. Guest projects in the browser are not reachable over MCP — sign in and import them first.</div>
+
+<h2 id="setup">Set up in two minutes</h2>
+<ol class="steps">
+  <li>Sign in and open avatar menu → <b>Settings…</b> → <b>MCP access</b>.</li>
+  <li>Click <b>Create token…</b>, name it after the agent, choose permissions and expiry, confirm with your password.</li>
+  <li><b>Copy the token now</b> — it is shown only once.</li>
+  <li>Add the endpoint shown there (for this site: <code>https://wire.smallhall.net/mcp/</code>) to your MCP client with the header <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+</ol>
+
+<figure class="shot">
+  <img src="images/mcp-settings.png" alt="Settings → MCP access: the endpoint with a Copy button, and the list of access tokens with their permissions, dates and Revoke buttons" width="1680" height="1000" />
+</figure>
+
+<h2 id="clients">Connecting a client</h2>
+<h3 id="inspector">MCP Inspector</h3>
+<pre><code>npx @modelcontextprotocol/inspector --cli https://wire.smallhall.net/mcp/ --transport http \
+  --header "Authorization: Bearer wf_mcp_…" --method tools/list</code></pre>
+<p>Without <code>--cli</code> it opens a web UI: pick <i>Streamable HTTP</i>, enter the URL and add the <code>Authorization</code> header.</p>
+<h3 id="claude-code">Claude Code</h3>
+<pre><code>claude mcp add --transport http wirefragma https://wire.smallhall.net/mcp/ \
+  --header "Authorization: Bearer wf_mcp_…"</code></pre>
+<h3 id="url-headers">Clients with a JSON config (Cursor and others)</h3>
+<pre><code>{
+  "mcpServers": {
+    "wirefragma": {
+      "url": "https://wire.smallhall.net/mcp/",
+      "headers": { "Authorization": "Bearer wf_mcp_…" }
+    }
+  }
+}</code></pre>
+<p>Configuration formats belong to each client and change over time — check its documentation. Keep tokens out of committed files.</p>
+
+<h2 id="tokens">Tokens and permissions</h2>
+<div class="table-wrap"><table>
+<tr><th>Permission</th><th>Lets the agent</th></tr>
+<tr><td><b>Read projects</b> <span class="pill">read</span></td><td>list projects, read wireframes and the format description — every token has it</td></tr>
+<tr><td><b>Create and edit</b> <span class="pill">write</span></td><td>create projects and wireframes, save changes, rename, duplicate (on by default)</td></tr>
+<tr><td><b>Delete</b> <span class="pill">delete</span></td><td>permanently delete wireframes and projects (off by default; never implied by edit)</td></tr>
+</table></div>
+<ul>
+  <li>Expiry: 30 days, 90 days (default), 1 year or never. Revoking takes effect on the agent's very next request.</li>
+  <li>Only a hash of each token is stored; the list shows its first characters (<code>wf_mcp_a1b2c…</code>), when it was created, last used and when it expires.</li>
+</ul>
+
+<h2 id="tools">Tools</h2>
+<div class="table-wrap"><table>
+<tr><th>Tool</th><th>Needs</th><th>Does</th></tr>
+<tr><td><code>list_projects</code></td><td>read</td><td>projects with wireframe ids, titles and revisions (no documents)</td></tr>
+<tr><td><code>get_wirefragma_schema</code></td><td>read</td><td>the project format: shapes, element types, example, JSON Schema, editing rules</td></tr>
+<tr><td><code>get_wireframe</code></td><td>read</td><td><code>{id, projectId, title, revision, updatedAt, data}</code> — <code>data</code> exactly as stored</td></tr>
+<tr><td><code>create_project</code></td><td>write</td><td><code>name</code>, optional <code>withWireframe</code> (default true) and <code>wireframeTitle</code> (“Screen 1”)</td></tr>
+<tr><td><code>rename_project</code></td><td>write</td><td><code>projectId</code>, <code>name</code></td></tr>
+<tr><td><code>create_wireframe</code></td><td>write</td><td><code>projectId</code>, <code>title</code>, optional complete <code>data</code> (blank otherwise)</td></tr>
+<tr><td><code>update_wireframe</code></td><td>write</td><td><code>wireframeId</code>, <code>baseRevision</code>, complete <code>data</code>, optional <code>title</code></td></tr>
+<tr><td><code>rename_wireframe</code></td><td>write</td><td><code>wireframeId</code>, <code>title</code> (the document title follows)</td></tr>
+<tr><td><code>duplicate_wireframe</code></td><td>write</td><td><code>wireframeId</code>, optional <code>title</code> (default “&lt;title&gt; copy”)</td></tr>
+<tr><td><code>delete_wireframe</code></td><td>delete</td><td><code>wireframeId</code> + <code>confirmTitle</code> equal to the current title</td></tr>
+<tr><td><code>delete_project</code></td><td>delete</td><td><code>projectId</code> + <code>confirmName</code>; deletes all its wireframes too</td></tr>
+</table></div>
+<p>There is no tool per UI action: the wireframe document is the API. The agent reads it, changes what it needs and writes the whole document back.</p>
+
+<h3 id="resources">Resources</h3>
+<p><code>wirefragma://schema</code>, <code>wirefragma://schema/project.json</code>, <code>wirefragma://projects</code> and <code>wirefragma://wireframes/{id}</code> — read-only views of the same data, for clients that use resources.</p>
+
+<h2 id="editing">How agents edit safely</h2>
+<ol>
+  <li><code>get_wireframe</code> → keep <code>revision</code>.</li>
+  <li>Change only what was asked; keep every other element, id and field — including fields the agent does not recognise.</li>
+  <li><code>update_wireframe</code> with the whole document and <code>baseRevision</code>.</li>
+  <li>If the answer is a <b>conflict</b>, someone saved in between. The error contains the current document and revision; the agent re-applies its change to that and retries. There is no force option.</li>
+</ol>
+<pre><code>Agent reads revision 5 · you edit in the browser → 6
+update_wireframe(baseRevision=5) → {"error": "conflict", "current": {"revision": 6, "data": {…}}}
+agent merges its change into current.data → update_wireframe(baseRevision=6) → 7
+your browser notices 7 within seconds and shows it</code></pre>
+<p>Documents are checked against the Wirefragma JSON Schema before they are saved, so an agent cannot store something the editor cannot open.</p>
+
+<h2 id="examples">Things to ask your agent</h2>
+<ul>
+  <li>“Create a Settings screen in my <i>My App</i> project: profile, notifications, a destructive <i>Delete account</i> button.”</li>
+  <li>“Read the <i>Checkout</i> wireframe and implement it in React with our component library.”</li>
+  <li>“Add an error state for the email field to <i>Sign in</i> and describe it in the note.”</li>
+  <li>“Draw the onboarding flow as a Canvas with boxes and arrows.”</li>
+</ul>
+
+<h2 id="errors">Errors</h2>
+<div class="table-wrap"><table>
+<tr><th>Code</th><th>Meaning</th></tr>
+<tr><td><code>unauthorized</code></td><td>missing, unknown, revoked or expired token (HTTP 401)</td></tr>
+<tr><td><code>forbidden_scope</code></td><td>the token lacks the permission</td></tr>
+<tr><td><code>not_found</code></td><td>no such project/wireframe in your account</td></tr>
+<tr><td><code>bad_document</code> / <code>too_large</code></td><td>the document does not match the schema / is over 2 MB</td></tr>
+<tr><td><code>conflict</code></td><td>stale <code>baseRevision</code>; carries <code>current</code></td></tr>
+<tr><td><code>confirmation_mismatch</code></td><td>delete confirmation did not match; nothing deleted</td></tr>
+<tr><td><code>rate_limited</code></td><td>too many requests; wait and retry</td></tr>
+</table></div>
+
+<h2 id="limits">Limits</h2>
+<ul>
+  <li>Document size: 2 MB of JSON, the same as in the browser.</li>
+  <li>3000 requests per hour per token; 600 write/delete operations per hour per account.</li>
+</ul>
+
+<h2 id="faq">FAQ</h2>
+<h3 id="faq-browser">Does the browser need to be open?</h3>
+<p>No. The agent talks to the server directly; an open editor just shows the changes as they arrive.</p>
+<h3 id="faq-oauth">Can I connect ChatGPT or Claude.ai connectors that require OAuth?</h3>
+<p>Not yet — this version uses personal tokens. OAuth is planned as an addition.</p>
+<h3 id="faq-markdown">Does the agent get the ASCII/Markdown export?</h3>
+<p>It gets the canonical JSON plus the format description, which contain everything. The Markdown export remains available in the editor for chat use.</p>
+      </article>
+      <footer class="site">Wirefragma is open source (MIT). Found a mistake in these pages? <a href="https://github.com/andmkv/wirefragma/issues">Open an issue</a>.</footer>
+    </main>
+    <aside class="toc" data-toc></aside>
+  </div>
+  <script src="docs.js"></script>
+</body>
+</html>

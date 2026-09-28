@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Export & import — Wirefragma docs</title>
+  <meta name="description" content="Wirefragma export formats: Markdown for LLMs, project JSON, layer export, the WIREFRAGMA schema, and lossless import." />
+  <link rel="icon" href="../brand/wf_logo_square.png" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button type="button" class="menu-toggle" aria-label="Toggle navigation">Menu</button>
+    <a class="brand" href="index.html"><img src="../brand/wf_logo_square.png" alt="" /> Wirefragma <small>Docs</small></a>
+    <span class="spacer"></span>
+    <a class="gh" href="https://github.com/andmkv/wirefragma">GitHub</a>
+    <a class="open-app" href="../">Open the app</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" data-nav aria-label="Documentation">
+      <a href="index.html">Overview</a>
+    </nav>
+    <main>
+      <article>
+<p class="eyebrow">Getting started</p>
+<h1>Export &amp; import</h1>
+<p class="lead">Everything you draw becomes text an LLM can read — and comes back without loss.</p>
+
+<figure class="shot">
+  <img src="images/export.png" alt="The Export dialog with the Markdown, Copy for LLM, Project JSON and WIREFRAGMA schema tabs" width="1680" height="1000" />
+</figure>
+
+<h2 id="export">Export dialog</h2>
+<div class="table-wrap"><table>
+<tr><th>Tab</th><th>What it is</th></tr>
+<tr><td><b>Markdown</b></td><td>the full wireframe document (download <code>.md</code>)</td></tr>
+<tr><td><b>Copy for LLM</b></td><td>the same document with a short preface telling the model how to read it (also the toolbar button)</td></tr>
+<tr><td><b>Project JSON</b></td><td>only the canonical project (download <code>.json</code>)</td></tr>
+<tr><td><b>WIREFRAGMA schema</b></td><td>instructions that teach a chat model to <em>write</em> a Wirefragma project</td></tr>
+</table></div>
+
+<h2 id="markdown">The Markdown document</h2>
+<ol>
+  <li><b>Screen</b> — mode, size, element and layer counts.</li>
+  <li><b>ASCII Wireframe</b> — an approximate character sketch of the layout.</li>
+  <li><b>UI Elements</b> — one section per visible element: type, layer, parent, bounds, label, visible content, typography, notes. A Canvas adds its own sketch, a numbered list of shapes and the relationships between them; a Drawing contributes its description.</li>
+  <li><b>Spatial Summary</b> — rule-based sentences about what sits where.</li>
+  <li><b>Editable Project Source</b> — the canonical JSON in a <code>ui-project</code> block.</li>
+</ol>
+<div class="callout"><strong>The JSON is the source of truth.</strong> The ASCII sketch and the prose are advisory; import always rebuilds the wireframe from the <code>ui-project</code> block, so nothing is lost even if someone edits the text around it.</div>
+
+<h2 id="layer-export">Exporting one layer</h2>
+<p>Layers → <b>…</b> → <i>Export layer…</i> exports only that layer's elements, optionally cropping the canvas to their content. Useful for asking a model about one form or one dialog.</p>
+
+<h2 id="schema">Generating wireframes with a chat model</h2>
+<p>The <b>WIREFRAGMA schema</b> tab contains everything a model needs to produce a valid project: the document shape, the coordinate system, every element type, layers and nesting, a complete example and a JSON Schema. Paste it into a chat, describe the screen, and paste the answer into <i>Import</i> — a <code>ui-project</code> block, a <code>json</code> block or plain JSON all work.</p>
+<p>Coding agents connected over <a href="mcp.html">MCP</a> get the same schema from the <code>get_wirefragma_schema</code> tool, generated from the same source.</p>
+
+<h2 id="import">Import</h2>
+<ul>
+  <li>Accepted: a Wirefragma Markdown export, raw project JSON, or an LLM answer containing one of them.</li>
+  <li>As a guest, Import replaces the current document. Signed in, it creates a new wireframe in the project you choose.</li>
+  <li>Old documents (format version 1) are upgraded on import. Broken input shows an error and changes nothing.</li>
+</ul>
+
+<h2 id="round-trip">Round trips</h2>
+<p>Export → import reproduces every project field: layers (including hidden ones), nesting, notes, typography, symbols, Canvas scenes and Drawing strokes.</p>
+      </article>
+      <footer class="site">Wirefragma is open source (MIT). Found a mistake in these pages? <a href="https://github.com/andmkv/wirefragma/issues">Open an issue</a>.</footer>
+    </main>
+    <aside class="toc" data-toc></aside>
+  </div>
+  <script src="docs.js"></script>
+</body>
+</html>

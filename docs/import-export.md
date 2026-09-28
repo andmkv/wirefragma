@@ -44,6 +44,13 @@ and symbol rules, note-writing guidance, what the importer repairs, a complete e
 (`projectJsonSchema()`). It does not depend on the current document. Download:
 `wirefragma-schema.md`.
 
+The same generator has an MCP variant, `wirefragmaSchemaMarkdown("mcp")`: identical format
+description, but the output rules say "pass the project as the `data` argument of
+`create_wireframe` / `update_wireframe`" and it adds the rules for editing an existing wireframe
+(read → minimal change → write with `baseRevision` → re-apply on conflict). `npm run mcp:resources`
+writes it, together with `projectJsonSchema()`, to `server/mcp/resources/` for the MCP server
+([mcp.md](./mcp.md#schema-one-source-of-truth)).
+
 ### Layer-scoped export
 
 `projectForLayer(project, layerId, { crop })` (`src/model/layerExport.ts`) turns one layer into an

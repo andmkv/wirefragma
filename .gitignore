@@ -16,3 +16,7 @@ wirefragma-config.php
 my.cnf
 *.pem
 *.key
+
+# MCP endpoint: Composer installs vendor/ locally and during `npm run build:deploy`
+server/mcp/vendor/
+.wirefragma-mcp-sessions/

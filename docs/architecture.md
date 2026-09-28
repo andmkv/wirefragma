@@ -25,6 +25,26 @@ The server (`server/api/`, plain PHP, query-string routed) only stores accounts,
 project documents; it never interprets the wireframe beyond "a JSON object with `elements`". The
 client normalizes everything it loads with `normalizeProject`, exactly as for an import.
 
+## Server side: two front ends, one persistence layer
+
+```text
+browser (Workspace) ── session + CSRF ──► server/api/index.php ─┐
+                                                                ├─► server/api/lib/projects.php ─► MySQL
+MCP client (agent) ─── Bearer wf_mcp_… ─► server/mcp/index.php ─┘      (ownership, limits, revisions)
+                                          (official PHP MCP SDK, Composer, PHP 8.1+)
+```
+
+* `server/api/lib/projects.php` is the only code that reads or writes `wf_projects` /
+  `wf_wireframes`. Both front ends are thin adapters (request parsing + authentication + response
+  format). Never add a project query to a front end.
+* `server/api/` stays dependency-free (no Composer, PHP 7.4+); Composer dependencies are isolated
+  in `server/mcp/` ([mcp.md](./mcp.md)).
+* The MCP server has no model of its own: the project format it teaches and validates against is
+  generated from `src/utils/schemaExport.ts` into `server/mcp/resources/` (`npm run mcp:resources`,
+  pinned by `src/utils/mcpResources.test.ts`).
+* The browser never talks to MCP. It notices changes made by any other client by polling the
+  project tree (`src/account/remoteSync.ts`); the editor (`App`) stays unaware of both.
+
 Invariant: `src/model/**` and the pure helpers in `src/utils/**` must not import React or touch
 the DOM, so they keep running under Vitest's `environment: "node"`. The single exception is
 `src/utils/storage.ts`: it is written against a `StorageLike` interface and only reaches for
@@ -68,7 +88,7 @@ callbacks, and never mutate the document themselves.
 | --- | --- |
 | `components/AppToolbar.tsx` | canvas preset/size, grid, snap, zoom controls, undo/redo, New, Layers toggle, Import, Copy for LLM, Export, brand logo |
 | `components/LeftPanel.tsx` | palette column + collapsible layers column |
-| `components/ElementPalette.tsx` | the 24 palette buttons (adds to the active layer) |
+| `components/ElementPalette.tsx` | the 26 palette buttons (adds to the active layer) |
 | `components/LayersPanel.tsx` | layer rows, element rows, drag & drop reordering, visibility/lock toggles, per-element duplicate, delete layer |
 | `components/PropertiesPanel.tsx` | single-element inspector, multi-selection panel, typography controls, emoji picker trigger |
 | `components/EmojiPicker.tsx` | compact emoji popover (categories, search, grid) |
@@ -134,7 +154,9 @@ model/*                ->  (nothing)
 
 Invariant: the editor (`App`) never talks to the server. In signed-in mode it receives its
 document through the `EditorHost` prop and reports history changes back; `account/Workspace.tsx`
-owns loading, caching and saving.
+owns loading, caching, saving and noticing changes made elsewhere (polling). MCP lives entirely at
+the server/account boundary — no MCP code in `App`, the canvas engine, the model or editor
+components.
 
 Invariant: `canvas/*` may import `model/*`, but `model/*` never imports `canvas/*` or
 `components/*`. The model is the bottom of the stack.

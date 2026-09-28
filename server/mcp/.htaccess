@@ -1,0 +1,30 @@
+# Wirefragma MCP endpoint — Apache (Namecheap / cPanel) hardening.
+# Only index.php is served. vendor/, src/, resources/, composer files and anything else are
+# included by PHP from the filesystem and must never be downloadable.
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_authz_core.c>
+  Require all denied
+  <Files "index.php">
+    Require all granted
+  </Files>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order deny,allow
+  Deny from all
+  <Files "index.php">
+    Order allow,deny
+    Allow from all
+  </Files>
+</IfModule>
+
+# Some PHP handlers (CGI/FastCGI) drop the Authorization header; forward it to PHP.
+<IfModule mod_setenvif.c>
+  SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "no-referrer"
+</IfModule>

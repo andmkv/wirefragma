@@ -87,8 +87,18 @@ Rules that matter:
 * `Typography:` lists **only** the attributes that differ from the defaults; a default-styled Text
   element has no `Typography:` block at all.
 * `Content size:` appears only when it differs from the type default (24 for icon, 48 for image).
-* `Visible content:` is skipped for `table` (its columns/rows replace it) and for elements with no
-  label/items.
+* `Visible content:` is skipped for `table` (its columns/rows replace it), for `diagram` / `drawing`
+  and for elements with no label/items.
+* A **Canvas** (`diagram`) section adds, in order: `LLM description:` (only when set),
+  `Canvas size:` (`W × H` of the scene), then either `Canvas contents:` → `_The canvas is empty._`,
+  or `Canvas sketch:` (a ```` ```text ```` ASCII rendering of the scene), `Canvas contents:` (a
+  numbered primitive list with scene coordinates) and `Relationships:` (deterministic connections
+  and containment between labelled shapes, when there are any). The main ASCII wireframe also nests
+  a small rendering of the scene inside the element's box.
+* A **Drawing** section carries `LLM description:` and a note that the visual content is not
+  represented in text. A Drawing **without** a description is omitted from every LLM-facing section
+  (ASCII, UI Elements, Spatial Summary); the Screen section then reports
+  `Drawings without an LLM description omitted: N`. Its strokes still travel in `ui-project`.
 * Hidden elements and hidden layers never appear in the human sections; the Screen section reports
   how many were omitted.
 

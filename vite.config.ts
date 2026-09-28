@@ -7,6 +7,10 @@ import react from "@vitejs/plugin-react";
 /**
  * Optional accounts backend: `server/api` (plain PHP) is copied to `dist/api` so one upload of
  * `dist/` deploys both. Local secrets (`config.php`) and logs are never copied.
+ *
+ * The MCP endpoint (`server/mcp`, Composer dependencies) is NOT part of this build, so a plain
+ * `npm run build` never needs Composer; `npm run build:deploy` adds it as `dist/mcp` via
+ * scripts/package-mcp.mjs.
  */
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 
@@ -35,7 +39,11 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), copyPhpApi()],
     server: {
       // `npm run dev:api` serves server/ with PHP's built-in server; the editor reaches it here.
-      proxy: { "/api": { target: "http://127.0.0.1:8787", changeOrigin: false } }
+      // `/mcp` is the remote MCP endpoint (server/mcp, needs `npm run mcp:install` once).
+      proxy: {
+        "/api": { target: "http://127.0.0.1:8787", changeOrigin: false },
+        "/mcp": { target: "http://127.0.0.1:8787", changeOrigin: false }
+      }
     },
     base: "./",
     define: {

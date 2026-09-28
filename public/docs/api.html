@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project format & HTTP API — Wirefragma docs</title>
+  <meta name="description" content="Reference: the Wirefragma project JSON document and the account HTTP API used by the browser." />
+  <link rel="icon" href="../brand/wf_logo_square.png" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button type="button" class="menu-toggle" aria-label="Toggle navigation">Menu</button>
+    <a class="brand" href="index.html"><img src="../brand/wf_logo_square.png" alt="" /> Wirefragma <small>Docs</small></a>
+    <span class="spacer"></span>
+    <a class="gh" href="https://github.com/andmkv/wirefragma">GitHub</a>
+    <a class="open-app" href="../">Open the app</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" data-nav aria-label="Documentation">
+      <a href="index.html">Overview</a>
+    </nav>
+    <main>
+      <article>
+<p class="eyebrow">Agents &amp; API</p>
+<h1>Project format &amp; HTTP API</h1>
+<p class="lead">One JSON document per wireframe, used everywhere: in the editor, in exports, in the database and over MCP.</p>
+
+<h2 id="document">The project document</h2>
+<pre><code>{
+  "version": 2,
+  "title": "Sign in",
+  "canvas": { "mode": "mobile", "width": 390, "height": 844 },
+  "layers": [ { "id": "layer_form", "name": "Form", "visible": true, "locked": false } ],
+  "elements": [
+    {
+      "id": "el_submit", "type": "button", "name": "signInButton",
+      "label": "Sign in", "note": "Primary action. Disabled until both fields are filled.",
+      "x": 48, "y": 360, "width": 294, "height": 44,
+      "layerId": "layer_form", "parentId": "el_card",
+      "visible": true, "locked": false, "zIndex": 5
+    }
+  ]
+}</code></pre>
+<ul>
+  <li>Units are logical pixels; origin at the canvas top-left, y grows down; coordinates are absolute, also for nested elements.</li>
+  <li><code>layers[0]</code> is the front-most layer; within a layer, later elements draw on top. Children follow their parent and use its layer.</li>
+  <li>Optional per-type fields: <code>items</code>, <code>columns</code>, <code>textStyle</code>, <code>contentSize</code>, <code>diagram</code> (Canvas scene), <code>drawing</code> (strokes + description).</li>
+  <li>Unknown fields are preserved by the server; the editor repairs recoverable problems (missing ids, bad layer references, too-small sizes) when it loads a document.</li>
+</ul>
+<p>The complete, always-current description — every element type, limits, an example and a JSON Schema — is the <b>WIREFRAGMA schema</b> (Export dialog, or <code>get_wirefragma_schema</code> over MCP).</p>
+
+<h2 id="http-api">Account HTTP API</h2>
+<p>The browser talks to <code>api/index.php?action=&lt;name&gt;</code>. It is a first-party API for the web app: session cookie authentication, and every <code>POST</code> needs the <code>X-CSRF-Token</code> from <code>status</code>. For programmatic access use <a href="mcp.html">MCP</a> with a personal token instead.</p>
+<div class="table-wrap"><table>
+<tr><th>Action</th><th>Method</th><th>Purpose</th></tr>
+<tr><td><code>status</code></td><td>GET</td><td>backend available, current user, CSRF token, captcha and privacy info</td></tr>
+<tr><td><code>register</code> · <code>verify</code> · <code>resend</code></td><td>POST</td><td>sign-up with captcha, email confirmation</td></tr>
+<tr><td><code>login</code> · <code>logout</code> · <code>forgot</code> · <code>reset</code></td><td>POST</td><td>sessions and password reset</td></tr>
+<tr><td><code>settings-save</code> · <code>password-change</code> · <code>delete-account</code></td><td>POST</td><td>profile, preferences, password, account deletion</td></tr>
+<tr><td><code>projects</code></td><td>GET</td><td>the project tree: ids, names, wireframe titles and revisions</td></tr>
+<tr><td><code>project-create</code> · <code>-rename</code> · <code>-delete</code></td><td>POST</td><td>projects (delete cascades)</td></tr>
+<tr><td><code>wireframe</code></td><td>GET</td><td>one wireframe with its document (<code>&amp;id=</code>)</td></tr>
+<tr><td><code>wireframe-create</code> · <code>-save</code> · <code>-rename</code> · <code>-duplicate</code> · <code>-delete</code></td><td>POST</td><td><code>save</code> sends <code>baseRevision</code>; a stale one answers 409 with <code>current</code></td></tr>
+<tr><td><code>mcp-tokens</code></td><td>GET</td><td>MCP endpoint URL and your tokens (never the secrets)</td></tr>
+<tr><td><code>mcp-token-create</code> · <code>mcp-token-revoke</code></td><td>POST</td><td>create (current password required; the token is returned once) · revoke</td></tr>
+</table></div>
+<p>Errors are JSON: <code>{"error": "&lt;code&gt;", "message": "…"}</code> with a matching HTTP status.</p>
+
+<h2 id="revisions">Revisions</h2>
+<p>Every wireframe has a <code>revision</code> that increases with each save and rename, whoever made it. Writers send the revision they started from; a mismatch is a conflict, never a silent overwrite. The browser polls the <code>projects</code> tree to notice other writers.</p>
+      </article>
+      <footer class="site">Wirefragma is open source (MIT). Found a mistake in these pages? <a href="https://github.com/andmkv/wirefragma/issues">Open an issue</a>.</footer>
+    </main>
+    <aside class="toc" data-toc></aside>
+  </div>
+  <script src="docs.js"></script>
+</body>
+</html>

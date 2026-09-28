@@ -3,23 +3,15 @@ import App from "../App";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ImportDialog, type ImportDestination } from "../components/ImportDialog";
 import { RowMenu } from "../components/RowMenu";
-import { normalizeProject, type WireframeProject } from "../model/project";
-import { createHistory, type History } from "../utils/history";
+import type { WireframeProject } from "../model/project";
+import type { History } from "../utils/history";
 import { projectFromText } from "../utils/markdownImport";
-import { ApiError, api, type AccountUser, type ProjectSummary, type WireframeRecord } from "./api";
+import { ApiError, api, type AccountUser, type ProjectSummary } from "./api";
 import { ProjectsPanel, type PanelRenaming, type SaveState } from "./ProjectsPanel";
 import { SettingsDialog } from "./SettingsDialog";
 import { errorMessage } from "./errors";
+import { POLL_INTERVAL_MS, isDirty, nextPollDelay, planRemoteSync, toEntry, type CacheEntry, type CachedState } from "./remoteSync";
 import { usePreferences, type TranslationKey, type TranslationParams } from "../i18n";
-
-interface CacheEntry {
-  projectId: number;
-  history: History<WireframeProject>;
-  /** Server revision the current local copy is based on. */
-  revision: number;
-  /** JSON of the last document the server confirmed — dirty check without a deep compare. */
-  savedJson: string;
-}
 
 interface WorkspaceProps {
   user: AccountUser;
@@ -50,18 +42,6 @@ function writeLocal(key: string, value: string): void {
   }
 }
 
-function toEntry(record: WireframeRecord): CacheEntry {
-  const project = normalizeProject(record.data);
-  // The panel title is the source of truth for the document title.
-  const document = project.title === record.title ? project : { ...project, title: record.title };
-  return {
-    projectId: record.projectId,
-    history: createHistory(document),
-    revision: record.revision,
-    savedJson: JSON.stringify(document)
-  };
-}
-
 function initials(user: AccountUser): string {
   const source = user.displayName.trim() || user.email;
   const parts = source.split(/[\s@._-]+/).filter(Boolean);
@@ -74,6 +54,9 @@ function initials(user: AccountUser): string {
  * Every opened wireframe keeps its whole undo history in an in-memory cache, so switching back
  * and forth is instant and loses nothing; rows are prefetched on hover. Edits autosave after a
  * short pause with optimistic concurrency (a revision number per wireframe).
+ *
+ * Changes made elsewhere (another tab or device, or an MCP agent) are picked up by polling the
+ * project tree while the page is visible; the rules live in `remoteSync.ts`.
  */
 export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
   const { t, applyPreferences } = usePreferences();
@@ -91,7 +74,16 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
     });
   }, [applyPreferences, initialUser.settings]);
 
-  const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
+  const [projects, setProjectsState] = useState<ProjectSummary[] | null>(null);
+  /**
+   * Bumped by every local change of the tree. A poll response that started before such a change
+   * is discarded, so it can never undo a wireframe the user just created, renamed or deleted.
+   */
+  const treeGeneration = useRef(0);
+  const setProjects = useCallback((next: ProjectSummary[] | ((current: ProjectSummary[] | null) => ProjectSummary[] | null)) => {
+    treeGeneration.current += 1;
+    setProjectsState(next);
+  }, []);
   const [currentId, setCurrentId] = useState<number | null>(null);
   /** Bumped to remount the editor when its document is replaced from outside. */
   const [epoch, setEpoch] = useState(0);
@@ -109,6 +101,8 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
   const saveTimer = useRef<number | null>(null);
   const savingId = useRef<number | null>(null);
   const resaveAfter = useRef(false);
+  /** Wireframes with an open conflict banner. */
+  const conflicted = useRef(new Set<number>());
   const currentIdRef = useRef<number | null>(null);
   currentIdRef.current = currentId;
 
@@ -161,8 +155,6 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
 
   /* -------------------------------------------------------------- saving */
 
-  const isDirty = (entry: CacheEntry) => JSON.stringify(entry.history.present) !== entry.savedJson;
-
   const applySaved = useCallback((id: number, revision: number, title: string) => {
     setProjects((current) =>
       current
@@ -201,14 +193,14 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
         if (handleFatal(error)) return;
         if (error instanceof ApiError && error.code === "conflict") {
           setSaveState("conflict");
-          const current = error.payload.current as WireframeRecord | undefined;
+          conflicted.current.add(id);
           setNotice(
             <span className="conflict-notice">
               {tr("error.conflict")}
               <button type="button" onClick={() => void resolveConflict(id, "mine")}>
                 {tr("projects.conflictKeep")}
               </button>
-              <button type="button" onClick={() => void resolveConflict(id, "theirs", current)}>
+              <button type="button" onClick={() => void resolveConflict(id, "theirs")}>
                 {tr("projects.conflictLoad")}
               </button>
             </span>
@@ -233,16 +225,21 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
     [applySaved, handleFatal]
   );
 
-  const resolveConflict = async (id: number, choice: "mine" | "theirs", theirs?: WireframeRecord) => {
+  const resolveConflict = async (id: number, choice: "mine" | "theirs") => {
     setNotice(null);
+    conflicted.current.delete(id);
     if (choice === "mine") {
       await saveNow(id, { force: true });
       return;
     }
-    const record = theirs ?? (await api.wireframe(id)).wireframe;
-    cache.current.set(id, toEntry(record));
-    setSaveState("saved");
-    if (id === currentIdRef.current) setEpoch((value) => value + 1);
+    // Always the latest copy: the server may have moved on again since the conflict was shown.
+    try {
+      cache.current.set(id, toEntry((await api.wireframe(id)).wireframe));
+      setSaveState("saved");
+      if (id === currentIdRef.current) setEpoch((value) => value + 1);
+    } catch (error) {
+      report(error);
+    }
   };
 
   const scheduleSave = useCallback(
@@ -342,6 +339,115 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
       cancelled = true;
     };
   }, [handleFatal, load, user.id]);
+
+  /* ------------------------------------------- changes made elsewhere */
+
+  /** Brief, non-blocking info in the notice banner (never replaces an error that is showing). */
+  const flash = useCallback((text: string) => {
+    setNotice((current) => (current === null ? text : current));
+    window.setTimeout(() => setNotice((current) => (current === text ? null : current)), 4000);
+  }, []);
+
+  const polling = useRef(false);
+  /**
+   * One poll: fetch the tree, update the panel, and apply `planRemoteSync` to the cache.
+   * Returns false on a network/server failure (the caller backs off).
+   */
+  const refreshFromServer = async (): Promise<boolean> => {
+    if (polling.current || projects === null) return true;
+    polling.current = true;
+    const generation = treeGeneration.current;
+    try {
+      const { projects: list } = await api.projects();
+      if (generation !== treeGeneration.current) return true; // a local change raced this poll
+      setProjectsState(list);
+
+      const states = new Map<number, CachedState>();
+      for (const [id, entry] of cache.current) {
+        states.set(id, { revision: entry.revision, dirty: isDirty(entry), saving: savingId.current === id, conflicted: conflicted.current.has(id) });
+      }
+      const currentId = currentIdRef.current;
+      for (const action of planRemoteSync(list, states, currentId)) {
+        if (action.kind === "evict") {
+          cache.current.delete(action.id);
+        } else if (action.kind === "removed") {
+          const projectId = cache.current.get(action.id)?.projectId ?? null;
+          cache.current.delete(action.id);
+          conflicted.current.delete(action.id);
+          if (action.current) {
+            const title = projects.flatMap((project) => project.wireframes).find((wireframe) => wireframe.id === action.id)?.title ?? "";
+            if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+            saveTimer.current = null;
+            await openFallback(list, projectId);
+            setNotice(tr("projects.deletedElsewhere", { name: title }));
+          }
+        } else if (action.kind === "conflict") {
+          // The ordinary save path answers 409 and opens the conflict banner (Keep mine / Load theirs).
+          await flush();
+        } else {
+          const { wireframe } = await api.wireframe(action.id);
+          const entry = cache.current.get(action.id);
+          // Re-check: the user may have typed, or saved, while the document was downloading.
+          if (!entry || savingId.current === action.id || wireframe.revision <= entry.revision) continue;
+          if (isDirty(entry)) {
+            await flush();
+            continue;
+          }
+          cache.current.set(action.id, toEntry(wireframe));
+          if (action.id === currentIdRef.current) {
+            setSaveState("saved");
+            setEpoch((value) => value + 1);
+            flash(tr("projects.updatedElsewhere"));
+          }
+        }
+      }
+      return true;
+    } catch (error) {
+      if (handleFatal(error)) return true;
+      return !(error instanceof ApiError && (error.status === 0 || error.status >= 500 || error.status === 429));
+    } finally {
+      polling.current = false;
+    }
+  };
+  const refreshRef = useRef(refreshFromServer);
+  refreshRef.current = refreshFromServer;
+
+  // Poll every few seconds while the page is visible; refresh at once on focus / becoming
+  // visible; pause while hidden; back off after failures. Never overlaps (see `polling`).
+  useEffect(() => {
+    let timer: number | null = null;
+    let delay = POLL_INTERVAL_MS;
+    let disposed = false;
+    const visible = () => document.visibilityState === "visible";
+    const stop = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = null;
+    };
+    const tick = async () => {
+      stop();
+      const ok = await refreshRef.current();
+      if (disposed) return;
+      delay = nextPollDelay(delay, ok);
+      if (visible()) timer = window.setTimeout(() => void tick(), delay);
+    };
+    const onVisibility = () => {
+      if (!visible()) return stop();
+      delay = POLL_INTERVAL_MS;
+      void tick();
+    };
+    const onFocus = () => {
+      if (visible()) void tick();
+    };
+    timer = window.setTimeout(() => void tick(), delay);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      disposed = true;
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
 
   /* ---------------------------------------------------- project actions */
 

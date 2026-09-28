@@ -58,7 +58,7 @@ has no transform of its own. A document always has at least one layer
 ```ts
 export interface WireframeElement {
   id: string;
-  type: ElementType;              // 24 values, see below
+  type: ElementType;              // 26 values, see below
 
   name: string;                   // semantic id, e.g. "saveButton" (used in Markdown headings)
   label: string;                  // visible text / emoji drawn on the canvas
@@ -77,18 +77,41 @@ export interface WireframeElement {
   columns?: string[];             // table column headers
   textStyle?: TextStyle;          // text elements only
   contentSize?: number;           // icon / image symbol size
+  diagram?: DiagramData;          // `diagram` ("Canvas") only: a structured scene
+  drawing?: DrawingData;          // `drawing` only: freehand strokes + LLM description
 }
 ```
 
 ### Element types
 
-`ELEMENT_TYPES` (24, in declaration order):
+`ELEMENT_TYPES` (26, in declaration order):
 
 ```text
 container, text, button, input, textarea, checkbox, radio, toggle, dropdown, slider,
 progress, iconButton, tabs, list, table, image, icon, avatar, badge, divider,
-toolbar, sidebar, bottomNav, dialog
+toolbar, sidebar, bottomNav, dialog, diagram, drawing
 ```
+
+`diagram` and `drawing` (palette group "Custom") are the two scene elements, added without a
+format version bump (both payloads are optional additive fields):
+
+* **Canvas** (`type: "diagram"`, [`src/model/diagram.ts`](../src/model/diagram.ts)) — `diagram:
+  { width, height, description?, objects[] }`, where objects are `rectangle` / `ellipse` / `text`
+  boxes (`x, y, width, height`), `line` / `arrow` segments (`x1, y1, x2, y2`) and `bezier` curves
+  (`start, control1, control2, end`), each with an `id` and an optional `label`. Coordinates live in
+  the scene's own space and are fitted into the element's bounds; resizing the element never
+  rewrites them. The export derives an ASCII sketch, a primitive list and relationships from them
+  ([`src/utils/diagramText.ts`](../src/utils/diagramText.ts)).
+* **Drawing** (`type: "drawing"`, [`src/model/drawing.ts`](../src/model/drawing.ts)) — `drawing:
+  { width, height, strokes: [{ points: [{x, y}], width }], description? }`. Strokes are stored as
+  vectors only so the sketch survives a round trip; the LLM-facing export carries only
+  `description`, and a Drawing without one is left out of every LLM section (it still travels in
+  `ui-project`).
+
+`normalizeProject` repairs both payloads (a missing scene is recreated empty); `cloneElement` deep
+copies them. The popup scene editor (`src/components/SceneEditorShell.tsx`) exists but is not wired
+into the editor yet — placed Canvas/Drawing elements render their stored scene, and their contents
+currently come from import or an MCP agent ([mcp.md](./mcp.md)).
 
 `ELEMENT_TYPE_LABEL` maps each type to its human label used by the palette, the Properties panel
 and the Markdown export (`iconButton -> "Icon Button"`, `badge -> "Badge / Chip"`,
@@ -194,7 +217,7 @@ Throws `ProjectValidationError` when:
 * `canvas` is not an object, or `width`/`height` are not finite numbers, or smaller than 120;
 * `elements` is not an array;
 * an element is not an object;
-* an element `type` is not one of the 24 known types.
+* an element `type` is not one of the 26 known types.
 
 Repairs silently when:
 
@@ -238,6 +261,8 @@ and the palette:
 | `sidebar` | 220 × 400 | `Sidebar` | items `Item 1..3` |
 | `bottomNav` | 360 × 64 | `""` | items `Home`, `Search`, `Profile` |
 | `dialog` | 360 × 240 | `Dialog` | |
+| `diagram` | 450 × 300 | `""` | `diagram` = empty 600 × 400 scene |
+| `drawing` | 240 × 180 | `""` | `drawing` = empty 480 × 360 scene |
 
 `createElement(type, project, { x, y, layerId?, name?, width?, height?, label?, items?, columns? })`
 rounds the coordinates, sets `visible: true`, `locked: false`, `note: ""` and
