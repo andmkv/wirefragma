@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 — 2026-09-28
 
 ### MCP for coding agents
 - **Remote MCP endpoint** at `/mcp/` (Streamable HTTP, official PHP MCP SDK, both the handshake
