@@ -2702,6 +2702,7 @@ body.is-resizing-panel * {
   grid-row: 1 / span 2;
   display: flex;
   gap: 6px;
+}
 
 /* ------------------------------------------------ Canvas / Drawing popups */
 
