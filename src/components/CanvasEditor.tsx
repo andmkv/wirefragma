@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { MIN_ELEMENT_SIZE, findElement, type WireframeProject } from "../model/project";
+import { MIN_ELEMENT_SIZE, effectiveLocked, findElement, type WireframeElement, type WireframeProject } from "../model/project";
+import { hasDrawingDescription } from "../model/drawing";
 import type { SelectionState } from "../model/selection";
-import { visibleGeometries, type ResizeEdge } from "../canvas/geometry";
+import { WARNING_BADGE_PX, visibleGeometries, warningBadgeRect, type ResizeEdge } from "../canvas/geometry";
 import { hitTestProject } from "../canvas/hitTest";
 import { CanvasInteraction, type InteractionState } from "../canvas/interaction";
 import { renderScene, type PreviewOverride } from "../canvas/render";
-import { createTransform, type Point, type Rect, type ViewTransform } from "../canvas/transform";
+import { createTransform, rectContains, screenToWorld, worldRectToScreen, type Point, type Rect, type ViewTransform } from "../canvas/transform";
+import { useT } from "../i18n";
 import { fitScale, scaleForMode, zoomFromWheel, type ZoomMode } from "../utils/zoom";
 import { isEditingTextInput } from "../utils/keyboard";
 
@@ -28,7 +30,18 @@ interface CanvasEditorProps {
   onScaleChange: (scale: number, fit: number) => void;
   /** The user pinch/wheel-zoomed; the editor switches to manual zoom. */
   onUserZoom: (scale: number) => void;
+  /** Open the scene popup of a Canvas / Drawing element (double-click or the hover pencil). */
+  onEditScene: (elementId: string) => void;
 }
+
+const isSceneElement = (element: WireframeElement | null | undefined): element is WireframeElement =>
+  !!element && (element.type === "diagram" || element.type === "drawing");
+
+/** Pencil button size and inset from the element's top-right corner, in CSS px. */
+const PENCIL_PX = 22;
+const PENCIL_INSET_PX = 6;
+/** Below this on-screen width/height the pencil is not shown (double-click still works). */
+const PENCIL_MIN_ELEMENT_PX = 44;
 
 interface PendingZoom {
   pointerX: number;
@@ -59,8 +72,10 @@ export function CanvasEditor({
   onBeginInteraction,
   onEndInteraction,
   onScaleChange,
-  onUserZoom
+  onUserZoom,
+  onEditScene
 }: CanvasEditorProps) {
+  const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const interactionRef = useRef<CanvasInteraction | null>(null);
@@ -87,8 +102,15 @@ export function CanvasEditor({
   // Latest values for the imperative renderer/interaction (no re-render per pointermove).
   const latest = useRef({ project, selection, showGrid, gridSize, transform, snapToGrid, dpr });
   latest.current = { project, selection, showGrid, gridSize, transform, snapToGrid, dpr };
-  const callbacks = useRef({ onSelect, onMove, onResize, onBeginInteraction, onEndInteraction });
-  callbacks.current = { onSelect, onMove, onResize, onBeginInteraction, onEndInteraction };
+  const callbacks = useRef({ onSelect, onMove, onResize, onBeginInteraction, onEndInteraction, onEditScene });
+  callbacks.current = { onSelect, onMove, onResize, onBeginInteraction, onEndInteraction, onEditScene };
+
+  /**
+   * Hover state for the scene affordances, updated only when it changes (not per pointermove):
+   * the Canvas/Drawing under the pointer (pencil) and the Drawing whose warning badge is hovered.
+   */
+  const [hover, setHover] = useState<{ sceneId: string | null; badgeId: string | null }>({ sceneId: null, badgeId: null });
+  const [pointerDown, setPointerDown] = useState(false);
 
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -184,6 +206,70 @@ export function CanvasEditor({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  /* ------------------------------------------- Canvas / Drawing affordances */
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const targetAt = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      const current = latest.current;
+      const world = screenToWorld(current.transform, screen.x, screen.y);
+      const hit = hitTestProject(world, current.project, current.transform, {
+        handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null
+      });
+      const element = hit.kind === "element" || hit.kind === "handle" ? findElement(current.project, hit.elementId) : undefined;
+      return { screen, element: isSceneElement(element) ? element : undefined };
+    };
+    const onMove = (event: PointerEvent) => {
+      if (event.buttons !== 0) return;
+      const { screen, element } = targetAt(event);
+      let badgeId: string | null = null;
+      if (element?.type === "drawing" && !hasDrawingDescription(element.drawing)) {
+        const badge = warningBadgeRect(element, latest.current.transform);
+        if (rectContains(badge, screen.x, screen.y)) badgeId = element.id;
+      }
+      const sceneId = element?.id ?? null;
+      setHover((current) => (current.sceneId === sceneId && current.badgeId === badgeId ? current : { sceneId, badgeId }));
+    };
+    const onLeave = () => setHover((current) => (current.sceneId || current.badgeId ? { sceneId: null, badgeId: null } : current));
+    const onDown = () => setPointerDown(true);
+    const onUp = () => setPointerDown(false);
+    const onDoubleClick = (event: MouseEvent) => {
+      const { element } = targetAt(event);
+      if (element && !effectiveLocked(latest.current.project, element)) callbacks.current.onEditScene(element.id);
+    };
+    canvas.addEventListener("pointermove", onMove);
+    canvas.addEventListener("pointerleave", onLeave);
+    canvas.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    canvas.addEventListener("dblclick", onDoubleClick);
+    return () => {
+      canvas.removeEventListener("pointermove", onMove);
+      canvas.removeEventListener("pointerleave", onLeave);
+      canvas.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      canvas.removeEventListener("dblclick", onDoubleClick);
+    };
+  }, []);
+
+  // The pencil belongs to the hovered scene element, or else the single selected one.
+  const pencilElement = (() => {
+    if (pointerDown) return undefined;
+    const id = hover.sceneId ?? (selection.ids.length === 1 ? selection.primary : null);
+    const element = id ? findElement(project, id) : undefined;
+    if (!isSceneElement(element) || effectiveLocked(project, element)) return undefined;
+    const screen = worldRectToScreen(transform, element);
+    if (screen.width < PENCIL_MIN_ELEMENT_PX || screen.height < PENCIL_MIN_ELEMENT_PX) return undefined;
+    const badgeShift = element.type === "drawing" && !hasDrawingDescription(element.drawing) ? WARNING_BADGE_PX + 6 : 0;
+    return { element, left: screen.x + screen.width - PENCIL_INSET_PX - PENCIL_PX - badgeShift, top: screen.y + PENCIL_INSET_PX };
+  })();
+  const badgeElement = hover.badgeId && !pointerDown ? findElement(project, hover.badgeId) : undefined;
+  const badgeRect = badgeElement ? warningBadgeRect(badgeElement, transform) : null;
 
   /* ---------------------------------------------- canvas size + repaint */
 
@@ -328,6 +414,24 @@ export function CanvasEditor({
         style={{ width: Math.round(canvasWidth * scale), height: Math.round(canvasHeight * scale) }}
       >
         <canvas ref={canvasRef} className="canvas-surface" />
+        {pencilElement ? (
+          <button
+            type="button"
+            className="scene-edit-button"
+            style={{ left: pencilElement.left, top: pencilElement.top, width: PENCIL_PX, height: PENCIL_PX }}
+            title={t(pencilElement.element.type === "diagram" ? "scene.editCanvas" : "scene.editDrawing")}
+            aria-label={t(pencilElement.element.type === "diagram" ? "scene.editCanvas" : "scene.editDrawing")}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onEditScene(pencilElement.element.id)}
+          >
+            ✎
+          </button>
+        ) : null}
+        {badgeRect ? (
+          <div className="scene-warning-tooltip" role="tooltip" style={{ left: badgeRect.x + badgeRect.width, top: badgeRect.y + badgeRect.height + 6 }}>
+            {t("scene.drawingWarning")}
+          </div>
+        ) : null}
       </div>
     </div>
   );

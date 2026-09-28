@@ -6,16 +6,24 @@
 
 declare(strict_types=1);
 
+/**
+ * An expected failure with an HTTP status and a stable machine-readable code. `$extra` carries
+ * additional response fields (e.g. `current` for a save conflict). Shared by the browser API and
+ * the MCP endpoint, which maps the same codes onto tool errors.
+ */
 final class ApiError extends Exception
 {
     public int $status;
     public string $errorCode;
+    /** @var array<string, mixed> */
+    public array $extra;
 
-    public function __construct(int $status, string $errorCode, string $message)
+    public function __construct(int $status, string $errorCode, string $message, array $extra = [])
     {
         parent::__construct($message);
         $this->status = $status;
         $this->errorCode = $errorCode;
+        $this->extra = $extra;
     }
 }
 
@@ -119,19 +127,44 @@ function wf_require_csrf(): void
     }
 }
 
+/** Raw request body, size-checked, read once. */
+function wf_raw_input(): string
+{
+    static $raw = null;
+    if ($raw !== null) return $raw;
+    $body = file_get_contents('php://input');
+    $raw = $body === false ? '' : $body;
+    if (strlen($raw) > WF_MAX_DOCUMENT_BYTES + 65536) {
+        throw new ApiError(413, 'too_large', 'The request is too large.');
+    }
+    return $raw;
+}
+
 /** Decoded JSON request body (object) — empty array for GET. */
 function wf_input(): array
 {
     static $input = null;
     if ($input !== null) return $input;
-    $raw = file_get_contents('php://input');
-    if ($raw === false || $raw === '') return $input = [];
-    if (strlen($raw) > WF_MAX_DOCUMENT_BYTES + 65536) {
-        throw new ApiError(413, 'too_large', 'The request is too large.');
-    }
+    $raw = wf_raw_input();
+    if ($raw === '') return $input = [];
     $decoded = json_decode($raw, true);
     if (!is_array($decoded)) throw new ApiError(400, 'bad_json', 'The request body is not valid JSON.');
     return $input = $decoded;
+}
+
+/**
+ * One top-level field of the JSON body decoded with objects kept as `stdClass`.
+ *
+ * `json_decode(..., true)` cannot tell `{}` from `[]` (and turns `{"0": …}` into a list), so
+ * re-encoding a document decoded that way would silently change it. Project documents are
+ * therefore always taken from this object-preserving decode — unknown fields survive exactly.
+ */
+function wf_input_object_field(string $key)
+{
+    $raw = wf_raw_input();
+    if ($raw === '') return null;
+    $decoded = json_decode($raw, false);
+    return is_object($decoded) && property_exists($decoded, $key) ? $decoded->{$key} : null;
 }
 
 function wf_str(array $input, string $key, int $maxLength = 1000): string
@@ -154,7 +187,7 @@ function wf_json(array $payload, int $status = 200): void
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
-    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
 }
 
 /**

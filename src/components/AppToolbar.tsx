@@ -1,6 +1,18 @@
 import type { ReactNode } from "react";
 import { CANVAS_MODES, MAX_CANVAS_SIZE, MIN_CANVAS_SIZE, type CanvasMode, type WireframeProject } from "../model/project";
 import { DraftNumberInput } from "./DraftNumberInput";
+import {
+  CopyLlmIcon,
+  ExportIcon,
+  FitIcon,
+  GridIcon,
+  ImportFileIcon,
+  LayersIcon,
+  MagnetIcon,
+  NewFileIcon,
+  RedoIcon,
+  UndoIcon
+} from "./icons";
 import { useT } from "../i18n";
 import { ZOOM_PRESETS, formatZoom, type ZoomMode } from "../utils/zoom";
 
@@ -72,6 +84,34 @@ export function AppToolbar({
   const t = useT();
   const isCustom = project.canvas.mode === "custom";
 
+  // Icon buttons: the label lives in the tooltip and the accessible name, so the toolbar stays on
+  // one row on laptop screens in every language.
+  const iconButton = (
+    label: string,
+    title: string,
+    icon: ReactNode,
+    onClick: () => void,
+    options: { active?: boolean; disabled?: boolean; className?: string } = {}
+  ) => (
+    <button
+      type="button"
+      className={[
+        "icon-tool",
+        options.active === undefined ? "" : options.active ? "toggle-button active" : "toggle-button",
+        options.className ?? ""
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      onClick={onClick}
+      disabled={options.disabled}
+      title={title}
+      aria-label={label}
+      aria-pressed={options.active}
+    >
+      {icon}
+    </button>
+  );
+
   return (
     <header className="app-toolbar">
       <div className="toolbar-brand">
@@ -81,19 +121,19 @@ export function AppToolbar({
       </div>
 
       <div className="toolbar-group">
-        <label className="field inline">
-          <span className="field-label">{t("toolbar.canvas")}</span>
-          <select
-            value={project.canvas.mode}
-            onChange={(event) => onModeChange(event.target.value as CanvasMode)}
-          >
-            {CANVAS_MODES.map((mode) => (
-              <option key={mode} value={mode}>
-                {t(`toolbar.mode.${mode}`)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <select
+          className="canvas-mode"
+          value={project.canvas.mode}
+          onChange={(event) => onModeChange(event.target.value as CanvasMode)}
+          title={t("toolbar.canvas")}
+          aria-label={t("toolbar.canvas")}
+        >
+          {CANVAS_MODES.map((mode) => (
+            <option key={mode} value={mode}>
+              {t(`toolbar.mode.${mode}`)}
+            </option>
+          ))}
+        </select>
 
         {isCustom ? (
           <div className="size-inputs">
@@ -117,27 +157,15 @@ export function AppToolbar({
           </div>
         ) : null}
 
-        <button
-          type="button"
-          className={showGrid ? "toggle-button active" : "toggle-button"}
-          onClick={onToggleGrid}
-          title={t("toolbar.gridTitle")}
-        >
-          {t("toolbar.grid")}
-        </button>
-        <button
-          type="button"
-          className={snapToGrid ? "toggle-button active" : "toggle-button"}
-          onClick={onToggleSnap}
-          title={t("toolbar.snapTitle")}
-        >
-          {t("toolbar.snap")}
-        </button>
+        <span className="divider" />
+        {iconButton(t("toolbar.grid"), t("toolbar.gridTitle"), <GridIcon />, onToggleGrid, { active: showGrid })}
+        {iconButton(t("toolbar.snap"), t("toolbar.snapTitle"), <MagnetIcon />, onToggleSnap, { active: snapToGrid })}
         <select
           className="grid-size"
           value={gridSize}
           onChange={(event) => onGridSizeChange(Number(event.target.value))}
           title={t("toolbar.gridSize")}
+          aria-label={t("toolbar.gridSize")}
         >
           {[4, 8, 16, 20].map((size) => (
             <option key={size} value={size}>
@@ -146,8 +174,9 @@ export function AppToolbar({
           ))}
         </select>
 
+        <span className="divider" />
         <div className="zoom-group">
-          <button type="button" onClick={onZoomOut} title={t("toolbar.zoomOutTitle")} aria-label={t("toolbar.zoomOut")}>
+          <button type="button" className="icon-tool" onClick={onZoomOut} title={t("toolbar.zoomOutTitle")} aria-label={t("toolbar.zoomOut")}>
             −
           </button>
           <select
@@ -159,6 +188,7 @@ export function AppToolbar({
               else onZoomPreset(Number(value));
             }}
             title={t("toolbar.zoomLevel")}
+            aria-label={t("toolbar.zoomLevel")}
           >
             <option value="fit">{t("toolbar.fitWith", { zoom: formatZoom(zoomScale) })}</option>
             {ZOOM_PRESETS.map((preset) => (
@@ -167,50 +197,24 @@ export function AppToolbar({
               </option>
             ))}
           </select>
-          <button type="button" onClick={onZoomIn} title={t("toolbar.zoomInTitle")} aria-label={t("toolbar.zoomIn")}>
+          <button type="button" className="icon-tool" onClick={onZoomIn} title={t("toolbar.zoomInTitle")} aria-label={t("toolbar.zoomIn")}>
             +
           </button>
-          <button
-            type="button"
-            className={zoomMode === "fit" ? "toggle-button active" : "toggle-button"}
-            onClick={onZoomFit}
-            title={t("toolbar.fitTitle")}
-          >
-            {t("toolbar.fit")}
-          </button>
-          <span className="zoom-readout">{formatZoom(zoomScale)}</span>
+          {iconButton(t("toolbar.fit"), t("toolbar.fitTitle"), <FitIcon />, onZoomFit, { active: zoomMode === "fit" })}
         </div>
       </div>
 
       <div className="toolbar-actions">
-        <button type="button" onClick={onUndo} disabled={!canUndo} title={t("toolbar.undoTitle")}>
-          {t("toolbar.undo")}
-        </button>
-        <button type="button" onClick={onRedo} disabled={!canRedo} title={t("toolbar.redoTitle")}>
-          {t("toolbar.redo")}
-        </button>
+        {iconButton(t("toolbar.undo"), t("toolbar.undoTitle"), <UndoIcon />, onUndo, { disabled: !canUndo })}
+        {iconButton(t("toolbar.redo"), t("toolbar.redoTitle"), <RedoIcon />, onRedo, { disabled: !canRedo })}
         <span className="divider" />
-        <button type="button" onClick={onNew} title={newTitle ?? t("toolbar.newTitle")}>
-          {t("toolbar.new")}
-        </button>
-        <button
-          type="button"
-          className={layersOpen ? "toggle-button active" : "toggle-button"}
-          onClick={onToggleLayers}
-          title={t("toolbar.layersTitle")}
-        >
-          {t("toolbar.layers")}
-        </button>
-        {showImport ? (
-          <button type="button" onClick={onImport} title={t("toolbar.importTitle")}>
-            {t("toolbar.import")}
-          </button>
-        ) : null}
-        <button type="button" onClick={onCopyForLlm} title={t("toolbar.copyForLlmTitle")}>
-          {t("toolbar.copyForLlm")}
-        </button>
-        <button type="button" className="primary" onClick={onExport} title={t("toolbar.exportTitle")}>
-          {t("toolbar.export")}
+        {iconButton(t("toolbar.new"), newTitle ?? t("toolbar.newTitle"), <NewFileIcon />, onNew)}
+        {iconButton(t("toolbar.layers"), t("toolbar.layersTitle"), <LayersIcon />, onToggleLayers, { active: layersOpen })}
+        {showImport ? iconButton(t("toolbar.import"), t("toolbar.importTitle"), <ImportFileIcon />, onImport) : null}
+        {iconButton(t("toolbar.copyForLlm"), t("toolbar.copyForLlmTitle"), <CopyLlmIcon />, onCopyForLlm)}
+        <button type="button" className="primary export-button" onClick={onExport} title={t("toolbar.exportTitle")}>
+          <ExportIcon />
+          <span>{t("toolbar.export")}</span>
         </button>
         {accountSlot}
       </div>

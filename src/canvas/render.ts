@@ -11,11 +11,16 @@
 
 import type { WireframeElement, WireframeProject } from "../model/project";
 import { contentSizeOf, elementsInDrawOrder, textStyleOf } from "../model/project";
+import { bezierPoint, isBoxObject, objectLabel, type DiagramData, type DiagramObject } from "../model/diagram";
+import { hasDrawingDescription, type DrawingData } from "../model/drawing";
 import {
   HANDLE_SIZE_PX,
+  SCENE_TITLE_HEIGHT,
   elementGeometry,
   isElementLocked,
   isElementVisible,
+  sceneViewport,
+  warningBadgeRect,
   type ResizeEdge
 } from "./geometry";
 import {
@@ -506,6 +511,32 @@ function drawElement(c: DrawContext, element: WireframeElement, bounds: Rect, sh
       return;
     }
 
+    case "diagram": {
+      drawRect(c, bounds, { fill: COLORS.surface, stroke: COLORS.line, radius: 3 });
+      const data = element.diagram;
+      const title = label.trim();
+      if (showLabel && title) {
+        drawText(c, title, { x: x + 6, y: y + 3, width: Math.max(0, width - 12), height: 14 }, { size: 11, weight: 600, color: COLORS.soft });
+      }
+      if (!data || data.objects.length === 0) {
+        drawText(c, "Canvas — double-click to edit", bounds, { size: 12, align: "center", color: COLORS.soft });
+        return;
+      }
+      drawNestedScene(c, bounds, data, title ? SCENE_TITLE_HEIGHT : 0, (inner) => drawDiagramScene(inner.ctx, data, inner.px));
+      return;
+    }
+
+    case "drawing": {
+      drawRect(c, bounds, { fill: COLORS.surface, stroke: COLORS.line });
+      const data = element.drawing;
+      if (!data || data.strokes.length === 0) {
+        drawText(c, "Drawing — double-click to draw", bounds, { size: 12, align: "center", color: COLORS.soft });
+        return;
+      }
+      drawNestedScene(c, bounds, data, 0, (inner) => drawDrawingScene(inner.ctx, data));
+      return;
+    }
+
     case "progress": {
       const barHeight = Math.max(6, Math.min(height, 12));
       const barY = y + (height - barHeight) / 2;
@@ -517,6 +548,169 @@ function drawElement(c: DrawContext, element: WireframeElement, bounds: Rect, sh
     default:
       drawRect(c, bounds, { stroke: COLORS.line });
   }
+}
+
+/** Draw a Canvas/Drawing scene fitted into `bounds`, clipped to the element. */
+function drawNestedScene(
+  c: DrawContext,
+  bounds: Rect,
+  scene: { width: number; height: number },
+  reservedTop: number,
+  paint: (inner: DrawContext) => void
+): void {
+  const { ctx } = c;
+  const viewport = sceneViewport(bounds, scene, reservedTop);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(bounds.x, bounds.y, bounds.width, bounds.height);
+  ctx.clip();
+  ctx.translate(viewport.x, viewport.y);
+  ctx.scale(viewport.scale, viewport.scale);
+  paint({ ctx, px: c.px / viewport.scale });
+  ctx.restore();
+}
+
+/* ------------------------------------------------------------- scene art */
+
+/** Label size inside a Canvas scene, in scene units. */
+const SCENE_LABEL_SIZE = 14;
+const ARROW_HEAD = 12;
+
+function sceneLabel(ctx: CanvasRenderingContext2D, text: string, cx: number, cy: number, maxWidth: number, size: number, backdrop: boolean): void {
+  if (!text) return;
+  ctx.font = worldFont(size, 400);
+  const content = fitText(ctx, text, Math.max(size, maxWidth));
+  if (!content) return;
+  if (backdrop) {
+    const width = ctx.measureText(content).width + 6;
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.fillRect(cx - width / 2, cy - size * 0.7, width, size * 1.4);
+  }
+  ctx.fillStyle = COLORS.ink;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(content, cx, cy);
+}
+
+function arrowHead(ctx: CanvasRenderingContext2D, from: { x: number; y: number }, to: { x: number; y: number }): void {
+  const angle = Math.atan2(to.y - from.y, to.x - from.x);
+  ctx.beginPath();
+  ctx.moveTo(to.x, to.y);
+  ctx.lineTo(to.x - ARROW_HEAD * Math.cos(angle - 0.4), to.y - ARROW_HEAD * Math.sin(angle - 0.4));
+  ctx.lineTo(to.x - ARROW_HEAD * Math.cos(angle + 0.4), to.y - ARROW_HEAD * Math.sin(angle + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = COLORS.ink;
+  ctx.fill();
+}
+
+function drawDiagramObject(ctx: CanvasRenderingContext2D, object: DiagramObject, px: number): void {
+  const label = objectLabel(object);
+  ctx.lineWidth = Math.max(1.5, px);
+  ctx.strokeStyle = COLORS.ink;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (isBoxObject(object)) {
+    const { x, y, width, height } = object;
+    if (object.type === "text") {
+      const lines = (object.label ?? "").split("\n");
+      const size = Math.max(6, Math.min(18, (height / Math.max(1, lines.length)) * 0.75));
+      ctx.font = worldFont(size, 400);
+      ctx.fillStyle = COLORS.ink;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      const lineHeight = height / Math.max(1, lines.length);
+      lines.forEach((line, index) => {
+        const content = fitText(ctx, line, width);
+        if (content) ctx.fillText(content, x, y + lineHeight * (index + 0.5));
+      });
+      return;
+    }
+    ctx.beginPath();
+    if (object.type === "rectangle") ctx.rect(x, y, width, height);
+    else ctx.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = COLORS.surface;
+    ctx.fill();
+    ctx.stroke();
+    const size = Math.max(6, Math.min(SCENE_LABEL_SIZE, height * 0.5));
+    sceneLabel(ctx, label, x + width / 2, y + height / 2, width * (object.type === "ellipse" ? 0.75 : 0.9), size, false);
+    return;
+  }
+
+  if (object.type === "bezier") {
+    ctx.beginPath();
+    ctx.moveTo(object.start.x, object.start.y);
+    ctx.bezierCurveTo(object.control1.x, object.control1.y, object.control2.x, object.control2.y, object.end.x, object.end.y);
+    ctx.stroke();
+    const middle = bezierPoint(object, 0.5);
+    sceneLabel(ctx, label, middle.x, middle.y - SCENE_LABEL_SIZE * 0.8, 200, 12, true);
+    return;
+  }
+
+  const from = { x: object.x1, y: object.y1 };
+  const to = { x: object.x2, y: object.y2 };
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(to.x, to.y);
+  ctx.stroke();
+  if (object.type === "arrow") arrowHead(ctx, from, to);
+  sceneLabel(ctx, label, (from.x + to.x) / 2, (from.y + to.y) / 2 - SCENE_LABEL_SIZE * 0.8, 200, 12, true);
+}
+
+/**
+ * Paint a Canvas scene in SCENE coordinates (the caller sets the transform). `px` is one screen
+ * pixel in scene units. Shared by the wireframe renderer and the Canvas popup editor, so the
+ * thumbnail on the wireframe is the real scene, not a placeholder.
+ */
+export function drawDiagramScene(ctx: CanvasRenderingContext2D, data: DiagramData, px: number): void {
+  for (const object of data.objects) drawDiagramObject(ctx, object, px);
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "miter";
+}
+
+/** Paint a Drawing's strokes in DRAWING coordinates (shared by the renderer and the popup). */
+export function drawDrawingScene(ctx: CanvasRenderingContext2D, data: DrawingData): void {
+  ctx.strokeStyle = COLORS.ink;
+  ctx.fillStyle = COLORS.ink;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (const stroke of data.strokes) {
+    const [first, ...rest] = stroke.points;
+    if (!first) continue;
+    if (rest.length === 0) {
+      ctx.beginPath();
+      ctx.arc(first.x, first.y, stroke.width / 2, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    ctx.beginPath();
+    ctx.moveTo(first.x, first.y);
+    for (const point of rest) ctx.lineTo(point.x, point.y);
+    ctx.lineWidth = stroke.width;
+    ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "miter";
+}
+
+/** Amber "⚠" badge: this Drawing has no LLM description and is left out of the export. */
+function drawWarningBadge(ctx: CanvasRenderingContext2D, rect: Rect): void {
+  const { x, y, width, height } = rect;
+  ctx.beginPath();
+  ctx.moveTo(x + width / 2, y);
+  ctx.lineTo(x + width, y + height);
+  ctx.lineTo(x, y + height);
+  ctx.closePath();
+  ctx.fillStyle = "#f59e0b";
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#b45309";
+  ctx.stroke();
+  ctx.fillStyle = "#1f2429";
+  ctx.font = worldFont(Math.max(7, height * 0.62), 700);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("!", x + width / 2, y + height * 0.62);
 }
 
 function ctx_triangle(c: DrawContext, x1: number, y1: number, x2: number, y2: number, x3: number, y3: number): void {
@@ -623,6 +817,14 @@ export function renderScene(
 
   // Editor chrome in screen space so outlines and handles keep a constant size.
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // Drawings without an LLM description carry a constant-size warning badge (screen space).
+  for (const element of elementsInDrawOrder(project)) {
+    if (element.type !== "drawing" || hasDrawingDescription(element.drawing)) continue;
+    if (!isElementVisible(project, element)) continue;
+    const bounds = previewById.get(element.id) ?? { x: element.x, y: element.y, width: element.width, height: element.height };
+    drawWarningBadge(ctx, warningBadgeRect(bounds, transform));
+  }
 
   const multiple = input.selectedIds.length > 1;
   for (const [elementId, bounds] of selectedBounds) {

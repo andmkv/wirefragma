@@ -5,6 +5,8 @@ import {
   ELEMENT_TYPE_LABEL,
   PROJECT_VERSION,
   contentSizeOf,
+  exportedElementsInDrawOrder,
+  isOmittedFromLlmExport,
   layerName,
   parentOf,
   textStyleOf,
@@ -13,6 +15,7 @@ import {
   type WireframeProject
 } from "../model/project";
 import { renderAscii } from "./asciiRenderer";
+import { diagramContents, diagramRelationships, renderDiagramAscii } from "./diagramText";
 import { buildSpatialSummary } from "./spatialSummary";
 
 /**
@@ -24,13 +27,16 @@ import { buildSpatialSummary } from "./spatialSummary";
 
 export const PROJECT_FENCE = "ui-project";
 
-export const LLM_PREAMBLE = `The following document describes a UI wireframe.
+export const LLM_PREAMBLE = `The following document describes a UI wireframe. How to read it:
 
-The ASCII section provides approximate spatial layout.
-The UI Elements section provides semantic meaning and behavior.
-The ui-project block is the canonical machine-readable representation.
+- Coordinates are logical pixels: x, y is an element's top-left corner, the origin is the canvas's top-left, y grows down.
+- ASCII Wireframe: an approximate sketch of the layout (proportions only; text may be shortened).
+- UI Elements: one section per visible element. \`Label\` is the visible text, \`Inside\` names the parent it is nested in, \`LLM note\` is the author's intent (behaviour, states, data) — follow it.
+- A Canvas lists its shapes and the relationships between them; a Drawing is represented only by its LLM description.
+- Spatial Summary: where things sit on the screen and the reading order inside containers.
+- The ui-project block is the canonical, complete source (including hidden elements); if something is ambiguous, it wins.
 
-Use both spatial and semantic information when reasoning about the interface.`;
+Use both the spatial and the semantic information when reasoning about the interface.`;
 
 function fenceSafe(value: string): string {
   return value.replace(/`/g, "'");
@@ -82,7 +88,7 @@ function typographySection(element: WireframeElement): string[] {
   if (style.align !== DEFAULT_TEXT_STYLE.align) {
     attributes.push(`- Alignment: ${ALIGN_LABEL[style.align] ?? style.align}`);
   }
-  return attributes.length > 0 ? ["Typography:", ...attributes] : [];
+  return attributes.length > 0 ? ["- Typography:", ...attributes.map((line) => `  ${line}`)] : [];
 }
 
 /** Icon / Image only: the rendered symbol size, when it is not the type's default. */
@@ -90,86 +96,115 @@ function contentSizeLine(element: WireframeElement): string | null {
   if (element.type !== "icon" && element.type !== "image") return null;
   const size = contentSizeOf(element);
   const fallback = element.type === "image" ? DEFAULT_IMAGE_CONTENT_SIZE : DEFAULT_ICON_CONTENT_SIZE;
-  return size === fallback ? null : `Content size: ${size}px`;
+  return size === fallback ? null : `- Content size: ${size}px`;
 }
 
-function visibleContent(element: WireframeElement): string[] {
-  const lines: string[] = [];
-  if (element.type === "table") return lines;
-  if (element.items && element.items.length > 0 && element.type !== "text") {
-    lines.push(
-      ...element.items
-        .filter((item) => item.trim() !== "")
-        .map((item) => `- ${item.replace(/\n/g, " ").trim()}`)
-    );
-  } else if (element.label && element.type !== "text") {
-    lines.push(`- ${element.label.replace(/\n/g, " ").trim()}`);
-  } else if (element.label) {
-    lines.push(
-      ...element.label
-        .split("\n")
-        .filter((line) => line.trim() !== "")
-        .map((line) => `- ${line.trim()}`)
-    );
-  }
-  return lines;
-}
-
-function elementSection(project: WireframeProject, element: WireframeElement): string {
+/** Canvas: description, scene size, nested sketch, primitive list and relationships. */
+function diagramSections(element: WireframeElement): string[] {
+  const data = element.diagram;
+  if (element.type !== "diagram" || !data) return [];
   const parts: string[] = [];
-  parts.push(`### \`${fenceSafe(element.name)}\``);
-  parts.push("");
-  parts.push(`Type: ${ELEMENT_TYPE_LABEL[element.type]}`);
-  parts.push("");
-  parts.push(`Layer: ${layerName(project, element.layerId)}`);
-  const parent = parentOf(project, element);
-  if (parent) {
-    parts.push("");
-    parts.push(`Inside: \`${fenceSafe(parent.name)}\``);
+  const description = (data.description ?? "").trim();
+  if (description) parts.push("", "LLM description:", description);
+  if (data.objects.length === 0) {
+    parts.push("", "Canvas contents: _empty_");
+    return parts;
   }
-  if (element.label.trim()) {
-    parts.push("");
-    parts.push(`Label: ${element.label.replace(/\n+/g, " ").trim()}`);
+  parts.push("", "Canvas sketch:", "```text", renderDiagramAscii(data), "```");
+  parts.push("", "Canvas contents:", ...diagramContents(data));
+  const relationships = diagramRelationships(data);
+  if (relationships.length > 0) parts.push("", "Relationships:", ...relationships);
+  return parts;
+}
+
+/** Drawing: only the human-written description stands in for the sketch. */
+function drawingSections(element: WireframeElement): string[] {
+  if (element.type !== "drawing") return [];
+  return [
+    "",
+    "LLM description (the drawing itself is not represented in text; treat this as its meaning):",
+    (element.drawing?.description ?? "").trim()
+  ];
+}
+
+/**
+ * What the element shows beyond its label: list-like entries (tabs, list rows, sidebar and bottom
+ * navigation items) or the lines of a multi-line text. A single label is already in `Label:`, so
+ * repeating it here would only cost tokens.
+ */
+function visibleContent(element: WireframeElement): { heading: string; lines: string[] } | null {
+  if (element.type === "table" || element.type === "diagram" || element.type === "drawing") return null;
+  const items = (element.items ?? []).map((item) => item.replace(/\n/g, " ").trim()).filter(Boolean);
+  if (items.length > 0 && element.type !== "text") {
+    return { heading: "Items:", lines: items.map((item) => `- ${item}`) };
   }
-  parts.push("");
-  parts.push(
-    `Bounds: x=${Math.round(element.x)}, y=${Math.round(element.y)}, width=${Math.round(element.width)}, height=${Math.round(element.height)}`
+  const textLines = element.label.split("\n").map((line) => line.trim()).filter(Boolean);
+  if (textLines.length > 1) return { heading: "Text lines:", lines: textLines.map((line) => `- ${line}`) };
+  return null;
+}
+
+/**
+ * One element as a compact field list plus optional blocks. Field order is stable (Type, Label,
+ * Bounds, Inside, Layer, …) so a model can scan many elements quickly; `Layer:` only appears when
+ * the screen has several layers, and nothing is repeated from the label.
+ */
+function elementSection(project: WireframeProject, element: WireframeElement): string {
+  const fields: string[] = [`- Type: ${ELEMENT_TYPE_LABEL[element.type]}`];
+  const label = element.label.replace(/\n+/g, " ").trim();
+  if (label && element.type !== "drawing") fields.push(`- Label: ${label}`);
+  fields.push(
+    `- Bounds: x=${Math.round(element.x)}, y=${Math.round(element.y)}, width=${Math.round(element.width)}, height=${Math.round(element.height)}`
   );
-
-  const typography = typographySection(element);
-  if (typography.length > 0) {
-    parts.push("");
-    parts.push(...typography);
-  }
-
+  const parent = parentOf(project, element);
+  // A parent that is itself left out of the export (an undescribed Drawing) is not referenced.
+  if (parent && !isOmittedFromLlmExport(parent)) fields.push(`- Inside: \`${fenceSafe(parent.name)}\``);
+  if (project.layers.length > 1) fields.push(`- Layer: ${layerName(project, element.layerId)}`);
+  fields.push(...typographySection(element));
   const contentSize = contentSizeLine(element);
-  if (contentSize) {
-    parts.push("");
-    parts.push(contentSize);
+  if (contentSize) fields.push(contentSize);
+  if (element.type === "diagram" && element.diagram) {
+    fields.push(`- Canvas size: ${Math.round(element.diagram.width)} × ${Math.round(element.diagram.height)}`);
   }
+
+  const parts: string[] = [`### \`${fenceSafe(element.name)}\``, "", ...fields];
 
   const content = visibleContent(element);
-  if (content.length > 0) {
-    parts.push("");
-    parts.push("Visible content:");
-    parts.push("");
-    parts.push(...content);
-  }
+  if (content) parts.push("", content.heading, ...content.lines);
 
   const table = element.type === "table" ? tableSections(element) : [];
-  if (table.length > 0) {
-    parts.push("");
-    parts.push(...table);
-  }
+  if (table.length > 0) parts.push("", ...table);
 
-  if (element.note.trim()) {
-    parts.push("");
-    parts.push("LLM note:");
-    parts.push("");
-    parts.push(element.note.trim());
-  }
+  parts.push(...diagramSections(element), ...drawingSections(element));
+
+  if (element.note.trim()) parts.push("", "LLM note:", element.note.trim());
 
   return parts.join("\n");
+}
+
+/**
+ * JSON with one element (or layer) per line: the canonical `ui-project` source stays exact and
+ * importable, costs a fraction of the tokens of fully indented JSON, and is still readable.
+ */
+function inlineJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(inlineJson).join(", ")}]`;
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value).filter(([, item]) => item !== undefined);
+    return `{ ${entries.map(([key, item]) => `${JSON.stringify(key)}: ${inlineJson(item)}`).join(", ")} }`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+export function projectToSourceJson(project: WireframeProject): string {
+  const list = (items: unknown[]) => (items.length === 0 ? "[]" : `[\n    ${items.map(inlineJson).join(",\n    ")}\n  ]`);
+  return [
+    "{",
+    `  "version": ${PROJECT_VERSION},`,
+    `  "title": ${JSON.stringify(project.title)},`,
+    `  "canvas": ${inlineJson(project.canvas)},`,
+    `  "layers": ${list(project.layers)},`,
+    `  "elements": ${list(project.elements)}`,
+    "}"
+  ].join("\n");
 }
 
 export function projectToJson(project: WireframeProject, pretty = true): string {
@@ -187,6 +222,8 @@ export function projectToMarkdown(project: WireframeProject): string {
   // The human/LLM sections describe the currently visible interface; hidden elements and
   // layers survive only in the canonical `ui-project` source below.
   const visible = visibleElementsInDrawOrder(project);
+  // Drawings without an LLM description are ignored by every LLM-facing section below.
+  const exported = exportedElementsInDrawOrder(project);
   const sections: string[] = [];
 
   sections.push(`# UI Wireframe: ${project.title}`);
@@ -198,9 +235,12 @@ export function projectToMarkdown(project: WireframeProject): string {
   sections.push("");
   sections.push(`Type: ${canvasModeLabel(project)}`);
   sections.push(`Canvas: ${Math.round(project.canvas.width)} × ${Math.round(project.canvas.height)}`);
-  sections.push(`Elements: ${visible.length}`);
+  sections.push(`Elements: ${exported.length}`);
   if (visible.length !== project.elements.length) {
     sections.push(`Hidden elements omitted: ${project.elements.length - visible.length}`);
+  }
+  if (exported.length !== visible.length) {
+    sections.push(`Drawings without an LLM description omitted: ${visible.length - exported.length}`);
   }
   const layerList = project.layers.map((layer) => `${layer.name}${layer.visible ? "" : " (hidden)"}`);
   sections.push(`Layers (front to back): ${layerList.join(" → ")}`);
@@ -214,11 +254,11 @@ export function projectToMarkdown(project: WireframeProject): string {
 
   sections.push("");
   sections.push("## UI Elements");
-  if (visible.length === 0) {
+  if (exported.length === 0) {
     sections.push("");
     sections.push("_No elements on the canvas._");
   } else {
-    for (const element of visible) {
+    for (const element of exported) {
       sections.push("");
       sections.push(elementSection(project, element));
     }
@@ -235,7 +275,7 @@ export function projectToMarkdown(project: WireframeProject): string {
   sections.push(`\`\`\`${PROJECT_FENCE}`);
   // A backtick run inside a note or label ("```js") would close the fence early. `\u0060` is the
   // same character in JSON, so the block still parses to exactly the same project.
-  sections.push(projectToJson(project).replace(/`/g, "\\u0060"));
+  sections.push(projectToSourceJson(project).replace(/`/g, "\\u0060"));
   sections.push("```");
   sections.push("");
 

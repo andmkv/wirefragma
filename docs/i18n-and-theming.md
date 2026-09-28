@@ -28,7 +28,10 @@ using `ELEMENT_TYPE_LABEL`. Server messages are shown translated when their `err
 ### Adding a string
 
 1. add the key to `en.ts` (plural → `_one` + `_other`);
-2. add it to every file in `src/i18n/locales/` (the test lists what is missing);
+2. add it to every file in `src/i18n/locales/` (the test lists what is missing), **no longer than
+   the English text**: short strings (≤ 40 characters) may exceed it by 2 characters (but may
+   always use 10), sentences by 10 %. `i18n.test.ts` enforces this so buttons and panels keep their
+   layout in every language — abbreviate or rephrase rather than overflow;
 3. use `const t = useT()` in components; in long-lived callbacks read a ref (see `tr` in `App.tsx`)
    so a language switch does not require re-creating every handler.
 

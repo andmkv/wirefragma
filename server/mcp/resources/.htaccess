@@ -1,0 +1,12 @@
+# Included by ../index.php from the filesystem only; nothing here is ever served over HTTP.
+# The <Files> block overrides the parent's index.php grant for this subtree.
+<IfModule mod_authz_core.c>
+  Require all denied
+  <Files "*">
+    Require all denied
+  </Files>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createDiagramData } from "../model/diagram";
+import { createDrawingData, hasDrawingDescription } from "../model/drawing";
 import { useT } from "../i18n";
 import {
   MAX_CANVAS_SIZE,
@@ -52,6 +54,8 @@ interface PropertiesPanelProps {
   onUnnest: () => void;
   /** Rendered at the bottom of the panel in every state (guest language / theme switcher). */
   footer?: ReactNode;
+  /** Open the Canvas / Drawing popup for the selected element. */
+  onEditScene: () => void;
 }
 
 function NumberField({
@@ -188,6 +192,56 @@ function TypographySection({
   );
 }
 
+/** Canvas / Drawing: open the popup, a one-line summary and the LLM description. */
+function SceneSection({
+  element,
+  locked,
+  onEdit,
+  onUpdateElement
+}: {
+  element: WireframeElement;
+  locked: boolean;
+  onEdit: () => void;
+  onUpdateElement: PropertiesPanelProps["onUpdateElement"];
+}) {
+  const t = useT();
+  const drawing = element.type === "drawing";
+  const scene = drawing ? element.drawing : element.diagram;
+  const description = scene?.description ?? "";
+  const summary = drawing
+    ? t("scene.drawingSummary", { count: element.drawing?.strokes.length ?? 0, width: scene?.width ?? 0, height: scene?.height ?? 0 })
+    : t("scene.diagramSummary", { count: element.diagram?.objects.length ?? 0, width: scene?.width ?? 0, height: scene?.height ?? 0 });
+
+  const describe = (value: string) =>
+    onUpdateElement(
+      (current) => {
+        const text = value === "" ? undefined : value;
+        if (current.type === "drawing") return { drawing: { ...(current.drawing ?? createDrawingData()), description: text } };
+        return { diagram: { ...(current.diagram ?? createDiagramData()), description: text } };
+      },
+      { coalesceKey: "sceneDescription" }
+    );
+
+  return (
+    <div className="scene-section">
+      <button type="button" className="primary scene-edit-open" onClick={onEdit} disabled={locked}>
+        ✎ {t(drawing ? "scene.editDrawing" : "scene.editCanvas")}
+      </button>
+      <p className="hint">{summary}</p>
+      <label className="field">
+        <span className="field-label">{t(drawing ? "scene.description" : "scene.descriptionOptional")}</span>
+        <textarea
+          rows={3}
+          value={description}
+          placeholder={t(drawing ? "scene.drawingDescriptionPlaceholder" : "scene.diagramDescriptionPlaceholder")}
+          onChange={(event) => describe(event.target.value)}
+        />
+      </label>
+      {drawing && !hasDrawingDescription(element.drawing) ? <p className="scene-warning">⚠ {t("scene.drawingWarning")}</p> : null}
+    </div>
+  );
+}
+
 export function PropertiesPanel({
   project,
   element,
@@ -204,7 +258,8 @@ export function PropertiesPanel({
   onBringToFront,
   onSendToBack,
   onUnnest,
-  footer
+  footer,
+  onEditScene
 }: PropertiesPanelProps) {
   const t = useT();
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -307,7 +362,7 @@ export function PropertiesPanel({
     element.type === "sidebar" ||
     element.type === "table" ||
     element.type === "bottomNav";
-  const showLabel = element.type !== "tabs" && element.type !== "list";
+  const showLabel = element.type !== "tabs" && element.type !== "list" && element.type !== "drawing";
   const isSymbol = element.type === "icon" || element.type === "image";
   const itemsLabel = element.type === "table" ? t("props.rows") : t("props.items");
 
@@ -382,6 +437,10 @@ export function PropertiesPanel({
               />
             ) : null}
           </div>
+        ) : null}
+
+        {element.type === "diagram" || element.type === "drawing" ? (
+          <SceneSection element={element} locked={locked} onEdit={onEditScene} onUpdateElement={onUpdateElement} />
         ) : null}
 
         {isSymbol ? (

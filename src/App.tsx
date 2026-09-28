@@ -3,6 +3,8 @@ import { BUILD_ID, INPUT_DEBUG_ENABLED, VITE_MODE } from "./buildIdentity";
 import { AppToolbar } from "./components/AppToolbar";
 import { CanvasEditor } from "./components/CanvasEditor";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { DiagramEditor } from "./components/DiagramEditor";
+import { DrawingEditor } from "./components/DrawingEditor";
 import { ElementPalette } from "./components/ElementPalette";
 import { ExportDialog } from "./components/ExportDialog";
 import { ImportDialog } from "./components/ImportDialog";
@@ -46,6 +48,8 @@ import {
   type WireframeElement,
   type WireframeProject
 } from "./model/project";
+import { createDiagramData } from "./model/diagram";
+import { createDrawingData } from "./model/drawing";
 import { copySelection, pasteClipboard, type WirefragmaClipboard } from "./model/clipboard";
 import {
   EMPTY_SELECTION,
@@ -140,6 +144,8 @@ export default function App({
   /** Layer the Export dialog is scoped to (Layers "…" → Export layer), or null for the whole project. */
   const [exportLayerId, setExportLayerId] = useState<string | null>(null);
   const [pendingLayerDelete, setPendingLayerDelete] = useState<string | null>(null);
+  /** The Canvas/Drawing element whose scene popup is open (editor state, never serialized). */
+  const [sceneEditId, setSceneEditId] = useState<string | null>(null);
   const [pendingNewProject, setPendingNewProject] = useState(false);
   // Remembered per browser, so opening another wireframe (a fresh editor) keeps the layout.
   const [layersOpen, setLayersOpen] = usePanelFlag("wirefragma.panel.layersOpen", true);
@@ -660,7 +666,7 @@ export default function App({
   }, [activeLayerId, flash, mutate, pendingLayerDelete, project]);
 
   const pendingDeleteLayer = findLayer(project, pendingLayerDelete);
-  const modalOpen = dialog !== "none" || pendingLayerDelete !== null || pendingNewProject;
+  const modalOpen = dialog !== "none" || pendingLayerDelete !== null || pendingNewProject || sceneEditId !== null;
   const pendingDeleteCount = pendingLayerDelete
     ? project.elements.filter((element) => element.layerId === pendingLayerDelete).length
     : 0;
@@ -710,6 +716,25 @@ export default function App({
   );
 
   const closeDialog = useCallback(() => setDialog("none"), []);
+
+  /* ------------------------------------------------ Canvas / Drawing popups */
+
+  const openSceneEditor = useCallback((elementId: string) => {
+    const element = findElement(project, elementId);
+    if (!element || (element.type !== "diagram" && element.type !== "drawing")) return;
+    if (effectiveLocked(project, element)) return;
+    setSelection(singleSelection(elementId));
+    setSceneEditId(elementId);
+  }, [project]);
+  const sceneElement = sceneEditId ? findElement(project, sceneEditId) : null;
+  /** Done: the whole editing session becomes ONE history step. */
+  const commitScene = useCallback(
+    (elementId: string, patch: Pick<WireframeElement, "diagram"> | Pick<WireframeElement, "drawing">) => {
+      mutate((current) => updateElement(current, elementId, patch), { coalesceKey: null });
+      setSceneEditId(null);
+    },
+    [mutate]
+  );
 
   const handleUndo = useCallback(() => setHistory((current) => undo(current)), []);
   const handleRedo = useCallback(() => setHistory((current) => redo(current)), []);
@@ -975,7 +1000,9 @@ export default function App({
         <LeftPanel
           layersOpen={layersOpen}
           onToggleLayers={() => setLayersOpen((value) => !value)}
-          addPanel={<ElementPalette onAdd={handleAdd} activeLayerName={activeLayer?.name ?? "Default"} />}
+          addPanel={(compact) => (
+            <ElementPalette compact={compact} onAdd={handleAdd} activeLayerName={activeLayer?.name ?? "Default"} />
+          )}
           layersPanel={
             <LayersPanel
               project={project}
@@ -1032,6 +1059,7 @@ export default function App({
             onEndInteraction={endInteraction}
             onScaleChange={handleScaleChange}
             onUserZoom={applyZoom}
+            onEditScene={openSceneEditor}
           />
           <div className="canvas-hint">{t("canvas.hint", { grid: gridSize })}</div>
         </section>
@@ -1053,9 +1081,28 @@ export default function App({
           onSendToBack={handleSendToBack}
           onUnnest={handleUnnestSelected}
           footer={preferencesSlot}
+          onEditScene={() => selectedElement && openSceneEditor(selectedElement.id)}
         />
       </main>
 
+      {sceneElement?.type === "diagram" ? (
+        <DiagramEditor
+          key={sceneElement.id}
+          name={sceneElement.label.trim() || sceneElement.name}
+          initial={sceneElement.diagram ?? createDiagramData()}
+          onDone={(diagram) => commitScene(sceneElement.id, { diagram })}
+          onCancel={() => setSceneEditId(null)}
+        />
+      ) : null}
+      {sceneElement?.type === "drawing" ? (
+        <DrawingEditor
+          key={sceneElement.id}
+          name={sceneElement.name}
+          initial={sceneElement.drawing ?? createDrawingData()}
+          onDone={(drawing) => commitScene(sceneElement.id, { drawing })}
+          onCancel={() => setSceneEditId(null)}
+        />
+      ) : null}
       {dialog === "export" ? (
         <ExportDialog project={project} layerId={exportLayerId} onClose={closeDialog} />
       ) : null}

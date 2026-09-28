@@ -79,3 +79,23 @@ CREATE TABLE IF NOT EXISTS wf_user_settings (
   PRIMARY KEY (user_id),
   CONSTRAINT fk_wf_user_settings_user FOREIGN KEY (user_id) REFERENCES wf_users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Personal MCP access tokens (Settings → MCP access). Only the SHA-256 of a token is stored; the
+-- raw value is shown once at creation. `scopes` is a space-separated subset of "read write delete".
+-- Added with the MCP endpoint; the API also creates it on demand, so no manual migration is needed.
+CREATE TABLE IF NOT EXISTS wf_mcp_tokens (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id       INT UNSIGNED NOT NULL,
+  name          VARCHAR(80)  NOT NULL,
+  token_hash    CHAR(64)     NOT NULL,        -- sha256 of the full raw token
+  token_prefix  VARCHAR(16)  NOT NULL,        -- "wf_mcp_a1b2c", for display only
+  scopes        VARCHAR(64)  NOT NULL,        -- e.g. "read write"
+  created_at    DATETIME     NOT NULL,
+  expires_at    DATETIME     NULL,            -- NULL = never
+  last_used_at  DATETIME     NULL,            -- refreshed at most once a minute
+  revoked_at    DATETIME     NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_wf_mcp_tokens_hash (token_hash),
+  KEY ix_wf_mcp_tokens_user (user_id),
+  CONSTRAINT fk_wf_mcp_tokens_user FOREIGN KEY (user_id) REFERENCES wf_users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Self-hosting — Wirefragma docs</title>
+  <meta name="description" content="Host Wirefragma yourself: static guest editor, or PHP + MySQL with accounts and the MCP endpoint on shared hosting." />
+  <link rel="icon" href="../brand/wf_logo_square.png" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button type="button" class="menu-toggle" aria-label="Toggle navigation">Menu</button>
+    <a class="brand" href="index.html"><img src="../brand/wf_logo_square.png" alt="" /> Wirefragma <small>Docs</small></a>
+    <span class="spacer"></span>
+    <a class="gh" href="https://github.com/andmkv/wirefragma">GitHub</a>
+    <a class="open-app" href="../">Open the app</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" data-nav aria-label="Documentation">
+      <a href="index.html">Overview</a>
+    </nav>
+    <main>
+      <article>
+<p class="eyebrow">Operators</p>
+<h1>Self-hosting</h1>
+<p class="lead">Any static host runs the guest editor. Add PHP and MySQL for accounts, and PHP 8.1 for MCP — ordinary shared hosting is enough.</p>
+
+<h2 id="static">Static only</h2>
+<pre><code>npm install
+npm run build        # → dist/</code></pre>
+<p>Upload the contents of <code>dist/</code> anywhere (it uses relative paths, so a sub-folder works). Without a configured backend the app starts as the guest editor.</p>
+
+<h2 id="accounts">With accounts (PHP + MySQL)</h2>
+<ol class="steps">
+  <li>Build with MCP: <code>npm run build:deploy</code> (needs Composer on the build machine), or <code>npm run build</code> without it.</li>
+  <li>Create a MySQL/MariaDB database and import <code>server/schema.sql</code>.</li>
+  <li>Copy <code>server/api/config.sample.php</code> to a private place — e.g. <code>/home/USER/wirefragma-config.php</code>, outside <code>public_html</code> — and fill in the database, <code>app_url</code>, mail and privacy settings.</li>
+  <li>Upload the contents of <code>dist/</code>, including the hidden <code>.htaccess</code> files, and enable HTTPS.</li>
+  <li>Check <code>/api/index.php?action=status</code> returns <code>"enabled": true</code>, then create an account.</li>
+</ol>
+
+<h2 id="mcp">Enabling MCP</h2>
+<ul>
+  <li>PHP 8.1 or newer for the site (the accounts API alone still runs on 7.4).</li>
+  <li>In the config file set <code>'mcp' =&gt; ['session_dir' =&gt; '/home/USER/.wirefragma-mcp-sessions']</code> — a private, writable folder outside the web root.</li>
+  <li>The token table is created automatically on first use.</li>
+  <li>Verify: <code>/mcp/composer.json</code> and <code>/mcp/vendor/autoload.php</code> answer 403; <code>/mcp/</code> without a token answers 401.</li>
+  <li>If a valid token still gets 401, your PHP handler drops the <code>Authorization</code> header; the bundled <code>.htaccess</code> forwards it, or enable <code>CGIPassAuth On</code>.</li>
+</ul>
+<div class="callout warn"><strong>Keep secrets out of the web root.</strong> The config file holds database and mail passwords; the build never copies it into <code>dist/</code>. Never commit it.</div>
+
+<h2 id="config">MCP configuration options</h2>
+<pre><code>'mcp' =&gt; [
+    'enabled'         =&gt; true,
+    'endpoint'        =&gt; '',   // default: app_url + "mcp/"
+    'session_dir'     =&gt; '/home/USER/.wirefragma-mcp-sessions',
+    'allowed_hosts'   =&gt; [],   // extra Host/Origin names; app_url's host is always allowed
+    'allowed_origins' =&gt; [],   // CORS for browsers; keep empty for MCP clients
+],</code></pre>
+
+<h2 id="updating">Updating</h2>
+<p>Rebuild and upload <code>dist/</code> again; the config file lives outside it and is untouched. <code>schema.sql</code> is safe to re-import. The technical deployment guide in the repository (<code>docs/deployment.md</code>) has the full details.</p>
+      </article>
+      <footer class="site">Wirefragma is open source (MIT). Found a mistake in these pages? <a href="https://github.com/andmkv/wirefragma/issues">Open an issue</a>.</footer>
+    </main>
+    <aside class="toc" data-toc></aside>
+  </div>
+  <script src="docs.js"></script>
+</body>
+</html>

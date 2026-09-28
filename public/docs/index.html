@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Overview — Wirefragma docs</title>
+  <meta name="description" content="Wirefragma: sketch a screen, annotate it for an LLM, and hand over a precise Markdown/JSON specification — or let a coding agent edit it over MCP." />
+  <link rel="icon" href="../brand/wf_logo_square.png" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button type="button" class="menu-toggle" aria-label="Toggle navigation">Menu</button>
+    <a class="brand" href="index.html"><img src="../brand/wf_logo_square.png" alt="" /> Wirefragma <small>Docs</small></a>
+    <span class="spacer"></span>
+    <a class="gh" href="https://github.com/andmkv/wirefragma">GitHub</a>
+    <a class="open-app" href="../">Open the app</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" data-nav aria-label="Documentation">
+      <a href="index.html">Overview</a>
+    </nav>
+    <main>
+      <article>
+<p class="eyebrow">Documentation</p>
+<h1>Sketch the screen. Hand the spec to your LLM.</h1>
+<p class="lead">Wirefragma is a small visual wireframe editor whose output is written for language models: an ASCII sketch, a semantic element list, a spatial summary and the canonical project JSON — or, for signed-in users, direct access for coding agents over MCP.</p>
+
+<figure class="shot">
+  <img src="images/editor.png" alt="The Wirefragma editor: projects panel, element palette, layers, canvas with a sign-in form and the properties panel" width="1680" height="1000" />
+</figure>
+
+<div class="cards">
+  <a class="card" href="editor.html"><b>Using the editor</b><span>Canvas, 26 elements, layers and nesting, notes, shortcuts.</span></a>
+  <a class="card" href="export.html"><b>Export &amp; import</b><span>Markdown for LLMs, JSON, the WIREFRAGMA schema, round trips.</span></a>
+  <a class="card" href="accounts.html"><b>Accounts &amp; projects</b><span>Projects panel, autosave, conflicts, changes made elsewhere.</span></a>
+  <a class="card" href="mcp.html"><b>MCP for coding agents</b><span>Tokens, connecting Claude Code / Cursor / Inspector, tool reference.</span></a>
+  <a class="card" href="api.html"><b>Project format &amp; HTTP API</b><span>The document JSON and the account API reference.</span></a>
+  <a class="card" href="self-hosting.html"><b>Self-hosting</b><span>Static hosting, or PHP + MySQL with accounts and MCP.</span></a>
+</div>
+
+<h2 id="what-it-is">What Wirefragma is</h2>
+<p>You place generic wireframe primitives — containers, toolbars, inputs, buttons, lists, tables, dialogs, a structured <b>Canvas</b> for small diagrams — and give each one an <b>LLM note</b>: what it does, its states, its data. Wirefragma then turns the screen into text a model can implement from.</p>
+<p>It is deliberately <em>not</em> a design tool: no colours, fonts, rotation or auto-layout. The product is the specification.</p>
+<div class="callout"><strong>No AI inside.</strong> Wirefragma never calls a model. You paste the export into the LLM of your choice, or connect your own coding agent over MCP — the agent is the LLM.</div>
+
+<h2 id="three-ways">Three ways to use it</h2>
+<div class="table-wrap"><table>
+<tr><th>Mode</th><th>Where the wireframe lives</th><th>Good for</th></tr>
+<tr><td><b>Guest</b></td><td>your browser (<code>localStorage</code>), one project</td><td>quick sketches, no sign-up, works on any static host</td></tr>
+<tr><td><b>Signed in</b></td><td>the server's database: projects with many wireframes</td><td>several screens, several devices, autosave</td></tr>
+<tr><td><b>Signed in + MCP</b></td><td>the same server storage, also reachable by agents</td><td>letting Claude Code, Codex or Cursor read and edit your wireframes</td></tr>
+</table></div>
+
+<h2 id="quick-start">Quick start</h2>
+<ol class="steps">
+  <li><b>Open the app</b> and either sign in or choose <i>Continue without an account</i>.</li>
+  <li><b>Add elements</b> from the <i>Add</i> panel; drag, resize and nest them on the canvas.</li>
+  <li><b>Write notes.</b> Select an element and describe its behaviour in <i>LLM note</i>.</li>
+  <li><b>Export.</b> Click <i>Copy for LLM</i> and paste into your model — or give an agent MCP access and ask it to build from the wireframe directly.</li>
+</ol>
+
+<h2 id="what-the-llm-gets">What the LLM receives</h2>
+<pre><code># UI Wireframe: Sign in
+
+## Screen
+Mode: Mobile portrait — 390 × 844
+...
+## ASCII Wireframe
+## UI Elements        (one section per element: type, bounds, label, note, parent…)
+## Spatial Summary    (rule-based "what sits where")
+## Editable Project Source
+```ui-project
+{ "version": 2, "title": "Sign in", "canvas": {…}, "layers": […], "elements": […] }
+```</code></pre>
+<p>The <code>ui-project</code> block is the canonical, lossless source: paste the Markdown back into <i>Import</i> and you get the editable wireframe again. Details in <a href="export.html">Export &amp; import</a>.</p>
+      </article>
+      <footer class="site">Wirefragma is open source (MIT). Found a mistake in these pages? <a href="https://github.com/andmkv/wirefragma/issues">Open an issue</a>.</footer>
+    </main>
+    <aside class="toc" data-toc></aside>
+  </div>
+  <script src="docs.js"></script>
+</body>
+</html>

@@ -87,10 +87,28 @@ describe("markdown round trip", () => {
     expect(markdown).toContain("Saves changes but stays on the screen.");
   });
 
-  it("adds layer context for visible elements", () => {
-    const markdown = projectToMarkdown(tinyProject());
-    expect(markdown).toContain("Layer: Default");
-    expect(markdown).toContain("Layers (front to back): Default");
+  it("adds layer context only when the screen has several layers", () => {
+    const single = projectToMarkdown(tinyProject());
+    expect(single).toContain("Layers (front to back): Default");
+    expect(single).not.toContain("- Layer: ");
+    const multi = projectToMarkdown(createSampleProject());
+    expect(multi).toContain("- Layer: Controls");
+  });
+
+  it("keeps each element compact: fields as a list, no label echoed as content", () => {
+    const markdown = projectToMarkdown(createSampleProject());
+    expect(markdown).toContain("### `saveButton`\n\n- Type: Button\n- Label: Save\n- Bounds: x=");
+    expect(markdown).not.toContain("Visible content:");
+    expect(markdown).toContain("Items:\n- General\n- Appearance\n- Advanced");
+  });
+
+  it("writes the ui-project source one element per line and still round-trips", () => {
+    const project = createSampleProject();
+    const markdown = projectToMarkdown(project);
+    const source = markdown.slice(markdown.indexOf("```ui-project"));
+    const elementLines = source.split("\n").filter((line) => line.startsWith('    { "id": '));
+    expect(elementLines.length).toBe(project.elements.length + project.layers.length);
+    expect(projectFromMarkdown(markdown)).toEqual(project);
   });
 
   it("embeds complete JSON as the canonical source", () => {

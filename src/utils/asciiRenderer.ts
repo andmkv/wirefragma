@@ -1,4 +1,5 @@
-import { visibleElementsInDrawOrder, type WireframeElement, type WireframeProject } from "../model/project";
+import { exportedElementsInDrawOrder, type WireframeElement, type WireframeProject } from "../model/project";
+import { renderDiagramAsciiLines } from "./diagramText";
 
 /**
  * Deterministic ASCII rendering of a wireframe.
@@ -115,18 +116,17 @@ function middleRow(rect: Rect): number {
   return rect.y + Math.floor((rect.h - 1) / 2);
 }
 
-function drawCentered(grid: Grid, rect: Rect, text: string, row: number, limit: number): void {
-  const clipped = clip(text, limit);
-  if (!clipped) return;
-  const offset = Math.max(0, Math.floor((rect.w - Array.from(clipped).length) / 2));
-  grid.put(rect.x + offset, row, clipped);
-}
-
 function drawButton(grid: Grid, rect: Rect, label: string): void {
-  const inner = Math.max(1, rect.w - 4);
-  const text = clip(label || "Button", inner);
-  const box = `[ ${text} ]`;
-  const rendered = Array.from(box).length <= rect.w ? box : `[${clip(label, Math.max(1, rect.w - 2))}]`;
+  // Prefer the whole caption: "[ Cancel ]", then "[Cancel]", and only then a clipped "[Can…]".
+  const caption = (label || "Button").replace(/\s+/g, " ").trim();
+  const padded = `[ ${caption} ]`;
+  const tight = `[${caption}]`;
+  const rendered =
+    Array.from(padded).length <= rect.w
+      ? padded
+      : Array.from(tight).length <= rect.w
+        ? tight
+        : `[${clip(caption, Math.max(1, rect.w - 2))}]`;
   const offset = Math.max(0, Math.floor((rect.w - Array.from(rendered).length) / 2));
   grid.put(rect.x + offset, middleRow(rect), rendered);
 }
@@ -149,7 +149,8 @@ function drawCheckbox(grid: Grid, rect: Rect, label: string): void {
 }
 
 function drawToggle(grid: Grid, rect: Rect, label: string): void {
-  const knob = "[●──]";
+  // A shorter switch leaves room for the caption on narrow toggles.
+  const knob = Array.from(label).length + 6 <= rect.w ? "[●──]" : "[●]";
   const knobWidth = Array.from(knob).length;
   const row = middleRow(rect);
   if (rect.w < knobWidth + 1) {
@@ -250,11 +251,11 @@ function drawDivider(grid: Grid, rect: Rect): void {
   for (let i = 0; i < rect.w; i += 1) grid.set(rect.x + i, row, "─");
 }
 
+/** The label is a small title on the top border ("┌─Contact us───┐"), as on the canvas. */
 function drawContainer(grid: Grid, rect: Rect, label: string): void {
   drawBox(grid, rect);
-  if (label && Array.from(label).length <= rect.w - 4) {
-    drawCentered(grid, rect, label, middleRow(rect), rect.w - 4);
-  }
+  const text = clip(label.replace(/\s+/g, " ").trim(), Math.max(0, rect.w - 4));
+  if (text && rect.w >= 6) grid.put(rect.x + 2, rect.y, text);
 }
 
 function drawToolbar(grid: Grid, rect: Rect, label: string): void {
@@ -408,6 +409,73 @@ function drawDialog(grid: Grid, rect: Rect, label: string): void {
   }
 }
 
+/** Clear the box interior: a nested scene is opaque, like the element on the canvas. */
+function clearInterior(grid: Grid, rect: Rect): void {
+  for (let j = 1; j < rect.h - 1; j += 1) {
+    for (let i = 1; i < rect.w - 1; i += 1) grid.set(rect.x + i, rect.y + j, " ");
+  }
+}
+
+/** Canvas: a titled box with the scene rendered INTO it (nested ASCII). */
+function drawDiagram(grid: Grid, rect: Rect, element: WireframeElement): void {
+  drawBox(grid, rect);
+  if (rect.w < 4 || rect.h < 2) return;
+  clearInterior(grid, rect);
+  const title = element.label.trim() ? `Canvas: ${element.label.replace(/\s+/g, " ").trim()}` : "Canvas";
+  const titleRow = rect.h >= 3 ? rect.y + 1 : rect.y;
+  grid.put(rect.x + 2, titleRow, clip(title, rect.w - 4));
+  const inner = { x: rect.x + 2, y: rect.y + 2, w: rect.w - 4, h: rect.h - 3 };
+  if (!element.diagram || element.diagram.objects.length === 0 || inner.w < 3 || inner.h < 1) return;
+  renderDiagramAsciiLines(element.diagram, inner.w, inner.h).forEach((line, row) => {
+    grid.put(inner.x, inner.y + row, line);
+  });
+}
+
+/** Word-wrap to `width` columns (hard-breaking words that are longer than a line). */
+function wrap(text: string, width: number): string[] {
+  const lines: string[] = [];
+  let current = "";
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    let rest = word;
+    while (Array.from(rest).length > width) {
+      if (current) {
+        lines.push(current);
+        current = "";
+      }
+      lines.push(Array.from(rest).slice(0, width).join(""));
+      rest = Array.from(rest).slice(width).join("");
+    }
+    if (!rest) continue;
+    const candidate = current ? `${current} ${rest}` : rest;
+    if (Array.from(candidate).length > width) {
+      lines.push(current);
+      current = rest;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+/**
+ * Drawing: never an attempt to turn freehand into ASCII (that would suggest Wirefragma
+ * understands the sketch) — a box with "Drawing" and the human-written description.
+ */
+function drawDrawing(grid: Grid, rect: Rect, element: WireframeElement): void {
+  drawBox(grid, rect);
+  if (rect.w < 4 || rect.h < 2) return;
+  clearInterior(grid, rect);
+  const titleRow = rect.h >= 3 ? rect.y + 1 : rect.y;
+  grid.put(rect.x + 2, titleRow, clip("Drawing", rect.w - 4));
+  const available = rect.y + rect.h - 1 - (titleRow + 1);
+  const lines = wrap(element.drawing?.description ?? "", Math.max(1, rect.w - 4));
+  lines.slice(0, Math.max(0, available)).forEach((line, index, shown) => {
+    const text = index === shown.length - 1 && shown.length < lines.length ? clip(`${line}…`, rect.w - 4) : line;
+    grid.put(rect.x + 2, titleRow + 1 + index, text);
+  });
+}
+
 function drawElement(grid: Grid, element: WireframeElement, rect: Rect): void {
   switch (element.type) {
     case "container":
@@ -482,6 +550,12 @@ function drawElement(grid: Grid, element: WireframeElement, rect: Rect): void {
     case "dialog":
       drawDialog(grid, rect, element.label);
       break;
+    case "diagram":
+      drawDiagram(grid, rect, element);
+      break;
+    case "drawing":
+      drawDrawing(grid, rect, element);
+      break;
     default:
       drawBox(grid, rect);
       break;
@@ -498,7 +572,8 @@ export function renderAsciiLines(project: WireframeProject): string[] {
   const sy = rows / canvasHeight;
 
   // Only effective-visible elements are drawn, back to front following layer + element order.
-  for (const element of visibleElementsInDrawOrder(project)) {
+  // Drawings without an LLM description are left out (see `isOmittedFromLlmExport`).
+  for (const element of exportedElementsInDrawOrder(project)) {
     drawElement(grid, element, toRect(element, sx, sy, grid));
   }
 

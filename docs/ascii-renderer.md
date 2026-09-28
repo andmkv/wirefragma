@@ -54,17 +54,17 @@ Only effective-visible elements are drawn (element `visible` AND layer `visible`
 
 | Type | Representation |
 | --- | --- |
-| `container` | `┌─┐ │ └─┘` box, empty interior (label centred only when it fits) |
+| `container` | `┌─┐ │ └─┘` box, empty interior; the label is a title on the top border (`┌─Contact us──┐`), as on the canvas |
 | `divider` | a full-width `─` line on the middle row |
 | `toolbar` | box + label at the left |
 | `sidebar` | box + label + `• item` rows |
 | `text` | its label, one label line per `\n`, top-down from the element's top-left |
-| `button` | `[ Label ]` centred |
+| `button` | `[ Label ]` centred; when that does not fit, `[Label]`, and only then a clipped `[Lab…]` |
 | `input` | `[ Label______ ]` (underscored fill) |
 | `textarea` | box with the first label line + underscore fill |
 | `checkbox` | `[x] Label` |
 | `radio` | `( ) Label` |
-| `toggle` | label + `[●──]` knob at the right |
+| `toggle` | label + `[●──]` knob at the right (`[●]` when the label would not fit) |
 | `dropdown` | `[ Label   ▾ ]` |
 | `slider` | label + `───●───` track with a thumb at ~60 % |
 | `progress` | `[██████░░░░]` (60 % filled) |

@@ -4,9 +4,16 @@
 
 ```bash
 npm install
-npm run build        # tsc --noEmit && vite build
+npm run build        # tsc --noEmit && vite build          (no Composer needed)
+npm run build:deploy # + the MCP endpoint in dist/mcp      (needs Composer, PHP 8.1+)
 npm run preview      # optional local check of the built output
 ```
+
+`build:deploy` runs, in order: `mcp:resources --check` (the generated MCP schema is up to date),
+`mcp:install` (`composer install --no-dev` in `server/mcp`), `build`, and
+`scripts/package-mcp.mjs` (copies `server/mcp` with `vendor/` to `dist/mcp`, adds a deny-all
+`vendor/.htaccess`). Use it for a server deployment with accounts; `build` alone is enough for a
+static guest-only host.
 
 Output: `dist/`
 
@@ -17,6 +24,8 @@ dist/assets/index-<hash>.js       (~252 kB, ~81 kB gzip)
 dist/wf_logo_w_white.png          (copied verbatim from public/)
 dist/brand/                       (sign-in logos, from public/brand/)
 dist/api/                         (optional PHP accounts backend, copied from server/api/)
+dist/docs/                        (public documentation site, from public/docs/)
+dist/mcp/                         (optional MCP endpoint — build:deploy only)
 ```
 
 `vite.config.ts` sets:
@@ -39,7 +48,7 @@ file host without configuration.
 | Backend | none for the editor; the optional accounts API is PHP (`dist/api/`) — see below |
 | Database | none, or MySQL / MariaDB for accounts |
 | Authentication | none, or the optional accounts backend |
-| Network calls | one `api/index.php?action=status` probe; nothing else unless signed in (Turnstile only if configured) |
+| Network calls | one `api/index.php?action=status` probe; nothing else unless signed in (then the project tree is polled every 5 s while the tab is visible; Turnstile only if configured) |
 | Secrets/config | none for static hosting; `wirefragma-config.php` for accounts |
 | Persistence | `localStorage`, per origin, one autosaved slot |
 | Interchange | `.md` (with the `ui-project` block) and `.json` downloads/uploads |
@@ -62,12 +71,15 @@ clipboard may be restricted there; the internal copy/paste (Cmd/Ctrl+C/V) does n
 
 ## Deploying with accounts on Namecheap shared hosting (cPanel)
 
-Everything runs on a standard Stellar / cPanel plan: PHP 7.4+ (8.x recommended), MySQL/MariaDB,
-Apache with `.htaccess`, `mail()`. No Node.js, SSH or Composer is needed on the server.
+Everything runs on a standard Stellar / cPanel plan: PHP 7.4+ for the accounts API, **PHP 8.1+ for
+the MCP endpoint** (8.1+ recommended anyway), MySQL/MariaDB, Apache with `.htaccess`, `mail()`. No
+Node.js, SSH or Composer is needed on the server (Composer runs on the build machine).
 
-1. **Build locally:** `npm install && npm run build`. Upload the **contents** of `dist/` (including
-   the hidden `api/.htaccess` and `api/lib/.htaccess`) to `public_html/` (or a sub-folder /
-   sub-domain folder) with cPanel **File Manager** (upload a zip, then Extract) or FTP.
+1. **Build locally:** `npm install && npm run build:deploy` (or `npm run build` without MCP).
+   Upload the **contents** of `dist/` (including the hidden `api/.htaccess`, `api/lib/.htaccess`,
+   `mcp/.htaccess`, `mcp/src/.htaccess`, `mcp/resources/.htaccess` and `mcp/vendor/.htaccess`) to
+   `public_html/` (or a sub-folder / sub-domain folder) with cPanel **File Manager** (upload a zip,
+   then Extract) or FTP.
 2. **PHP version:** cPanel → *Select PHP Version* → 8.1+ with the `pdo_mysql`, `mbstring` and `gd`
    extensions enabled (they are on by default).
 3. **Database:** cPanel → *MySQL Databases*: create a database (e.g. `cpuser_wirefragma`) and a
@@ -99,6 +111,36 @@ with `rsync --delete`, exclude `api/config.php`, `.well-known/` and `cgi-bin/`.
 
 Updating later: rebuild and re-upload `dist/` (the config lives outside it and is untouched). The
 schema file is idempotent; re-importing it is harmless.
+
+### MCP endpoint
+
+The remote MCP server ([mcp.md](./mcp.md)) is `dist/mcp/`, served at `https://yourdomain.com/mcp/`.
+It reuses `api/lib/` and the same config file. After uploading a `build:deploy` output:
+
+1. **PHP 8.1+** for the domain (cPanel → *Select PHP Version*). The accounts API keeps working on
+   older PHP, but `mcp/` answers 503 below 8.1.
+2. **Session folder:** create a private folder outside `public_html`, e.g.
+   `/home/CPUSER/.wirefragma-mcp-sessions` (permissions 700), and set
+   `'mcp' => ['session_dir' => '/home/CPUSER/.wirefragma-mcp-sessions']` in `wirefragma-config.php`.
+   Only handshake-era MCP clients use it; it holds protocol state, never credentials.
+3. **Database:** nothing to do — `wf_mcp_tokens` is created on first use (or re-import
+   `server/schema.sql`, which is idempotent).
+4. **Check protection:** `https://yourdomain.com/mcp/composer.json`, `/mcp/src/Endpoint.php` and
+   `/mcp/vendor/autoload.php` must answer 403; `https://yourdomain.com/mcp/` without a token must
+   answer 401 with `WWW-Authenticate: Bearer …`.
+5. **Authorization header:** if a valid token still gets 401, the PHP handler drops the header;
+   `mcp/.htaccess` forwards it with `SetEnvIf`, and `CGIPassAuth On` (Apache 2.4.13+) in the site
+   configuration is the alternative.
+6. **Try it:** Settings → MCP access → create a token, then
+   `npx @modelcontextprotocol/inspector --cli https://yourdomain.com/mcp/ --transport http --header "Authorization: Bearer wf_mcp_…" --method tools/list`.
+
+LiteSpeed (Namecheap) passes the `Host` header to PHP twice; `Endpoint` collapses identical
+duplicates before the DNS-rebinding check (differing values are still rejected).
+
+Hostnames: the endpoint accepts the host of `app_url` (plus `mcp.endpoint` / `mcp.allowed_hosts`)
+and loopback; requests with any other `Host`/`Origin` get 403 (DNS-rebinding protection). CORS is
+closed unless `mcp.allowed_origins` lists browser origins. When re-uploading with `rsync --delete`,
+keep excluding `api/config.php`; `mcp/vendor/` is part of the upload.
 
 Without step 5 the uploaded site is simply the guest editor — the probe gets `503` and the app
 starts without the sign-in screen.

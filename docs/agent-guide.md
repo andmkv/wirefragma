@@ -79,7 +79,8 @@ handling, zoom anchoring and pointer lifecycle all have to survive.
 
 Wirefragma is a *wireframe sketcher that produces an LLM-readable spec*, not a design tool:
 
-* a fixed palette of 24 generic primitives is a feature, not a limitation to remove;
+* a fixed palette of 26 generic primitives (24 UI primitives + the Canvas and Drawing scene
+  elements) is a feature, not a limitation to remove;
 * the Markdown export and its `ui-project` block are the product — canvas polish that does not
   improve the export is usually not worth it;
 * no rotation, group objects, auto-layout, alignment guides, fonts/colours, rich text, plugins,
@@ -87,6 +88,9 @@ Wirefragma is a *wireframe sketcher that produces an LLM-readable spec*, not a d
 * accounts are an **optional** layer (PHP + MySQL, [accounts.md](./accounts.md)): the editor must
   keep working with no backend at all, and signed-in documents are still plain
   `WireframeProject` JSON;
+* MCP ([mcp.md](./mcp.md)) is another client of the same account storage, not a feature of the
+  editor: no MCP code in `App`, the canvas engine, the model or editor components, and no AI calls
+  from Wirefragma itself;
 * prefer keeping the app dependency-free (two runtime dependencies today) over pulling in a library
   for a small feature;
 * when a request is ambiguous, favour the smallest interpretation that keeps the export lossless.
@@ -149,6 +153,22 @@ Wirefragma is a *wireframe sketcher that produces an LLM-readable spec*, not a d
   `markdownSemantics.test.ts`;
 * remember that the same document is re-imported, so any change must survive a round trip.
 
+### Change the server, accounts or MCP
+
+* project/wireframe persistence exists **once**, in `server/api/lib/projects.php`; the browser API
+  (`api/index.php`) and the MCP tools (`server/mcp/src/Tools.php`) are thin adapters over it —
+  never add a query or a project rule to only one of them;
+* keep `server/api/` dependency-free and PHP 7.4-compatible; Composer code belongs in `server/mcp/`
+  (PHP 8.1+);
+* handle documents as `stdClass` trees (`wf_input_object_field`, `wf_document_decode`), never
+  re-encode an assoc-decoded document — `{}` would become `[]`;
+* the MCP schema is generated: after changing the model or `schemaExport.ts`, run
+  `npm run mcp:resources` (the `mcpResources.test.ts` staleness test fails otherwise); never write
+  a PHP copy of the project format;
+* MCP writes never force: `update_wireframe` always passes `force = false`;
+* run `server/tests/api-smoke.sh` and `server/tests/mcp-smoke.sh` against a local server and a
+  throwaway database (see [testing.md](./testing.md)).
+
 ## Common failure modes and how to recognise them
 
 | Symptom | Usual cause |
@@ -163,6 +183,8 @@ Wirefragma is a *wireframe sketcher that produces an LLM-readable spec*, not a d
 | Zoom looks right but clicks are offset | Screen coordinates were stored/compared as world coordinates (or DPR was applied twice) |
 | Export/import changes the document | A field was added to the model without a normalizer/serializer update, or `zIndex` was trusted instead of recomputed |
 | Projects "disappear" | Different origin (host/port) — see [persistence-and-migrations.md](./persistence-and-migrations.md#origin-scoping) |
+| `mcpResources.test.ts` fails | the model or `schemaExport.ts` changed; run `npm run mcp:resources` and commit `server/mcp/resources/` |
+| MCP answers 401 with a valid token (production) | the PHP handler drops `Authorization`; see [deployment.md](./deployment.md#mcp-endpoint) |
 
 ## Verification protocol
 
