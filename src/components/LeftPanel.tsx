@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { SidebarIcon } from "./icons";
-import { PanelResizeHandle, usePanelWidth } from "./PanelResize";
+import { PanelResizeHandle, usePanelFlag, usePanelWidth } from "./PanelResize";
 import { useT } from "../i18n";
 
 interface LeftPanelProps {
-  addPanel: ReactNode;
+  /** The Add panel's content; `compact` when the panel is collapsed to its glyph grid. */
+  addPanel: (compact: boolean) => ReactNode;
   layersPanel: ReactNode;
   layersOpen: boolean;
   onToggleLayers: () => void;
@@ -36,21 +37,35 @@ export function CollapsedRail({ label, onExpand, children }: { label: string; on
 
 /**
  * Left side of the workspace: the element palette and the layer hierarchy are separate,
- * simultaneously visible columns. Both can be resized from their right edge; the layers column
- * can also collapse to a rail.
+ * simultaneously visible columns. Both can be resized from their right edge. The layers column
+ * collapses to a rail; the Add column collapses to a narrow two-column grid of glyph buttons
+ * (still usable), both remembered per browser.
  */
 export function LeftPanel({ addPanel, layersPanel, layersOpen, onToggleLayers }: LeftPanelProps) {
   const t = useT();
   const add = usePanelWidth("wirefragma.panel.add", 190, 150, 360);
   const layers = usePanelWidth("wirefragma.panel.layers", 236, 180, 520);
+  const [addOpen, setAddOpen] = usePanelFlag("wirefragma.panel.addOpen", true);
 
   return (
     <>
-      <aside className="panel palette resizable" style={{ width: add.width }}>
-        <div className="panel-header">{t("panel.add")}</div>
-        <div className="panel-body">{addPanel}</div>
-        <PanelResizeHandle label={t("panel.resize", { panel: t("panel.add") })} {...add} onResize={add.setWidth} onReset={add.reset} />
-      </aside>
+      {addOpen ? (
+        <aside className="panel palette resizable" style={{ width: add.width }}>
+          <div className="panel-header">
+            {t("panel.add")}
+            <PanelToggle open label={t("panel.add")} onToggle={() => setAddOpen(false)} />
+          </div>
+          <div className="panel-body">{addPanel(false)}</div>
+          <PanelResizeHandle label={t("panel.resize", { panel: t("panel.add") })} {...add} onResize={add.setWidth} onReset={add.reset} />
+        </aside>
+      ) : (
+        <aside className="panel palette palette-compact" aria-label={t("panel.add")}>
+          <div className="panel-header">
+            <PanelToggle open={false} label={t("panel.add")} onToggle={() => setAddOpen(true)} />
+          </div>
+          <div className="panel-body">{addPanel(true)}</div>
+        </aside>
+      )}
 
       {layersOpen ? (
         <aside className="panel layers-column resizable" style={{ width: layers.width }}>
