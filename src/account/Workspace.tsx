@@ -6,6 +6,8 @@ import { RowMenu } from "../components/RowMenu";
 import type { WireframeProject } from "../model/project";
 import type { History } from "../utils/history";
 import { projectFromText } from "../utils/markdownImport";
+import { downloadText } from "../utils/clipboard";
+import { bundleFilename, bundleToText, createBundle, type ProjectBundle } from "../utils/projectBundle";
 import { ApiError, api, type AccountUser, type ProjectSummary } from "./api";
 import { ProjectsPanel, type PanelRenaming, type SaveState } from "./ProjectsPanel";
 import { SettingsDialog } from "./SettingsDialog";
@@ -609,6 +611,56 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
     [flush, open, report]
   );
 
+  /* ------------------------------------------------------ .wfproj export / import */
+
+  /** The whole project as a .wfproj: stored documents (lossless), unsaved local edits included. */
+  const exportProject = useCallback(
+    async (id: number) => {
+      const project = projects?.find((candidate) => candidate.id === id);
+      if (!project) return;
+      try {
+        await flush();
+        const wireframes = [];
+        for (const summary of project.wireframes) {
+          const entry = cache.current.get(summary.id);
+          if (entry && isDirty(entry)) {
+            wireframes.push({ title: summary.title, data: entry.history.present });
+          } else {
+            const { wireframe } = await api.wireframe(summary.id);
+            wireframes.push({ title: wireframe.title, data: wireframe.data });
+          }
+        }
+        downloadText(bundleFilename(project.name), bundleToText(createBundle(project.name, wireframes)), "application/json");
+      } catch (error) {
+        report(error);
+      }
+    },
+    [flush, projects, report]
+  );
+
+  /** A .wfproj as a NEW project: one project, then its wireframes in order. */
+  const importProject = useCallback(
+    async (bundle: ProjectBundle, name: string): Promise<string | null> => {
+      try {
+        const created = await api.createProject(name, undefined, false);
+        let latest = created.projects;
+        let firstId: number | null = null;
+        for (const wireframe of bundle.wireframes) {
+          const result = await api.createWireframe(created.projectId, wireframe.title, wireframe.data);
+          latest = result.projects;
+          firstId ??= result.wireframeId;
+        }
+        setProjects(latest);
+        if (firstId !== null) await open(firstId);
+        return null;
+      } catch (error) {
+        if (handleFatal(error)) return null;
+        return errorMessage(tr, error);
+      }
+    },
+    [handleFatal, open, setProjects, tr]
+  );
+
   /* ------------------------------------------------------------- import */
 
   const handleImport = useCallback(
@@ -694,6 +746,7 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
       onDuplicateWireframe={(id) => void duplicateWireframe(id)}
       onDeleteWireframe={deleteWireframe}
       onImport={() => setImportOpen(true)}
+      onExportProject={(id) => void exportProject(id)}
     />
   );
 
@@ -712,6 +765,7 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
             wireframeTitles: project.wireframes.map((wireframe) => wireframe.title)
           }))}
           defaultProjectId={currentProjectId}
+          onImportProject={importProject}
         />
       ) : null}
       {confirm ? (

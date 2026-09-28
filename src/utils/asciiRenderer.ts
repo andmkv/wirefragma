@@ -116,18 +116,17 @@ function middleRow(rect: Rect): number {
   return rect.y + Math.floor((rect.h - 1) / 2);
 }
 
-function drawCentered(grid: Grid, rect: Rect, text: string, row: number, limit: number): void {
-  const clipped = clip(text, limit);
-  if (!clipped) return;
-  const offset = Math.max(0, Math.floor((rect.w - Array.from(clipped).length) / 2));
-  grid.put(rect.x + offset, row, clipped);
-}
-
 function drawButton(grid: Grid, rect: Rect, label: string): void {
-  const inner = Math.max(1, rect.w - 4);
-  const text = clip(label || "Button", inner);
-  const box = `[ ${text} ]`;
-  const rendered = Array.from(box).length <= rect.w ? box : `[${clip(label, Math.max(1, rect.w - 2))}]`;
+  // Prefer the whole caption: "[ Cancel ]", then "[Cancel]", and only then a clipped "[Can…]".
+  const caption = (label || "Button").replace(/\s+/g, " ").trim();
+  const padded = `[ ${caption} ]`;
+  const tight = `[${caption}]`;
+  const rendered =
+    Array.from(padded).length <= rect.w
+      ? padded
+      : Array.from(tight).length <= rect.w
+        ? tight
+        : `[${clip(caption, Math.max(1, rect.w - 2))}]`;
   const offset = Math.max(0, Math.floor((rect.w - Array.from(rendered).length) / 2));
   grid.put(rect.x + offset, middleRow(rect), rendered);
 }
@@ -150,7 +149,8 @@ function drawCheckbox(grid: Grid, rect: Rect, label: string): void {
 }
 
 function drawToggle(grid: Grid, rect: Rect, label: string): void {
-  const knob = "[●──]";
+  // A shorter switch leaves room for the caption on narrow toggles.
+  const knob = Array.from(label).length + 6 <= rect.w ? "[●──]" : "[●]";
   const knobWidth = Array.from(knob).length;
   const row = middleRow(rect);
   if (rect.w < knobWidth + 1) {
@@ -251,11 +251,11 @@ function drawDivider(grid: Grid, rect: Rect): void {
   for (let i = 0; i < rect.w; i += 1) grid.set(rect.x + i, row, "─");
 }
 
+/** The label is a small title on the top border ("┌─Contact us───┐"), as on the canvas. */
 function drawContainer(grid: Grid, rect: Rect, label: string): void {
   drawBox(grid, rect);
-  if (label && Array.from(label).length <= rect.w - 4) {
-    drawCentered(grid, rect, label, middleRow(rect), rect.w - 4);
-  }
+  const text = clip(label.replace(/\s+/g, " ").trim(), Math.max(0, rect.w - 4));
+  if (text && rect.w >= 6) grid.put(rect.x + 2, rect.y, text);
 }
 
 function drawToolbar(grid: Grid, rect: Rect, label: string): void {

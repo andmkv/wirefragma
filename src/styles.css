@@ -174,12 +174,35 @@ textarea {
   min-width: 96px;
 }
 
-.zoom-readout {
-  min-width: 42px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  font-size: 12px;
+.app-toolbar .divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+/* Icon-only toolbar buttons (label in title + aria-label). */
+.app-toolbar button.icon-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  line-height: 1;
+  font-size: 15px;
+}
+
+.app-toolbar .export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+}
+
+.app-toolbar .canvas-mode {
+  max-width: 190px;
 }
 
 .size-inputs input {

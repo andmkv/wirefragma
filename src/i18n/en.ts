@@ -277,6 +277,7 @@ export const en = {
   "export.copied": "Copied to clipboard.",
   "export.copyFailed": "Copy failed — select the text and copy manually.",
   "export.downloadStarted": "Download started.",
+  "export.downloadProject": "Download .wfproj",
 
   "import.title": "Import",
   "import.note":
@@ -288,8 +289,16 @@ export const en = {
   "import.defaultTitle": "New Wireframe {n}",
   "import.empty": "Nothing to import yet. Paste Markdown or choose a .md file.",
   "import.unreadable": "That file could not be read.",
-  "import.upload": "Upload .md",
+  "import.upload": "Upload file",
   "import.button": "Import",
+  "import.modeWireframe": "Wireframe",
+  "import.modeProject": "Whole project",
+  "import.noteBundle": "Import a .wfproj file as a new project with all its wireframes.",
+  "import.projectName": "Project name",
+  "import.bundleSummary": "Wireframes: {count}",
+  "import.pickWireframe": "Wireframe from the file",
+  "import.needProjectFile": "Choose or paste a .wfproj project file.",
+  "import.projectButton": "Import project",
 
   // ------------------------------------------------------------------ auth
   "auth.tagline": "Sketch the screen. Hand the spec to your LLM.",
@@ -431,6 +440,7 @@ export const en = {
   "projects.noWireframe": "No wireframe open",
   "projects.noWireframeHint": "Create a wireframe in a project, or import a Markdown / JSON export.",
   "projects.loading": "Loading projects",
+  "projects.exportProject": "Export project (.wfproj)",
   "projects.updatedElsewhere": "Updated elsewhere",
   "projects.deletedElsewhere": "“{name}” was deleted elsewhere.",
 

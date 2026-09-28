@@ -22,6 +22,25 @@
   Composer-free.
 - Public documentation site at `/docs/`.
 
+### Projects
+- **Project files (`.wfproj`)**: export a whole project with all its wireframes (project **…** menu)
+  or one wireframe (Export → Project JSON). Import has two flows: one wireframe (also picked out of
+  a `.wfproj`, works for guests) or a whole `.wfproj` as a new project.
+
+### LLM export (audit)
+- Element sections are a compact field list; `Layer` only when there are several layers; a single
+  label is no longer repeated as "Visible content"; list entries appear as `Items:`.
+- The `ui-project` block is written one element per line — the same JSON, far fewer tokens.
+- Spatial Summary describes nested elements inside their parent, in reading order.
+- ASCII: container labels sit on the border; buttons and toggles no longer truncate captions that fit.
+- Canvas contents take one line per shape; the Copy-for-LLM preamble explains coordinates, fields,
+  Canvas/Drawing and the role of `ui-project`.
+
+### Interface
+- Compact toolbar: icon buttons with tooltips (Export keeps its label), no duplicate zoom readout.
+- Every translation fits the English length (short strings +2 characters, sentences +10 %), checked
+  by a test.
+
 ### Editor
 - **Canvas** and **Drawing** scene elements (palette group "Custom"): a small structured-diagram
   editor (lines, arrows, rectangles, ellipses, bezier curves, text, labels) and a freehand editor

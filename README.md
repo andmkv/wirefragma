@@ -223,7 +223,8 @@ The agent is the LLM; Wirefragma still makes no AI calls. Details: [docs/mcp.md]
 
 - export regular Markdown or an LLM-prefaced variant;
 - copy LLM-ready Markdown directly to the clipboard;
-- download the canonical project as JSON;
+- download the canonical project as JSON, or a whole project with all its wireframes as a
+  `.wfproj` file (import it back as a project, or pick one wireframe out of it);
 - export a single layer (Layers → "…" → Export layer), optionally cropped to its content — handy
   for explaining one form to a model;
 - export the **WIREFRAGMA schema**: LLM-ready instructions for the project JSON, so a chat model

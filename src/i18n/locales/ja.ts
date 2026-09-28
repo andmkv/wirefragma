@@ -269,6 +269,7 @@ export const ja: Dictionary = {
   "export.copied": "クリップボードにコピーしました。",
   "export.copyFailed": "コピーに失敗しました。テキストを選択して手動でコピーしてください。",
   "export.downloadStarted": "ダウンロードを開始しました。",
+  "export.downloadProject": ".wfproj をダウンロード",
 
   "import.title": "インポート",
   "import.note":
@@ -280,8 +281,16 @@ export const ja: Dictionary = {
   "import.defaultTitle": "新しいワイヤーフレーム {n}",
   "import.empty": "インポートする内容がありません。Markdown を貼り付けるか、.md ファイルを選択してください。",
   "import.unreadable": "ファイルを読み込めませんでした。",
-  "import.upload": ".md をアップロード",
+  "import.upload": "ファイルを選択",
   "import.button": "インポート",
+  "import.modeWireframe": "ワイヤーフレーム",
+  "import.modeProject": "プロジェクト全体",
+  "import.noteBundle": ".wfproj ファイルを、すべてのワイヤーフレームを含む新しいプロジェクトとして読み込みます。",
+  "import.projectName": "プロジェクト名",
+  "import.bundleSummary": "ワイヤーフレーム: {count}",
+  "import.pickWireframe": "ファイル内のワイヤーフレーム",
+  "import.needProjectFile": ".wfproj ファイルを選択するか貼り付けてください。",
+  "import.projectButton": "プロジェクトを読み込む",
 
   // ------------------------------------------------------------------ auth
   "auth.tagline": "画面をスケッチして、仕様を LLM に渡しましょう。",
@@ -423,6 +432,7 @@ export const ja: Dictionary = {
   "projects.noWireframe": "開いているワイヤーフレームはありません",
   "projects.noWireframeHint": "プロジェクトでワイヤーフレームを作成するか、Markdown / JSON エクスポートをインポートしてください。",
   "projects.loading": "プロジェクトを読み込み中",
+  "projects.exportProject": "エクスポート (.wfproj)",
   "projects.updatedElsewhere": "別の場所で更新されました",
   "projects.deletedElsewhere": "「{name}」は別の場所で削除されました。",
 

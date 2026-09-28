@@ -217,8 +217,11 @@ function scrollCanvasTo(left: number, top: number): void {
 }
 
 function clickButton(label: string): boolean {
+  // Toolbar buttons are icon-only: their name is the aria-label.
   const button = all<HTMLButtonElement>("button").find(
-    (candidate) => (candidate.textContent ?? "").trim().toLowerCase() === label.toLowerCase()
+    (candidate) =>
+      (candidate.textContent ?? "").trim().toLowerCase() === label.toLowerCase() ||
+      (candidate.getAttribute("aria-label") ?? "").trim().toLowerCase() === label.toLowerCase()
   );
   if (!button) return false;
   button.click();
@@ -339,8 +342,11 @@ function inkBoundsIn(box: { x: number; y: number; width: number; height: number 
   return pixels === 0 ? null : { minX, maxX, minY, maxY, width: w, height: h, pixels };
 }
 
+/** The zoom the toolbar shows ("25%"), read from the zoom select ("Fit (25%)" or "200%"). */
 function zoomReadout(): string {
-  return q(".zoom-readout")?.textContent?.trim() ?? "";
+  const select = q<HTMLSelectElement>(".zoom-select");
+  const text = select?.selectedOptions[0]?.textContent ?? "";
+  return /\d+%/.exec(text)?.[0] ?? "";
 }
 
 function setZoomPreset(scale: string): void {
@@ -1746,7 +1752,7 @@ export async function runSelfTest(pass = 1): Promise<void> {
     expect(zoomReadout() === "200%", `zoom out gave ${zoomReadout()}`);
     mustClickButton("Fit");
     await sleep(200);
-    expect(!!q(".zoom-readout")?.textContent, "fit mode lost the readout");
+    expect(!!zoomReadout(), "fit mode lost the readout");
     expect(q<HTMLSelectElement>(".zoom-select")?.value === "fit", "fit button did not switch mode");
     return `fit → ${zoomReadout()}`;
   });

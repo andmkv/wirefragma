@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 /** Tiny monochrome icons so the Layers panel matches the editor's greyscale style. */
 
 interface IconProps {
@@ -144,5 +146,118 @@ export function ImportIcon({ className }: IconProps) {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+/* ------------------------------------------------------------ toolbar (16 px) */
+
+function ToolbarSvg({ children, className }: IconProps & { children: ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  );
+}
+
+export function GridIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <rect x="2" y="2" width="12" height="12" rx="1.5" />
+      <path d="M6 2v12M10 2v12M2 6h12M2 10h12" strokeWidth="1" />
+    </ToolbarSvg>
+  );
+}
+
+export function MagnetIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <path d="M3.5 2.5v5a4.5 4.5 0 0 0 9 0v-5" />
+      <path d="M6.5 2.5v5a1.5 1.5 0 0 0 3 0v-5" />
+      <path d="M3.5 5h3M9.5 5h3" />
+    </ToolbarSvg>
+  );
+}
+
+export function FitIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3" />
+      <rect x="5.5" y="5.5" width="5" height="5" rx="0.8" />
+    </ToolbarSvg>
+  );
+}
+
+export function UndoIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <path d="M5.5 3.5 2.5 6.5l3 3" />
+      <path d="M2.5 6.5h7a4 4 0 0 1 0 8h-2" />
+    </ToolbarSvg>
+  );
+}
+
+export function RedoIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <path d="m10.5 3.5 3 3-3 3" />
+      <path d="M13.5 6.5h-7a4 4 0 0 0 0 8h2" />
+    </ToolbarSvg>
+  );
+}
+
+export function NewFileIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <path d="M9 1.8H4.2c-.7 0-1.2.5-1.2 1.2v10c0 .7.5 1.2 1.2 1.2h7.6c.7 0 1.2-.5 1.2-1.2V5.8L9 1.8Z" />
+      <path d="M9 1.8v4h4M8 8.3v4M6 10.3h4" />
+    </ToolbarSvg>
+  );
+}
+
+export function LayersIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <path d="m8 2 6 3.2-6 3.2-6-3.2L8 2Z" />
+      <path d="m2 8.2 6 3.2 6-3.2M2 11l6 3.2L14 11" />
+    </ToolbarSvg>
+  );
+}
+
+export function CopyLlmIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <rect x="5" y="5" width="9" height="9" rx="1.5" />
+      <path d="M11 5V3.5c0-.8-.7-1.5-1.5-1.5h-6C2.7 2 2 2.7 2 3.5v6c0 .8.7 1.5 1.5 1.5H5" />
+      <path d="M7.5 9.5h4M7.5 11.8h2.5" strokeWidth="1.1" />
+    </ToolbarSvg>
+  );
+}
+
+export function ExportIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <path d="M8 10.5v-8M5 5.2 8 2.3l3 2.9" />
+      <path d="M2.5 9.8v2.4c0 .8.7 1.5 1.5 1.5h8c.8 0 1.5-.7 1.5-1.5V9.8" />
+    </ToolbarSvg>
+  );
+}
+
+export function ImportFileIcon(props: IconProps) {
+  return (
+    <ToolbarSvg {...props}>
+      <path d="M8 2.3v8M5 7.6l3 2.9 3-2.9" />
+      <path d="M2.5 9.8v2.4c0 .8.7 1.5 1.5 1.5h8c.8 0 1.5-.7 1.5-1.5V9.8" />
+    </ToolbarSvg>
   );
 }

@@ -32,7 +32,7 @@ There is **no jsdom, no happy-dom and no browser test runner**. That shapes the 
 Manual, human-verified checks (visual quality, real emoji rendering, an actual trackpad pinch) are
 not automated and must not be claimed as automated.
 
-## Test inventory (33 files, 337 cases)
+## Test inventory (34 files, 353 cases)
 
 | File | Cases | Covers |
 | --- | --- | --- |
@@ -57,17 +57,18 @@ not automated and must not be claimed as automated.
 | `src/utils/storage.test.ts` | 4 | key precedence, legacy migration, corrupted data |
 | `src/utils/zoom.test.ts` | 9 | clamping, fit, presets, wheel zoom, pointer anchoring |
 | `src/utils/asciiRenderer.test.ts` | 10 | determinism, grid containment, per-type glyphs, wide/narrow grids |
-| `src/utils/spatialSummary.test.ts` | 3 | deterministic prose, hidden elements ignored, empty canvas |
-| `src/utils/markdownRoundTrip.test.ts` | 32 | the full export/import contract, v1 import, all element types, invalid input, the `## Screen` mode label |
+| `src/utils/spatialSummary.test.ts` | 4 | deterministic prose, hidden elements ignored, empty canvas, nested elements in reading order |
+| `src/utils/markdownRoundTrip.test.ts` | 34 | the full export/import contract, v1 import, all element types, invalid input, the `## Screen` mode label, compact element sections, one-element-per-line `ui-project` |
 | `src/utils/markdownSemantics.test.ts` | 8 | `Typography:` / `Content size:` output and the emoji round trip |
 | `src/model/hierarchy.test.ts` | 19 | nesting: canonical tree order, repair of bad links, inheritance, nest/unnest/move, subtree delete/duplicate/copy, multi-row drops, round trip |
 | `src/model/layerExport.test.ts` | 5 | layer-scoped export: filtering, crop, minimum canvas, immutability, re-import |
 | `src/canvas/pointerGuard.test.ts` | 2 | one pointer per gesture (no orphaned transaction), parents drag their children |
 | `src/utils/auditRegressions.test.ts` | 5 | backticks in notes round-trip, undo inert mid-gesture, unreadable-storage backup, font-size clamp, DPR cap |
 | `src/utils/schemaExport.test.ts` | 6 | WIREFRAGMA schema covers every type, its example imports unchanged, lenient LLM-answer import |
-| `src/i18n/i18n.test.ts` | 26 | every locale has every key, keeps placeholders and covers its plural categories; `translate` fallback |
+| `src/i18n/i18n.test.ts` | 34 | every locale has every key, keeps placeholders, covers its plural categories and stays within the English length; `translate` fallback |
 | `src/account/projectsPanel.test.ts` | 2 | compact relative ages for the projects panel |
 | `src/account/remoteSync.test.ts` | 13 | noticing changes made elsewhere: clean reload, dirty → conflict path, no action mid-save, evict/removed, loading a server revision is clean (no save loop), poll back-off |
+| `src/utils/projectBundle.test.ts` | 5 | `.wfproj` round trips, title handling, rejects (never half-imported), file names |
 | `src/utils/mcpResources.test.ts` | 5 | the committed `server/mcp/resources/*` equal the TypeScript generator output; the MCP schema variant covers every type and the tool workflow |
 
 ## House rules for writing tests

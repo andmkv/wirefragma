@@ -31,6 +31,19 @@ contract. Do not rename the fence, and do not bump the version for additive, opt
 | Export dialog -> **WIREFRAGMA schema** tab | `wirefragmaSchemaMarkdown` | LLM instructions for generating an importable project (see below) |
 | Layers panel -> layer **…** -> **Export layer…** | `projectForLayer` -> the same three tabs | only that layer's elements, as a standalone project (see below) |
 | Toolbar **Copy for LLM** | `copyText(projectToLlmMarkdown(project))` | straight to the OS clipboard, with a toast |
+| Export dialog -> Project JSON -> **Download .wfproj** | `createBundle` | the current wireframe as a one-wireframe project file |
+| Projects panel -> project **…** -> **Export project (.wfproj)** | `Workspace.exportProject` | every wireframe of the project in one file (signed in) |
+
+### Project files (`.wfproj`)
+
+[`src/utils/projectBundle.ts`](../src/utils/projectBundle.ts): a JSON envelope
+`{ "format": "wirefragma-project", "version": 1, "name", "exportedAt", "wireframes": [{ "title", "data" }] }`
+where each `data` is the canonical `WireframeProject` — no second document format. Export writes
+the documents as stored (a clean wireframe is fetched from the server, so unknown fields survive;
+a wireframe with unsaved edits contributes its current local document). Import validates the
+envelope and runs `normalizeProject` on every document; one unreadable wireframe fails the whole
+file with its title in the message, so nothing is half-imported. `projectBundle.test.ts` covers
+round trips, title handling, rejects and file names.
 
 ### WIREFRAGMA schema (for generating projects with an LLM)
 
@@ -95,8 +108,18 @@ never leak into the export. `version` is written literally as `2`.
 
 ### Entry points
 
-`ImportDialog` collects text (pasted or from an uploaded `.md` / `.json` file, `accept=".md,.markdown,.txt,.json,text/markdown,application/json"`)
-and calls `App.handleImportText(text, sourceName)`, which runs `projectFromText(text)`
+`ImportDialog` has two flows:
+
+* **Wireframe** (guest and signed in) — text pasted or from an uploaded `.md` / `.json` / `.wfproj`
+  file. For a `.wfproj` the dialog shows a picker and imports the chosen wireframe's document; the
+  guest editor replaces its document, the signed-in workspace adds a new wireframe to a chosen
+  project.
+* **Whole project** (signed in only) — a `.wfproj` becomes a NEW project (name editable, default
+  from the file) with all its wireframes in order (`Workspace.importProject`: `project-create`
+  without a starter wireframe, then one `wireframe-create` per wireframe).
+
+The wireframe flow calls `App.handleImportText(text, sourceName)` (or the workspace equivalent),
+which runs `projectFromText(text)`
 (`src/utils/markdownImport.ts`). It accepts, in this order:
 
 1. Markdown with a `ui-project` fence -> `projectFromMarkdown` (the canonical export);

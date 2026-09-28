@@ -43,10 +43,19 @@
 <ol>
   <li><b>Screen</b> — mode, size, element and layer counts.</li>
   <li><b>ASCII Wireframe</b> — an approximate character sketch of the layout.</li>
-  <li><b>UI Elements</b> — one section per visible element: type, layer, parent, bounds, label, visible content, typography, notes. A Canvas adds its own sketch, a numbered list of shapes and the relationships between them; a Drawing contributes its description.</li>
-  <li><b>Spatial Summary</b> — rule-based sentences about what sits where.</li>
-  <li><b>Editable Project Source</b> — the canonical JSON in a <code>ui-project</code> block.</li>
+  <li><b>UI Elements</b> — one compact section per visible element: type, label, bounds, parent, layer (when there are several), typography, list items and the LLM note. A Canvas adds its own sketch, one line per shape and the relationships between them; a Drawing contributes its description.</li>
+  <li><b>Spatial Summary</b> — what sits where on the screen, and the reading order inside each container.</li>
+  <li><b>Editable Project Source</b> — the canonical JSON in a <code>ui-project</code> block, one element per line.</li>
 </ol>
+<pre><code>### `signInButton`
+
+- Type: Button
+- Label: Sign in
+- Bounds: x=32, y=330, width=326, height=48
+- Inside: `signInCard`
+
+LLM note:
+Validates the form, then navigates home.</code></pre>
 <div class="callout"><strong>The JSON is the source of truth.</strong> The ASCII sketch and the prose are advisory; import always rebuilds the wireframe from the <code>ui-project</code> block, so nothing is lost even if someone edits the text around it.</div>
 
 <h2 id="layer-export">Exporting one layer</h2>
@@ -56,9 +65,17 @@
 <p>The <b>WIREFRAGMA schema</b> tab contains everything a model needs to produce a valid project: the document shape, the coordinate system, every element type, layers and nesting, a complete example and a JSON Schema. Paste it into a chat, describe the screen, and paste the answer into <i>Import</i> — a <code>ui-project</code> block, a <code>json</code> block or plain JSON all work.</p>
 <p>Coding agents connected over <a href="mcp.html">MCP</a> get the same schema from the <code>get_wirefragma_schema</code> tool, generated from the same source.</p>
 
+<h2 id="project-files">Whole projects: .wfproj</h2>
+<p>A <code>.wfproj</code> file holds a project with all its wireframes. Signed in, use a project's <b>…</b> menu → <i>Export project (.wfproj)</i>. Any single wireframe can also be saved as a one-wireframe project: Export → Project JSON → <i>Download .wfproj</i>.</p>
+<p>To bring it back, open <i>Import</i>:</p>
+<ul>
+  <li><b>Whole project</b> (signed in) — the file becomes a new project with every wireframe, in order;</li>
+  <li><b>Wireframe</b> — pick one wireframe from the file (this also works as a guest).</li>
+</ul>
+
 <h2 id="import">Import</h2>
 <ul>
-  <li>Accepted: a Wirefragma Markdown export, raw project JSON, or an LLM answer containing one of them.</li>
+  <li>Accepted: a Wirefragma Markdown export, raw project JSON, a <code>.wfproj</code> project file, or an LLM answer containing one of them.</li>
   <li>As a guest, Import replaces the current document. Signed in, it creates a new wireframe in the project you choose.</li>
   <li>Old documents (format version 1) are upgraded on import. Broken input shows an error and changes nothing.</li>
 </ul>

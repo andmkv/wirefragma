@@ -269,6 +269,7 @@ export const zh: Dictionary = {
   "export.copied": "已复制到剪贴板。",
   "export.copyFailed": "复制失败——请选中文本后手动复制。",
   "export.downloadStarted": "已开始下载。",
+  "export.downloadProject": "下载 .wfproj",
 
   "import.title": "导入",
   "import.note":
@@ -280,8 +281,16 @@ export const zh: Dictionary = {
   "import.defaultTitle": "新线框图 {n}",
   "import.empty": "暂无可导入的内容。请粘贴 Markdown 或选择 .md 文件。",
   "import.unreadable": "无法读取该文件。",
-  "import.upload": "上传 .md",
+  "import.upload": "上传文件",
   "import.button": "导入",
+  "import.modeWireframe": "线框图",
+  "import.modeProject": "整个项目",
+  "import.noteBundle": "将 .wfproj 文件导入为包含全部线框图的新项目。",
+  "import.projectName": "项目名称",
+  "import.bundleSummary": "线框图：{count}",
+  "import.pickWireframe": "文件中的线框图",
+  "import.needProjectFile": "请选择或粘贴 .wfproj 项目文件。",
+  "import.projectButton": "导入项目",
 
   // ------------------------------------------------------------------ auth
   "auth.tagline": "勾勒界面，把规格交给你的 LLM。",
@@ -423,6 +432,7 @@ export const zh: Dictionary = {
   "projects.noWireframe": "未打开线框图",
   "projects.noWireframeHint": "在项目中新建线框图，或导入 Markdown / JSON 导出文件。",
   "projects.loading": "正在加载项目",
+  "projects.exportProject": "导出项目 (.wfproj)",
   "projects.updatedElsewhere": "已在其他地方更新",
   "projects.deletedElsewhere": "“{name}”已在其他地方删除。",
 

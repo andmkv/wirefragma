@@ -36,6 +36,17 @@ describe("dictionaries", () => {
       expect(broken.map(([key]) => key)).toEqual([]);
     });
 
+    it(`${code}: no string is much longer than the English one (UI must fit)`, () => {
+      // Short UI strings may exceed English by 2 characters (at least 10 in total, so "Save" can be
+      // "Сохранить"); sentences by 10 %. Placeholders count as written.
+      const limit = (length: number) => (length <= 40 ? Math.max(length + 2, 10) : Math.ceil(length * 1.1));
+      const tooLong = Object.keys(en).filter((key) => {
+        const value = dictionary[key];
+        return typeof value === "string" && [...value].length > limit([...en[key as keyof typeof en]].length);
+      });
+      expect(tooLong).toEqual([]);
+    });
+
     it(`${code}: covers every plural category the language uses`, () => {
       const rules = new Intl.PluralRules(code === "zh" ? "zh-CN" : code);
       const categories = rules.resolvedOptions().pluralCategories;

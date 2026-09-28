@@ -169,9 +169,9 @@ export const api = {
   changePassword: (current: string, next: string) => request<Ok>("password-change", { body: { current, next } }),
 
   projects: () => request<{ projects: ProjectSummary[] }>("projects"),
-  createProject: (name: string, wireframeTitle?: string) =>
+  createProject: (name: string, wireframeTitle?: string, withWireframe = true) =>
     request<Ok & { projectId: number; wireframeId: number | null; projects: ProjectSummary[] }>("project-create", {
-      body: { name, wireframeTitle }
+      body: { name, wireframeTitle, withWireframe }
     }),
   renameProject: (id: number, name: string) => request<Ok & { projects: ProjectSummary[] }>("project-rename", { body: { id, name } }),
   deleteProject: (id: number) => request<Ok & { projects: ProjectSummary[] }>("project-delete", { body: { id } }),
