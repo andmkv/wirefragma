@@ -2538,6 +2538,14 @@ body.is-resizing-panel * {
   margin: 0;
 }
 
+.mcp-fresh-token .mcp-copy-failed {
+  color: var(--danger);
+}
+
+.mcp-fresh-token .button-row {
+  justify-content: flex-end;
+}
+
 .mcp-tokens-header {
   display: flex;
   align-items: center;

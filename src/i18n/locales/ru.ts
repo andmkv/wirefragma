@@ -507,6 +507,8 @@ export const ru: Dictionary = {
   "settings.mcpNewTokenHint": "Скопируйте его сейчас — больше он показан не будет.",
   "settings.mcpCopyToken": "Скопировать токен",
   "settings.mcpCopied": "Скопировано.",
+  "settings.mcpCopyFailed": "Токен выделен — нажмите ⌘C (Ctrl+C), чтобы скопировать.",
+  "settings.mcpDone": "Готово",
   "settings.mcpRevoke": "Отозвать",
   "settings.mcpRevokeConfirm": "Отозвать сейчас",
   "settings.mcpRevoked": "Токен отозван.",

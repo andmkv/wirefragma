@@ -481,6 +481,8 @@ export const de: Dictionary = {
   "settings.mcpNewTokenHint": "Kopiere ihn jetzt – er wird nicht noch einmal angezeigt.",
   "settings.mcpCopyToken": "Token kopieren",
   "settings.mcpCopied": "Kopiert.",
+  "settings.mcpCopyFailed": "Der Token ist markiert — drücke ⌘C (Strg+C), um ihn zu kopieren.",
+  "settings.mcpDone": "Fertig",
   "settings.mcpRevoke": "Widerrufen",
   "settings.mcpRevokeConfirm": "Jetzt widerrufen",
   "settings.mcpRevoked": "Token widerrufen.",

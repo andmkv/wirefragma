@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { usePreferences, type Locale } from "../i18n";
 import { copyText } from "../utils/clipboard";
 import { api, type McpEndpointInfo, type McpScope, type McpToken } from "./api";
@@ -35,7 +35,7 @@ export function McpAccessSection() {
   const [formOpen, setFormOpen] = useState(false);
   const [freshToken, setFreshToken] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<number | null>(null);
-  const [copied, setCopied] = useState<"endpoint" | "token" | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,10 +53,10 @@ export function McpAccessSection() {
     // Loaded once per Settings opening.
   }, []);
 
-  const copy = async (what: "endpoint" | "token", text: string) => {
+  const copyEndpoint = async (text: string) => {
     if (await copyText(text)) {
-      setCopied(what);
-      window.setTimeout(() => setCopied((current) => (current === what ? null : current)), 2000);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -90,42 +90,24 @@ export function McpAccessSection() {
           <span className="field-label">{t("settings.mcpEndpoint")}</span>
           <div className="mcp-copy-row">
             <input value={info.endpoint} readOnly onFocus={(event) => event.currentTarget.select()} aria-label={t("settings.mcpEndpoint")} />
-            <button type="button" onClick={() => void copy("endpoint", info.endpoint)}>
-              {copied === "endpoint" ? t("settings.mcpCopied") : t("common.copy")}
+            <button type="button" onClick={() => void copyEndpoint(info.endpoint)}>
+              {copied ? t("settings.mcpCopied") : t("common.copy")}
             </button>
           </div>
           <span className="hint">{t("settings.mcpEndpointHint")}</span>
         </div>
       ) : null}
 
-      {freshToken ? (
-        <div className="mcp-fresh-token" role="status">
-          <strong>{t("settings.mcpNewToken")}</strong>
-          <div className="mcp-copy-row">
-            <input
-              value={freshToken}
-              readOnly
-              autoComplete="off"
-              spellCheck={false}
-              onFocus={(event) => event.currentTarget.select()}
-              aria-label={t("settings.mcpNewToken")}
-            />
-            <button type="button" className="primary" onClick={() => void copy("token", freshToken)}>
-              {copied === "token" ? t("settings.mcpCopied") : t("settings.mcpCopyToken")}
-            </button>
-          </div>
-          <span className="hint">{t("settings.mcpNewTokenHint")}</span>
-        </div>
-      ) : null}
-
       <div className="mcp-tokens-header">
         <span className="field-label">{t("settings.mcpTokens")}</span>
-        {!formOpen ? (
+        {!formOpen && !freshToken ? (
           <button type="button" onClick={() => setFormOpen(true)} disabled={tokens === null}>
             {t("settings.mcpCreate")}
           </button>
         ) : null}
       </div>
+
+      {freshToken ? <FreshToken token={freshToken} onDone={() => setFreshToken(null)} /> : null}
 
       {formOpen ? (
         <CreateTokenForm
@@ -188,6 +170,59 @@ export function McpAccessSection() {
         </p>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The raw token, shown once where the form was: scrolled into view and pre-selected, so it can be
+ * copied even when the Clipboard API is unavailable (then the hint asks for ⌘C / Ctrl+C).
+ */
+function FreshToken({ token, onDone }: { token: string; onDone: () => void }) {
+  const { t } = usePreferences();
+  const input = useRef<HTMLInputElement>(null);
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+
+  useEffect(() => {
+    input.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    input.current?.focus();
+    input.current?.select();
+  }, []);
+
+  const copy = async () => {
+    const ok = await copyText(token);
+    setState(ok ? "copied" : "failed");
+    if (!ok) {
+      input.current?.focus();
+      input.current?.select();
+    }
+  };
+
+  return (
+    <div className="mcp-fresh-token" role="status">
+      <strong>{t("settings.mcpNewToken")}</strong>
+      <div className="mcp-copy-row">
+        <input
+          ref={input}
+          value={token}
+          readOnly
+          autoComplete="off"
+          spellCheck={false}
+          onFocus={(event) => event.currentTarget.select()}
+          aria-label={t("settings.mcpNewToken")}
+        />
+        <button type="button" className="primary" onClick={() => void copy()}>
+          {state === "copied" ? t("settings.mcpCopied") : t("settings.mcpCopyToken")}
+        </button>
+      </div>
+      <span className={state === "failed" ? "hint mcp-copy-failed" : "hint"}>
+        {state === "failed" ? t("settings.mcpCopyFailed") : t("settings.mcpNewTokenHint")}
+      </span>
+      <div className="button-row">
+        <button type="button" onClick={onDone}>
+          {t("settings.mcpDone")}
+        </button>
+      </div>
+    </div>
   );
 }
 

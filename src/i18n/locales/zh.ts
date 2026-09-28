@@ -481,6 +481,8 @@ export const zh: Dictionary = {
   "settings.mcpNewTokenHint": "请立即复制——它不会再次显示。",
   "settings.mcpCopyToken": "复制令牌",
   "settings.mcpCopied": "已复制。",
+  "settings.mcpCopyFailed": "令牌已选中——按 ⌘C（Ctrl+C）复制。",
+  "settings.mcpDone": "完成",
   "settings.mcpRevoke": "撤销",
   "settings.mcpRevokeConfirm": "立即撤销",
   "settings.mcpRevoked": "令牌已撤销。",

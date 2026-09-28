@@ -481,6 +481,8 @@ export const ja: Dictionary = {
   "settings.mcpNewTokenHint": "今すぐコピーしてください。再表示はされません。",
   "settings.mcpCopyToken": "トークンをコピー",
   "settings.mcpCopied": "コピーしました。",
+  "settings.mcpCopyFailed": "トークンを選択しました。⌘C（Ctrl+C）でコピーしてください。",
+  "settings.mcpDone": "完了",
   "settings.mcpRevoke": "取り消す",
   "settings.mcpRevokeConfirm": "今すぐ取り消す",
   "settings.mcpRevoked": "トークンを取り消しました。",

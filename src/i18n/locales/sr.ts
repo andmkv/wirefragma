@@ -494,6 +494,8 @@ export const sr: Dictionary = {
   "settings.mcpNewTokenHint": "Kopirajte ga sada — više neće biti prikazan.",
   "settings.mcpCopyToken": "Kopiraj token",
   "settings.mcpCopied": "Kopirano.",
+  "settings.mcpCopyFailed": "Token je označen — pritisnite ⌘C (Ctrl+C) da ga kopirate.",
+  "settings.mcpDone": "Gotovo",
   "settings.mcpRevoke": "Opozovi",
   "settings.mcpRevokeConfirm": "Opozovi sada",
   "settings.mcpRevoked": "Token je opozvan.",

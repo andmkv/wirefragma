@@ -489,6 +489,8 @@ export const en = {
   "settings.mcpNewTokenHint": "Copy it now — it will not be shown again.",
   "settings.mcpCopyToken": "Copy token",
   "settings.mcpCopied": "Copied.",
+  "settings.mcpCopyFailed": "The token is selected — press ⌘C (Ctrl+C) to copy it.",
+  "settings.mcpDone": "Done",
   "settings.mcpRevoke": "Revoke",
   "settings.mcpRevokeConfirm": "Revoke now",
   "settings.mcpRevoked": "Token revoked.",

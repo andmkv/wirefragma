@@ -494,6 +494,8 @@ export const fr: Dictionary = {
   "settings.mcpNewTokenHint": "Copiez-le maintenant — il ne sera plus affiché.",
   "settings.mcpCopyToken": "Copier le jeton",
   "settings.mcpCopied": "Copié.",
+  "settings.mcpCopyFailed": "Le jeton est sélectionné — appuyez sur ⌘C (Ctrl+C) pour le copier.",
+  "settings.mcpDone": "Terminé",
   "settings.mcpRevoke": "Révoquer",
   "settings.mcpRevokeConfirm": "Révoquer maintenant",
   "settings.mcpRevoked": "Jeton révoqué.",

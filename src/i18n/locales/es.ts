@@ -494,6 +494,8 @@ export const es: Dictionary = {
   "settings.mcpNewTokenHint": "Cópialo ahora: no se volverá a mostrar.",
   "settings.mcpCopyToken": "Copiar token",
   "settings.mcpCopied": "Copiado.",
+  "settings.mcpCopyFailed": "El token está seleccionado: pulsa ⌘C (Ctrl+C) para copiarlo.",
+  "settings.mcpDone": "Listo",
   "settings.mcpRevoke": "Revocar",
   "settings.mcpRevokeConfirm": "Revocar ahora",
   "settings.mcpRevoked": "Token revocado.",
