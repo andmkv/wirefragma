@@ -134,6 +134,9 @@ It reuses `api/lib/` and the same config file. After uploading a `build:deploy` 
 6. **Try it:** Settings → MCP access → create a token, then
    `npx @modelcontextprotocol/inspector --cli https://yourdomain.com/mcp/ --transport http --header "Authorization: Bearer wf_mcp_…" --method tools/list`.
 
+LiteSpeed (Namecheap) passes the `Host` header to PHP twice; `Endpoint` collapses identical
+duplicates before the DNS-rebinding check (differing values are still rejected).
+
 Hostnames: the endpoint accepts the host of `app_url` (plus `mcp.endpoint` / `mcp.allowed_hosts`)
 and loopback; requests with any other `Host`/`Origin` get 403 (DNS-rebinding protection). CORS is
 closed unless `mcp.allowed_origins` lists browser origins. When re-uploading with `rsync --delete`,

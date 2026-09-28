@@ -63,6 +63,13 @@ final class Endpoint
             }
 
             $request = (new ServerRequestCreator($factory, $factory, $factory, $factory))->fromGlobals();
+            // LiteSpeed (Namecheap) yields the Host header twice; the DNS-rebinding check would then
+            // see "a, a" and reject it. Collapse identical duplicates only — differing values stay
+            // as they are and are rejected.
+            $hosts = $request->getHeader('Host');
+            if (count($hosts) > 1 && count(array_unique(array_map('strtolower', $hosts))) === 1) {
+                $request = $request->withHeader('Host', $hosts[0]);
+            }
             // Some Apache/FastCGI setups hide the header from getallheaders(); .htaccess forwards it.
             if (!$request->hasHeader('Authorization')) {
                 $forwarded = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
