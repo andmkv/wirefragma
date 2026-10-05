@@ -220,6 +220,8 @@ export const en = {
   "emoji.category.Travel": "Travel",
   "emoji.category.Objects": "Objects",
   "emoji.category.Symbols": "Symbols",
+  "emoji.category.Flags": "Flags",
+  "emoji.recent": "Recent",
 
   // ------------------------------------------------------------------ toasts
   "toast.migrated": "Loaded your project from the previous UI Sketch version.",

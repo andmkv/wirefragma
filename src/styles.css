@@ -1402,15 +1402,48 @@ body.is-resizing-panel * {
   padding: 4px 8px;
 }
 
+/*
+  The picker is anchored by JS (`position: fixed` + flip/clamp in EmojiPicker.tsx) so it always
+  stays inside the viewport, even in a narrow drawer or a small dialog.
+*/
 .emoji-picker {
-  position: relative;
-  margin-top: 6px;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: min(320px, calc(100vw - 16px));
+  max-height: min(360px, calc(100vh - 16px));
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
   padding: 8px;
-  z-index: 20;
+  z-index: 60;
+}
+
+/* Text field with the 🙂 button (C3): the button sits at the trailing edge of the field. */
+.emoji-text-field {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.emoji-text-field .emoji-field-control {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 30px;
+}
+
+.emoji-text-field textarea.emoji-field-control {
+  padding-right: 30px;
+}
+
+.emoji-text-field .emoji-open {
+  position: absolute;
+  top: 4px;
+  right: 4px;
 }
 
 .emoji-search input {
@@ -1448,8 +1481,10 @@ body.is-resizing-panel * {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 2px;
-  max-height: 176px;
+  min-height: 0;
   overflow-y: auto;
+  flex: 1 1 auto;
+  max-height: 240px;
 }
 
 .emoji-cell {

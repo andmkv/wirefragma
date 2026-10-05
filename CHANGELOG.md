@@ -2,6 +2,27 @@
 
 ## 1.2.0 — unreleased
 
+### Emoji
+- **Generated full catalog** (1914 fully-qualified emoji, base glyphs only — no skin tones — with
+  flags and ZWJ sequences) replacing the hand-written 336-entry list. New `Flags` category; the
+  existing eight category ids keep working. The data is produced by the dev-only
+  `scripts/generate-emoji.mjs` and committed.
+- **Search in all 8 UI languages** (en, ru, de, fr, es, sr, ja, zh) — case- and accent-insensitive
+  (`é`/`e`, `ё`/`е`), always covering the current language *plus* English. Serbian has no
+  emojibase data and comes from CLDR `sr-Latn`; nothing falls back to English silently. The old
+  curated keywords (`rocket`, `cart`, `warning`, …) survive as English extras.
+- **Lazy chunks**: the glyph list is one chunk (~5 kB gzip) and every language is its own chunk
+  (29–48 kB gzip), loaded when the picker opens. The base `index-*.js` did **not** grow — it got
+  ~2 kB gzip smaller.
+- **Recently used** tab (first, when non-empty): the last 24 picks, deduplicated, in
+  `localStorage` (`wirefragma.emoji.recent`) — never part of a project or the cloud.
+- **One reusable `EmojiTextField`** with a 🙂 button that inserts **at the caret / replacing the
+  selection** (never the whole value), keeps focus and the caret, and goes through the normal
+  `onChange` so undo coalescing is unchanged. Used for Name, Label, Note, Items, Columns, the
+  project Title, the Canvas/Drawing popup text and description fields and layer rename. The
+  Icon/Image picker keeps its replace-the-label behaviour. The popover is clamped/flipped inside
+  the viewport, closes on Escape and returns focus to the field.
+
 ### Canvas size
 - **Device presets**: the 3-item canvas menu became one grouped list — the three classic modes
   (unchanged for old documents), plus Phone (iPhone SE / 15 / 15 Pro Max, Android, Android large),

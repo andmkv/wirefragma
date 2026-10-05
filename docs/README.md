@@ -35,6 +35,7 @@ clone. See [agent-guide.md](./agent-guide.md) before adding features.
 | Rendering | Canvas 2D + Pointer Events, hand-written engine in `src/canvas/` |
 | Persistence | guests: `localStorage` (one autosaved slot); signed in: optional PHP + MySQL API; plus `.md` / `.json` downloads |
 | i18n / themes | own typed dictionaries (8 languages), CSS-token light/dark themes |
+| Emoji data | generated (dev-only `scripts/generate-emoji.mjs`), lazy chunk per language |
 | Server (optional) | plain PHP 7.4+ with PDO MySQL, no Composer (`server/`) |
 
 No Konva, no react-konva, no Fabric, no state-management library, no CSS framework, no i18n
@@ -53,7 +54,8 @@ src/model/            canonical data model + pure transforms (no DOM, no canvas)
 src/canvas/           transform -> geometry -> hitTest -> render + interaction engine
 src/components/       React presentational components and panels
 src/utils/            markdown export/import, ASCII renderer, spatial summary, history,
-                      storage, zoom math, keyboard helper, clipboard helper
+                      storage, zoom math, keyboard helper, clipboard + emoji-insert helpers
+scripts/              dev-only generators (committed emoji data); never bundled
 src/dev/selfTest.ts   development-only browser harness (?selftest=N), excluded from prod
 src/Root.tsx          start-up: backend probe, sign-in / guest / signed-in workspace
 src/account/          sign-in screen, captcha, privacy policy, projects panel, workspace, API client
@@ -100,7 +102,7 @@ testing, rendering and pointer gestures; the two meet through a very small callb
 | [interactions.md](./interactions.md) | every gesture, selection rule, snapping and the pointer lifecycle |
 | [layers-and-z-order.md](./layers-and-z-order.md) | front/back conventions, draw order, hit order, visibility, locking |
 | [history-and-clipboard.md](./history-and-clipboard.md) | undo/redo, transactions, duplicate, copy/paste |
-| [typography-and-symbols.md](./typography-and-symbols.md) | `textStyle`, `contentSize`, the emoji picker, icon/image rendering |
+| [typography-and-symbols.md](./typography-and-symbols.md) | `textStyle`, `contentSize`, the emoji catalog / picker / text fields, icon/image rendering |
 | [import-export.md](./import-export.md) | export/import flows, validation, error behaviour |
 | [markdown-format.md](./markdown-format.md) | the exact Markdown format and the `ui-project` block |
 | [ascii-renderer.md](./ascii-renderer.md) | how the ASCII sketch is produced and why it is approximate |

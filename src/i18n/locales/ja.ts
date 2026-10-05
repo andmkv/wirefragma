@@ -212,6 +212,8 @@ export const ja: Dictionary = {
   "emoji.category.Travel": "旅行",
   "emoji.category.Objects": "物",
   "emoji.category.Symbols": "記号",
+  "emoji.category.Flags": "国旗",
+  "emoji.recent": "最近",
 
   // ------------------------------------------------------------------ toasts
   "toast.migrated": "以前の UI Sketch バージョンからプロジェクトを読み込みました。",

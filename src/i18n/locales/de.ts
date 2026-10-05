@@ -212,6 +212,8 @@ export const de: Dictionary = {
   "emoji.category.Travel": "Reisen",
   "emoji.category.Objects": "Objekte",
   "emoji.category.Symbols": "Symbole",
+  "emoji.category.Flags": "Flaggen",
+  "emoji.recent": "Zuletzt",
 
   // ------------------------------------------------------------------ toasts
   "toast.migrated": "Projekt aus der vorherigen UI-Sketch-Version geladen.",

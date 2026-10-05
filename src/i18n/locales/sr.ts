@@ -217,6 +217,8 @@ export const sr: Dictionary = {
   "emoji.category.Travel": "Putovanja",
   "emoji.category.Objects": "Predmeti",
   "emoji.category.Symbols": "Simboli",
+  "emoji.category.Flags": "Zastave",
+  "emoji.recent": "Nedavno",
 
   // ------------------------------------------------------------------ toasts
   "toast.migrated": "Projekat je učitan iz prethodne verzije UI Sketch.",

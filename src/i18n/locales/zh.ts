@@ -212,6 +212,8 @@ export const zh: Dictionary = {
   "emoji.category.Travel": "旅行",
   "emoji.category.Objects": "物品",
   "emoji.category.Symbols": "符号",
+  "emoji.category.Flags": "旗帜",
+  "emoji.recent": "最近",
 
   // ------------------------------------------------------------------ toasts
   "toast.migrated": "已从旧版 UI Sketch 加载你的项目。",

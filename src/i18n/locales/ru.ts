@@ -222,6 +222,8 @@ export const ru: Dictionary = {
   "emoji.category.Travel": "Путешествия",
   "emoji.category.Objects": "Предметы",
   "emoji.category.Symbols": "Символы",
+  "emoji.category.Flags": "Флаги",
+  "emoji.recent": "Недавние",
 
   // ------------------------------------------------------------------ toasts
   "toast.migrated": "Проект загружен из предыдущей версии UI Sketch.",

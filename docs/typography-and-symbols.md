@@ -118,35 +118,69 @@ Content size (px)[ 48 ]
 The button toggles `EmojiPicker`; the picker and the button share an `anchorRef`, so clicking the
 button while open closes the popover instead of immediately reopening it.
 
-## Emoji picker and catalog
+## Emoji picker and catalog (1.2)
 
-`src/model/emoji.ts` is a curated, dependency-free catalog of **336 entries**:
+`src/model/emoji.ts` is the **generated** catalog: every fully-qualified emoji of a recent Unicode
+version, base glyphs only (**no skin-tone variants**), including flags and ZWJ sequences that render
+as one glyph — currently **1914 entries**. The data is produced by the dev-only
+`scripts/generate-emoji.mjs` (from `emojibase-data`, plus CLDR for Serbian) and committed under
+`src/model/emoji/*.generated.ts`; `scripts/` is never bundled.
+
+Everything is **lazily loaded** so the base chunk stays small on shared hosting:
+
+| Chunk | Content | gzip (1.2) |
+| --- | --- | --- |
+| `glyphs.generated-*.js` | the 1914 glyphs + their category | ~5 kB |
+| `names.en.generated-*.js` | English names + keywords + the curated extras | ~33 kB |
+| `names.<lang>.generated-*.js` | one chunk per UI language (ru, de, fr, es, sr, ja, zh) | 29–48 kB |
+
+`loadEmojiCatalog({ language })` fetches the glyph chunk, the active language and **English**, and
+merges them: search always covers the current UI language *plus* English, so both `rocket` and
+`ракета` find 🚀. Serbian has no emojibase data, so its names come from CLDR `sr-Latn` — the script
+the Serbian UI itself uses. No language silently falls back to English, and an unknown language
+uses English only, explicitly.
+
+Search is case- and accent-insensitive (`foldEmojiText`: `é`→`e`, `č`→`c`, `ё`→`е`) and matches
+names and keywords; every word of a multi-word query must match. The **Recent** tab (first, shown
+only when non-empty) lists the last 24 picks from `localStorage` key `wirefragma.emoji.recent` —
+never part of a project, never in the cloud.
+
+The pre-1.2 hand-written list is gone, but its convenience keywords (`rocket`, `cart`, `warning`,
+…) survive as English extras in `EMOJI_KEYWORD_EXTRAS`, so existing habits keep working.
 
 ```ts
 export type EmojiCategory =
-  | "Smileys" | "People" | "Animals" | "Food"
-  | "Activities" | "Travel" | "Objects" | "Symbols";
+  | "Smileys" | "People" | "Animals" | "Food" | "Activities"
+  | "Travel" | "Objects" | "Symbols" | "Flags";
 
-export interface EmojiEntry { emoji: string; name: string; keywords?: string[]; category: EmojiCategory }
+interface EmojiEntry { emoji: string; name: string; keywords: string[]; category: EmojiCategory; search: string }
 
-searchEmoji(query): EmojiEntry[]        // empty query -> the whole catalog
-emojiByCategory(category): EmojiEntry[]
+loadEmojiCatalog({ language }): Promise<EmojiEntry[]>   // lazy chunks, cached per language
+searchEmoji(catalog, query): EmojiEntry[]               // empty query -> the whole catalog
+emojiByCategory(catalog, category): EmojiEntry[]
 ```
 
-Search matches the entry name, the emoji itself and the keyword list, so `cat`, `rocket`,
-`warning` and `alert` all resolve.
+### The field component: `EmojiTextField`
 
-`EmojiPicker` behaviour:
+`src/components/EmojiTextField.tsx` wraps an `<input>` or a `<textarea>` and adds a 🙂 button. It
+inserts the picked emoji **at the caret, replacing the selection** through the pure
+`insertEmojiAtSelection` (`src/utils/emojiInsert.ts`), calls exactly the `onChange` the user's
+typing would call (so `coalesceKey` history handling is unchanged) and puts focus and the caret
+back afterwards. Escape or a click outside closes the popover; the popover is `position: fixed`
+and flips/clamps inside the viewport.
 
-* category buttons (shown when the search box is empty) and a search field (`type="search"`);
-* a compact 8-column grid of `title`-labelled cells, scrolled inside the popover;
-* clicking a cell writes the emoji into the element's **Label** (the popover stays open so the user
-  can keep browsing; the chosen cell is highlighted);
-* `Escape` (document-capture listener) and a click outside the picker/anchor close it;
-* picking is a normal `onChangeElement({ label }, { coalesceKey: null })` commit, so it is one
-  undo step and it flows through the usual autosave.
+It is used for the element **Name**, **Label** (except Icon/Image, which keep the older
+replace-the-label picker described above), **Note**, **Items** and **Columns**, the project
+**Title**, the Canvas / Drawing popup **label / text / LLM description** fields and the **layer
+rename** field.
 
-No emoji library is added to `package.json`.
+`EmojiPicker` behaviour (unchanged apart from the points above): category buttons plus a **Recent**
+tab while the search box is empty, a compact 8-column grid of `title`-labelled cells scrolled
+inside the popover, `Escape` and outside clicks to close, and picking as one normal commit — so it
+is one undo step and flows through the usual autosave.
+
+No emoji library is added to `package.json`: `emojibase-data` and `cldr-annotations-full` are
+**devDependencies** used only by the generator.
 
 ## Persistence and round-trips
 

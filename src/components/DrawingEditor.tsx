@@ -10,6 +10,7 @@ import {
   type DrawingData,
   type DrawingPoint
 } from "../model/drawing";
+import { EmojiTextField } from "./EmojiTextField";
 import { SceneModal, prepareStageContext, useSceneHistory, useStageFit } from "./SceneEditorShell";
 
 type Tool = "pen" | "eraser";
@@ -161,11 +162,12 @@ export function DrawingEditor({ name, initial, onDone, onCancel }: DrawingEditor
         <div className="scene-footer">
           <label className="field">
             <span className="field-label">{t("scene.description")}</span>
-            <textarea
+            <EmojiTextField
+              multiline
               rows={2}
               value={data.description ?? ""}
               placeholder={t("scene.drawingDescriptionPlaceholder")}
-              onChange={(event) => describe(event.target.value)}
+              onChange={describe}
             />
           </label>
           {!hasDrawingDescription(data) ? <p className="scene-warning">⚠ {t("scene.drawingWarning")}</p> : null}
