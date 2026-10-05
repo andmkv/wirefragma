@@ -68,7 +68,7 @@ callbacks, and never mutate the document themselves.
 | --- | --- |
 | `components/AppToolbar.tsx` | canvas preset/size, grid, snap, zoom controls, undo/redo, New, Layers toggle, Import, Copy for LLM, Export, brand logo |
 | `components/LeftPanel.tsx` | palette column + collapsible layers column |
-| `components/ElementPalette.tsx` | the 24 palette buttons (adds to the active layer) |
+| `components/ElementPalette.tsx` | the 27 palette buttons (adds to the active layer) |
 | `components/LayersPanel.tsx` | layer rows, element rows, drag & drop reordering, visibility/lock toggles, per-element duplicate, delete layer |
 | `components/PropertiesPanel.tsx` | single-element inspector, multi-selection panel, typography controls, emoji picker trigger |
 | `components/EmojiPicker.tsx` | compact emoji popover (categories, search, grid) |

@@ -67,7 +67,7 @@ has no transform of its own. A document always has at least one layer
 ```ts
 export interface WireframeElement {
   id: string;
-  type: ElementType;              // 24 values, see below
+  type: ElementType;              // 27 values, see below
 
   name: string;                   // semantic id, e.g. "saveButton" (used in Markdown headings)
   label: string;                  // visible text / emoji drawn on the canvas
@@ -86,17 +86,18 @@ export interface WireframeElement {
   columns?: string[];             // table column headers
   textStyle?: TextStyle;          // text elements only
   contentSize?: number;           // icon / image symbol size
+  chart?: ChartData;              // chart element only
 }
 ```
 
 ### Element types
 
-`ELEMENT_TYPES` (24, in declaration order):
+`ELEMENT_TYPES` (27, in declaration order):
 
 ```text
 container, text, button, input, textarea, checkbox, radio, toggle, dropdown, slider,
 progress, iconButton, tabs, list, table, image, icon, avatar, badge, divider,
-toolbar, sidebar, bottomNav, dialog
+toolbar, sidebar, bottomNav, dialog, diagram, drawing, chart
 ```
 
 `ELEMENT_TYPE_LABEL` maps each type to its human label used by the palette, the Properties panel
@@ -113,6 +114,7 @@ and the Markdown export (`iconButton -> "Icon Button"`, `badge -> "Badge / Chip"
 | `columns` | table | no | column headers |
 | `textStyle` | `text` only | no | see [typography-and-symbols.md](./typography-and-symbols.md) |
 | `contentSize` | `icon`, `image` | no | symbol size, independent of the element bounds |
+| `chart` | `chart` only | no | dataset drawn in the element's bounds, see below |
 | `visible` / `locked` | visibility | visibility + locking | combined with the layer, see below |
 | `layerId`, `zIndex` | paint order | paint order | see [layers-and-z-order.md](./layers-and-z-order.md) |
 
@@ -126,6 +128,52 @@ and the Markdown export (`iconButton -> "Icon Button"`, `badge -> "Badge / Chip"
 | `MIN_CONTENT_SIZE` / `MAX_CONTENT_SIZE` | 8 / 256 | `contentSize` range |
 | `DEFAULT_ICON_CONTENT_SIZE` | 24 | icon default |
 | `DEFAULT_IMAGE_CONTENT_SIZE` | 48 | image default |
+| `CHART_LIMITS` | 24 / 8 / 40 / 80 / 1e12 | categories / series / label length / title length / value bound |
+
+## `ChartData`
+
+```ts
+export type ChartKind = "bar" | "stackedBar" | "line" | "area" | "pie" | "donut";
+
+export interface ChartSeries { name: string; values: (number | null)[] }
+
+export interface ChartData {
+  kind: ChartKind;
+  title?: string;
+  categories: string[];
+  series: ChartSeries[];
+  options?: { legend?: boolean; showValues?: boolean; horizontal?: boolean };
+}
+```
+
+Source: [`src/model/chart.ts`](../src/model/chart.ts) — pure data and pure helpers (no DOM, no
+canvas, no React). The canvas geometry of a Chart is its element bounds, so the type adds no hit
+regions and no second hit test.
+
+Hard limits (`CHART_LIMITS`) keep the cloud footprint small: **at most 24 categories**, **at most 8
+series**, labels and series names **≤ 40 characters**, `title` **≤ 80 characters**, and values
+finite and clamped to **±1e12**. `categories.length` is the authoritative number of slots — every
+series is padded (with `null`) or truncated to exactly that length. `null` is a **gap** (a missing
+bar, a break in a line, no slice), never a zero.
+
+`normalizeChartData(value)` is the single entry point for untrusted input. It never throws for
+recoverable input:
+
+* an unknown `kind` becomes `bar`;
+* optionals are filled — `options` keeps only flags that are `true` and disappears when nothing is
+  left, an empty `title` is dropped;
+* `pie` / `donut` keep the **first series only**;
+* a number is accepted as a JSON number or as a finite numeric string (`"12"`, `" 3.5 "`); `null`,
+  `""`, other strings, `NaN` and `±Infinity` become `null`;
+* extra categories, extra series and extra padding are dropped, labels are trimmed to one line and
+  clipped to their limit;
+* when `categories` and `series` are **both absent** the demo dataset from `createChartData()` is
+  used (keeping the requested `kind` and `title`); explicit empty arrays are respected, so a chart
+  the user emptied stays empty through a save/import round trip.
+
+`createChartData()` returns a small demo dataset (3 categories, 2 series) so a fresh Chart is never
+an empty box. `chartSummaryCounts` and `chartMaxAbsValue` are the read-time helpers used by the
+Properties panel, the spatial summary and every renderer.
 
 ## `TextStyle`
 
@@ -153,7 +201,7 @@ restyled therefore has no `textStyle` key at all.
 
 ## Optional fields and backward compatibility
 
-`items`, `columns`, `textStyle`, `contentSize` and `parentId` are **optional**. Older projects simply do not
+`items`, `columns`, `textStyle`, `contentSize`, `chart` and `parentId` are **optional**. Older projects simply do not
 have them, and `normalizeTextStyle` / `normalizeContentSize` return `undefined` for missing or
 invalid input rather than inventing values. Helpers apply the defaults at read time
 (`textStyleOf`, `contentSizeOf`), so the model stays minimal without losing behaviour.
@@ -167,7 +215,7 @@ version 1 (no layers, no visibility/locking) is migrated, see
 | Canonical (serialized) | Optional / backward-compatible | Editor-only (never serialized) |
 | --- | --- | --- |
 | `version`, `title`, `canvas` | `items`, `columns` | selection (`ids`, `primary`) |
-| `layers[]` (`id`, `name`, `visible`, `locked`) | `textStyle`, `contentSize` | hover / cursor, marquee preview |
+| `layers[]` (`id`, `name`, `visible`, `locked`) | `textStyle`, `contentSize`, `chart` | hover / cursor, marquee preview |
 | `elements[]` (`id`, `type`, `name`, `label`, `note`, `x`, `y`, `width`, `height`, `layerId`, `visible`, `locked`, `zIndex`) | `zIndex` (derived, recomputed) | zoom mode/scale, scroll offset |
 | | | grid visibility, grid size, snap toggle |
 | | | active layer, open panels, dialogs, toasts |
@@ -203,7 +251,7 @@ Throws `ProjectValidationError` when:
 * `canvas` is not an object, or `width`/`height` are not finite numbers, or smaller than 120;
 * `elements` is not an array;
 * an element is not an object;
-* an element `type` is not one of the 24 known types.
+* an element `type` is not one of the 27 known types.
 
 Repairs silently when:
 
@@ -213,6 +261,7 @@ Repairs silently when:
 * `width`/`height` are below `MIN_ELEMENT_SIZE` or missing -> clamped/defaulted;
 * `items`/`columns` contain empty or non-string entries -> filtered out;
 * `textStyle`/`contentSize` are invalid, empty or out of range -> dropped or clamped;
+* `chart` is repaired by `normalizeChartData` (kind, limits, gaps) — never dropped, never fatal;
 * `canvas.mode` is missing/unknown -> inferred from the dimensions (`inferCanvasMode`);
 * `canvas.preset` is unknown, not a string, or disagrees with `width`/`height` -> dropped;
 * `zIndex` is missing -> recomputed by `reindexLayers`.
@@ -248,6 +297,9 @@ and the palette:
 | `sidebar` | 220 × 400 | `Sidebar` | items `Item 1..3` |
 | `bottomNav` | 360 × 64 | `""` | items `Home`, `Search`, `Profile` |
 | `dialog` | 360 × 240 | `Dialog` | |
+| `diagram` | 450 × 300 | `""` | the Canvas scene |
+| `drawing` | 240 × 180 | `""` | |
+| `chart` | 360 × 240 | `""` | the demo dataset from `createChartData()` |
 
 `createElement(type, project, { x, y, layerId?, name?, width?, height?, label?, items?, columns? })`
 rounds the coordinates, sets `visible: true`, `locked: false`, `note: ""` and

@@ -1,4 +1,5 @@
 import { exportedElementsInDrawOrder, type WireframeElement, type WireframeProject } from "../model/project";
+import { chartMaxAbsValue, isSingleSeriesKind, normalizeChartData } from "../model/chart";
 import { renderDiagramAsciiLines } from "./diagramText";
 
 /**
@@ -476,6 +477,110 @@ function drawDrawing(grid: Grid, rect: Rect, element: WireframeElement): void {
   });
 }
 
+/** Compact value label for the ASCII sketch: 1500 -> 1.5k. */
+function asciiValue(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+  if (abs >= 1e4) return `${sign}${(abs / 1e3).toFixed(1).replace(/\.0$/, "")}k`;
+  return `${Math.round(value * 100) / 100}`;
+}
+
+/** Rows a chart may use, so the title always has somewhere to go. */
+const CHART_MAX_ROWS = 8;
+/** Below this inner width a bar has nowhere to grow; the chart falls back to a plain box. */
+const CHART_MIN_INNER_WIDTH = 14;
+
+/** The header line of a chart box: a title when there is one, otherwise the kind. */
+function chartHeading(element: WireframeElement): string {
+  const title = element.chart?.title?.trim() || element.label.trim();
+  return title ? `Chart: ${title.replace(/\s+/g, " ")}` : "Chart";
+}
+
+/** Horizontal bars, one category per row: a recognisable bar chart even in a small box. */
+function drawChartBars(
+  grid: Grid,
+  data: { categories: string[]; series: { name: string; values: (number | null)[] }[] },
+  inner: Rect,
+  firstRow: number,
+  rows: number
+): void {
+  const values = data.categories.map((_, index) => {
+    let sum = 0;
+    let seen = false;
+    for (const series of data.series) {
+      const value = series.values[index];
+      if (value === null || value === undefined) continue;
+      sum += Math.abs(value);
+      seen = true;
+    }
+    return seen ? sum : null;
+  });
+  const max = Math.max(1, ...values.map((value) => value ?? 0));
+  const valueWidth = Math.min(7, Math.max(4, ...values.map((value) => (value === null ? 1 : asciiValue(value).length))));
+  // `label` + ` ` + value + ` ` + bar
+  const labelWidth = Math.max(0, inner.w - valueWidth - 3);
+  const barSpace = Math.max(1, inner.w - labelWidth - valueWidth - 2);
+  if (labelWidth < 3) return;
+
+  for (let index = 0; index < Math.min(rows, data.categories.length); index += 1) {
+    const value = values[index];
+    const y = firstRow + index;
+    const barWidth = Math.max(value === null ? 0 : 1, Math.round(((value ?? 0) / max) * barSpace));
+    const bar = value === null ? "" : "█".repeat(barWidth);
+    const prefix = `${clip(data.categories[index] || `#${index + 1}`, labelWidth)} `;
+    const number = value === null ? "—" : asciiValue(value);
+    grid.put(inner.x, y, clip(`${prefix}${padRight(number, valueWidth)} ${bar}`, inner.w));
+  }
+}
+
+/** Pie / donut: a slice list with percentages, the honest text form of a share. */
+function drawChartShares(
+  grid: Grid,
+  data: { categories: string[]; series: { name: string; values: (number | null)[] }[] },
+  inner: Rect,
+  firstRow: number,
+  rows: number
+): void {
+  const values = data.categories.map((_, index) => {
+    const value = data.series[0]?.values[index];
+    return value === null || value === undefined || value <= 0 ? 0 : value;
+  });
+  const total = values.reduce((sum, value) => sum + value, 0);
+  if (total <= 0) return;
+
+  for (let index = 0; index < Math.min(rows, data.categories.length); index += 1) {
+    const percent = `${Math.round((values[index] / total) * 100)}%`;
+    const width = Math.max(1, inner.w - 4 - percent.length);
+    const label = clip(data.categories[index] || `#${index + 1}`, width);
+    grid.put(inner.x, firstRow + index, clip(`${label} ${padRight(percent, percent.length)}`, inner.w));
+  }
+}
+
+/**
+ * Chart: a titled box with a genuinely recognisable sketch inside — horizontal bars for the bar
+ * kinds, a percentage list for pie/donut. When the box is too small for that, it degrades to the
+ * plain box (an empty frame) instead of printing something unreadable.
+ */
+function drawChart(grid: Grid, rect: Rect, element: WireframeElement): void {
+  drawBox(grid, rect);
+  const inner = { x: rect.x + 2, y: rect.y + 1, w: rect.w - 4, h: rect.h - 2 };
+  const heading = chartHeading(element);
+  if (inner.w < CHART_MIN_INNER_WIDTH || inner.h < 1) {
+    if (inner.w >= 4 && inner.h >= 1) grid.put(inner.x, inner.y, clip(heading, inner.w));
+    return;
+  }
+
+  grid.put(inner.x, inner.y, clip(heading, inner.w));
+  const data = normalizeChartData(element.chart);
+  const rows = Math.min(CHART_MAX_ROWS, inner.h - 1);
+  const firstRow = inner.y + 1;
+  if (rows < 1 || data.categories.length === 0 || data.series.length === 0 || chartMaxAbsValue(data) === 0) return;
+
+  if (isSingleSeriesKind(data.kind)) drawChartShares(grid, data, inner, firstRow, rows);
+  else drawChartBars(grid, data, inner, firstRow, rows);
+}
+
 function drawElement(grid: Grid, element: WireframeElement, rect: Rect): void {
   switch (element.type) {
     case "container":
@@ -555,6 +660,9 @@ function drawElement(grid: Grid, element: WireframeElement, rect: Rect): void {
       break;
     case "drawing":
       drawDrawing(grid, rect, element);
+      break;
+    case "chart":
+      drawChart(grid, rect, element);
       break;
     default:
       drawBox(grid, rect);

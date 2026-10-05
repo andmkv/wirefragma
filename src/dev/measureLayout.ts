@@ -131,6 +131,50 @@ export interface LayoutMeasurement {
   errorBoundaryVisible: boolean;
   overflowingElements: { selector: string; right: number; width: number }[];
   touch: TouchGestureMeasurement;
+  errorBoundary: ErrorBoundaryMeasurement;
+  emojiField: EmojiFieldMeasurement;
+  chart: ChartElementMeasurement;
+}
+
+/** E2–E4 through a real browser: add a Chart, open its popup, commit it. */
+export interface ChartElementMeasurement {
+  available: boolean;
+  reason?: string;
+  added?: boolean;
+  elementName?: string | null;
+  popupOpened?: boolean;
+  hasTable?: boolean;
+  hasKindSelector?: boolean;
+  hasEmojiButton?: boolean;
+  dialogBox?: Box | null;
+  dialogFitsViewport?: boolean;
+  committed?: boolean;
+  historyGrew?: boolean;
+}
+
+/** C1 + C3 end to end: the picker loads its lazy chunks, stays inside the viewport, inserts. */
+export interface EmojiFieldMeasurement {
+  available: boolean;
+  reason?: string;
+  cellCount?: number;
+  pickerInViewport?: boolean;
+  pickerBox?: Box | null;
+  hasCategoryTabs?: boolean;
+  hasRecentTab?: boolean;
+  picked?: string | null;
+  inserted?: boolean;
+  fieldValue?: string;
+}
+
+/** D6 through a real browser: a throwing child must render the fallback, not a blank page. */
+export interface ErrorBoundaryMeasurement {
+  rendered: boolean;
+  title: string | null;
+  buttons: string[];
+  hasRetry: boolean;
+  hasExport: boolean;
+  recovered: boolean;
+  reason?: string;
 }
 
 /** A1 through a real browser: two synthetic fingers must pan and pinch the viewport. */
@@ -209,6 +253,7 @@ async function measureDrawers(): Promise<Record<string, DrawerMeasurement>> {
 
 interface CanvasDiagnostics {
   transform: () => { scale: number };
+  elementNames?: () => string[];
 }
 
 function canvasDiagnostics(): CanvasDiagnostics | undefined {
@@ -280,6 +325,249 @@ async function measureTouchGesture(): Promise<TouchGestureMeasurement> {
   };
 }
 
+/**
+ * Render a deliberately crashing child inside the real error boundary and check what the browser
+ * shows. Runs in a detached, off-screen container so the measured layout is untouched.
+ */
+async function measureErrorBoundary(): Promise<ErrorBoundaryMeasurement> {
+  try {
+    const [{ createElement }, { createRoot }, { EditorErrorBoundary }] = await Promise.all([
+      import("react"),
+      import("react-dom/client"),
+      import("../components/ErrorBoundary")
+    ]);
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "-10000px";
+    container.style.width = "600px";
+    document.body.appendChild(container);
+
+    /**
+     * Keeps throwing until the probe releases it, so the two phases are deterministic: first the
+     * boundary must show its fallback, then "Try again" must render the child successfully (a
+     * permanently broken child would legitimately stay caught forever).
+     */
+    let crashing = true;
+    const Boom = () => {
+      if (crashing) throw new Error("harness: deliberate render error");
+      return null;
+    };
+    const project = {
+      version: 2 as const,
+      title: "Boundary probe",
+      canvas: { mode: "desktop" as const, width: 1200, height: 800 },
+      layers: [{ id: "l1", name: "Default", visible: true, locked: false }],
+      elements: []
+    };
+
+    const root = createRoot(container);
+    const realError = console.error;
+    console.error = () => undefined;
+    // `createElement` with a typed component: the boundary needs `children` explicitly.
+    root.render(
+      createElement(
+        EditorErrorBoundary as (props: { project?: typeof project; children?: unknown }) => JSX.Element,
+        { project },
+        createElement(Boom)
+      )
+    );
+    await delay(250);
+
+    const fallback = container.querySelector(".error-boundary");
+    const buttons = Array.from(container.querySelectorAll(".error-boundary button")).map(
+      (button) => button.textContent?.trim() ?? ""
+    );
+    const rendered = isVisible(fallback);
+    const title = fallback?.querySelector("h2")?.textContent?.trim() ?? null;
+
+    // "Try again" must clear the error and render the child again — now successfully.
+    let recovered = false;
+    const retry = container.querySelector<HTMLButtonElement>(".error-boundary button");
+    crashing = false;
+    if (retry) {
+      retry.click();
+      await delay(120);
+      recovered = !container.querySelector(".error-boundary");
+    }
+    console.error = realError;
+    root.unmount();
+    container.remove();
+    return {
+      rendered,
+      title,
+      buttons,
+      hasRetry: buttons.length > 0,
+      hasExport: buttons.length > 1,
+      recovered
+    };
+  } catch (error) {
+    return { rendered: false, title: null, buttons: [], hasRetry: false, hasExport: false, recovered: false, reason: String(error) };
+  }
+}
+
+/** Open the first emoji text field's picker, verify it fits the viewport, then pick a cell. */
+async function measureEmojiField(): Promise<EmojiFieldMeasurement> {
+  try {
+    const drawerToggle = document.querySelector<HTMLButtonElement>('[data-drawer-toggle="properties"]');
+    const drawer = document.querySelector('[data-drawer="properties"]');
+    if (drawerToggle && drawer && !drawer.classList.contains("open")) {
+      drawerToggle.click();
+      await settle();
+      await delay(240);
+    }
+    const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+      ".emoji-text-field input, .emoji-text-field textarea"
+    );
+    const button = document.querySelector<HTMLButtonElement>(".emoji-text-field .emoji-open");
+    if (!field || !button) return { available: false, reason: "no emoji text field" };
+
+    button.click();
+    const loaded = await waitFor(() => !!document.querySelector(".emoji-picker .emoji-cell"), 12000);
+    if (!loaded) return { available: false, reason: "the picker never rendered cells" };
+
+    const picker = document.querySelector(".emoji-picker");
+    const rect = picker?.getBoundingClientRect();
+    const pickerInViewport = !!rect &&
+      rect.left >= -1 &&
+      rect.top >= -1 &&
+      rect.right <= window.innerWidth + 1 &&
+      rect.bottom <= window.innerHeight + 1;
+    // Measured while the popover is still mounted (afterwards the node is detached).
+    const pickerBox = boxOf(picker);
+    const hasCategoryTabs = document.querySelectorAll(".emoji-picker .emoji-category").length > 0;
+    const hasRecentTab = Array.from(document.querySelectorAll(".emoji-picker .emoji-category")).some(
+      (tab) => tab.textContent?.trim() === "Recent"
+    );
+    const cells = Array.from(document.querySelectorAll<HTMLButtonElement>(".emoji-picker .emoji-cell"));
+    const first = cells[0];
+    const picked = first?.textContent ?? null;
+    first?.click();
+    await delay(160);
+    const insertion = { picked, inserted: !!picked && field.value.includes(picked), fieldValue: field.value };
+
+    // Close the popover again (Escape is handled by the picker itself).
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await delay(80);
+    if (drawerToggle && drawer?.classList.contains("open")) {
+      drawerToggle.click();
+      await settle();
+    }
+    return {
+      available: true,
+      cellCount: cells.length,
+      pickerInViewport,
+      pickerBox,
+      hasCategoryTabs,
+      hasRecentTab,
+      ...insertion
+    };
+  } catch (error) {
+    return { available: false, reason: String(error) };
+  }
+}
+
+function drawerToggleFor(id: string): HTMLButtonElement | null {
+  return document.querySelector<HTMLButtonElement>(`[data-drawer-toggle="${id}"]`);
+}
+
+/** Open a drawer in the overlay layouts (no-op on desktop, where the panels are always there). */
+async function ensureDrawerOpen(id: string): Promise<void> {
+  const toggle = drawerToggleFor(id);
+  const drawer = document.querySelector(`[data-drawer="${id}"]`);
+  if (!toggle || !drawer || drawer.classList.contains("open")) return;
+  toggle.click();
+  await settle();
+  await delay(240);
+}
+
+async function closeDrawer(id: string): Promise<void> {
+  const toggle = drawerToggleFor(id);
+  const drawer = document.querySelector(`[data-drawer="${id}"]`);
+  if (!toggle || !drawer || !drawer.classList.contains("open")) return;
+  toggle.click();
+  await settle();
+}
+
+/**
+ * Add a Chart from the palette, verify it reached the document, open its popup, check the editor
+ * chrome, then commit it with "Done" and confirm that exactly the history grew.
+ */
+async function measureChartElement(): Promise<ChartElementMeasurement> {
+  try {
+    await ensureDrawerOpen("add");
+    // The palette renders tiles when compact and labelled rows otherwise; match both.
+    const tiles = Array.from(document.querySelectorAll<HTMLButtonElement>(".palette-tile, .palette-item"));
+    const chartTile = tiles.find((tile) =>
+      `${tile.getAttribute("aria-label") ?? ""} ${tile.getAttribute("title") ?? ""} ${tile.textContent ?? ""}`
+        .toLowerCase()
+        .includes("chart")
+    );
+    if (!chartTile) return { available: false, reason: "no chart tile in the palette" };
+    chartTile.click();
+    await delay(300);
+    await closeDrawer("add");
+
+    const names = canvasDiagnostics()?.elementNames?.() ?? [];
+    const elementName = names.find((name) => name.toLowerCase().includes("chart")) ?? null;
+
+    await ensureDrawerOpen("properties");
+    const edit = document.querySelector<HTMLButtonElement>('[data-drawer="properties"] .scene-edit-open');
+    if (!edit) return { available: true, added: !!elementName, elementName, popupOpened: false, reason: "no chart edit button" };
+    edit.click();
+    await delay(320);
+
+    const dialog = document.querySelector(".modal.scene-modal");
+    const popupOpened = !!dialog;
+    const hasTable = !!dialog?.querySelector(".chart-table, .chart-text-mode");
+    const hasKindSelector = !!dialog?.querySelector(".chart-kinds, .scene-toolbar");
+    const hasEmojiButton = !!dialog?.querySelector(".emoji-text-field .emoji-open");
+    // D4: a dialog must fit a small viewport without horizontal scroll.
+    const dialogRect = dialog?.getBoundingClientRect();
+    const dialogFitsViewport =
+      !!dialogRect &&
+      dialogRect.left >= -1 &&
+      dialogRect.top >= -1 &&
+      dialogRect.right <= window.innerWidth + 1 &&
+      dialogRect.bottom <= window.innerHeight + 1;
+    const dialogBox = dialogRect
+      ? {
+          x: Math.round(dialogRect.x),
+          y: Math.round(dialogRect.y),
+          width: Math.round(dialogRect.width),
+          height: Math.round(dialogRect.height)
+        }
+      : null;
+
+    const done = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+      (button) => button.textContent?.trim() === "Done"
+    );
+    done?.click();
+    await delay(320);
+    const committed = !document.querySelector(".modal.scene-modal");
+    const undoButton = Array.from(document.querySelectorAll<HTMLButtonElement>(".app-toolbar button")).find(
+      (button) => (button.getAttribute("aria-label") ?? "") === "Undo"
+    );
+    const historyGrew = !!undoButton && !undoButton.disabled;
+    await closeDrawer("properties");
+    return {
+      available: true,
+      added: !!elementName,
+      elementName,
+      popupOpened,
+      hasTable,
+      hasKindSelector,
+      hasEmojiButton,
+      dialogBox,
+      dialogFitsViewport,
+      committed,
+      // "Done" is exactly one history step: Undo must have become available.
+      historyGrew: historyGrew && committed
+    };
+  } catch (error) {
+    return { available: false, reason: String(error) };
+  }
+}
+
 function publish(payload: unknown): void {
   let output = document.getElementById(OUTPUT_ID);
   if (!output) {
@@ -306,7 +594,10 @@ export async function runLayoutMeasure(): Promise<void> {
     publish({ ready, phase: "baseline", ...(await measureBaseline()) });
     const drawers = await measureDrawers();
     const touch = await measureTouchGesture();
-    publish({ ready, phase: "final", ...(await measureBaseline()), drawers, touch });
+    const errorBoundary = await measureErrorBoundary();
+    const emojiField = await measureEmojiField();
+    const chart = await measureChartElement();
+    publish({ ready, phase: "final", ...(await measureBaseline()), drawers, touch, errorBoundary, emojiField, chart });
   } catch (error) {
     publish({ error: String(error) });
   }

@@ -11,6 +11,7 @@ import {
 } from "./project";
 import { presetMatchingSize } from "./canvasPresets";
 import type { CanvasPresetId } from "./canvasPresets";
+import { createChartData } from "./chart";
 import { createDiagramData } from "./diagram";
 import { createDrawingData } from "./drawing";
 
@@ -96,13 +97,15 @@ export const ELEMENT_DEFAULTS: Record<ElementType, ElementDefaults> = {
   dialog: { width: 360, height: 240, label: "Dialog" },
   // Same aspect ratio as the default scene (600×400 / 480×360), so a fresh scene fills its box.
   diagram: { width: 450, height: 300, label: "" },
-  drawing: { width: 240, height: 180, label: "" }
+  drawing: { width: 240, height: 180, label: "" },
+  // Landscape enough for an axis pair plus labels; the chart title stands in for a label.
+  chart: { width: 360, height: 240, label: "" }
 };
 
 /** Palette groups shown in the left "Add" tab. */
 export const PALETTE_GROUPS: { title: string; types: ElementType[] }[] = [
   { title: "Layout", types: ["container", "toolbar", "sidebar", "bottomNav", "dialog", "divider"] },
-  { title: "Content", types: ["text", "image", "icon", "avatar", "badge", "list", "table", "tabs"] },
+  { title: "Content", types: ["text", "image", "icon", "avatar", "badge", "list", "table", "tabs", "chart"] },
   {
     title: "Controls",
     types: [
@@ -173,6 +176,7 @@ export function createElement(
   if (columns) element.columns = [...columns];
   if (type === "diagram") element.diagram = createDiagramData();
   if (type === "drawing") element.drawing = createDrawingData();
+  if (type === "chart") element.chart = createChartData();
   return element;
 }
 

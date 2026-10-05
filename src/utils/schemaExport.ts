@@ -26,6 +26,7 @@ import {
   PROJECT_VERSION,
   type ElementType
 } from "../model/project";
+import { CHART_KINDS, CHART_LIMITS, createChartData, type ChartData } from "../model/chart";
 import { DIAGRAM_OBJECT_TYPES, DEFAULT_DIAGRAM_SIZE } from "../model/diagram";
 import { DEFAULT_DRAWING_SIZE, DRAWING_PEN_WIDTHS, MAX_SCENE_SIZE, MIN_SCENE_SIZE } from "../model/drawing";
 import { PROJECT_FENCE } from "./markdownExport";
@@ -68,7 +69,9 @@ export const TYPE_GUIDE: Record<ElementType, string> = {
   diagram:
     "\"Canvas\": a small structured diagram (flow, schema, map). `label` is its title; the shapes go in `diagram` (see below), never as separate elements.",
   drawing:
-    "Freehand sketch. The strokes go in `drawing.strokes`; `drawing.description` says what it shows — without a description the sketch is left out of the LLM export."
+    "Freehand sketch. The strokes go in `drawing.strokes`; `drawing.description` says what it shows — without a description the sketch is left out of the LLM export.",
+  chart:
+    "Data chart. The numbers go in `chart` (see below), never in `items`/`columns`; `chart.title` is drawn above the plot."
 };
 
 function typeTable(): string[] {
@@ -207,9 +210,33 @@ export function schemaExampleProject() {
         visible: true,
         locked: false,
         zIndex: 5
+      },
+      {
+        id: "el_chart",
+        type: "chart",
+        name: "sessionsChart",
+        label: "",
+        note: "Weekly sign-in sessions for the last four weeks. Hovering a bar shows the exact number.",
+        x: 24,
+        y: 520,
+        width: 342,
+        height: 220,
+        layerId: "layer_page",
+        visible: true,
+        locked: false,
+        zIndex: 1,
+        chart: chartExampleData()
       }
     ]
   };
+}
+
+/**
+ * The `chart` payload of the worked example — written through the model's own normalizer, so the
+ * example can never drift from what import produces (pinned by `schemaExport.test.ts`).
+ */
+export function chartExampleData(): ChartData {
+  return createChartData();
 }
 
 /** JSON Schema (draft 2020-12) of the importable document, for tools with structured output. */
@@ -330,6 +357,47 @@ export function projectJsonSchema() {
                   }
                 }
               }
+            },
+            chart: {
+              type: "object",
+              description: "`chart` elements only: the dataset drawn inside the element's bounds.",
+              required: ["kind", "categories", "series"],
+              properties: {
+                kind: { enum: [...CHART_KINDS], default: "bar" },
+                title: { type: "string", maxLength: CHART_LIMITS.maxTitleLength },
+                categories: {
+                  type: "array",
+                  maxItems: CHART_LIMITS.maxCategories,
+                  description: "Category labels, left to right (one slice per category for pie/donut).",
+                  items: { type: "string", maxLength: CHART_LIMITS.maxLabelLength }
+                },
+                series: {
+                  type: "array",
+                  maxItems: CHART_LIMITS.maxSeries,
+                  description: "One entry per series. `values` is aligned with `categories`; `null` is a gap.",
+                  items: {
+                    type: "object",
+                    required: ["name", "values"],
+                    properties: {
+                      name: { type: "string", maxLength: CHART_LIMITS.maxLabelLength },
+                      values: {
+                        type: "array",
+                        description: "Numbers as JSON numbers or numeric strings; `null` is a gap.",
+                        maxItems: CHART_LIMITS.maxCategories,
+                        items: { type: ["number", "string", "null"] }
+                      }
+                    }
+                  }
+                },
+                options: {
+                  type: "object",
+                  properties: {
+                    legend: { type: "boolean", default: false },
+                    showValues: { type: "boolean", default: false },
+                    horizontal: { type: "boolean", default: false }
+                  }
+                }
+              }
             }
           }
         }
@@ -400,6 +468,7 @@ export function wirefragmaSchemaMarkdown(): string {
     "  contentSize?: number;             // `icon` / `image` symbol size",
     "  diagram?: Diagram;                // `diagram` (Canvas) only, see below",
     "  drawing?: Drawing;                // `drawing` only, see below",
+    "  chart?: Chart;                    // `chart` only, see below",
     "}",
     "```",
     "",
@@ -425,6 +494,27 @@ export function wirefragmaSchemaMarkdown(): string {
     `- \`contentSize\` applies to \`icon\` and \`image\` (default ${DEFAULT_ICON_CONTENT_SIZE} for icons, ${DEFAULT_IMAGE_CONTENT_SIZE} for images; range ${MIN_CONTENT_SIZE}–${MAX_CONTENT_SIZE}).`,
     "- Emoji are welcome as icon/iconButton/avatar/image labels (`🔍`, `⚙️`, `🛒`).",
     "- Omit `items`/`columns` for types that do not use them.",
+    "",
+    "## Chart",
+    "",
+    `A Chart draws a tiny dataset inside the element: at most ${CHART_LIMITS.maxCategories} categories, ${CHART_LIMITS.maxSeries} series,`,
+    "labels of 40 characters and values clamped to ±1e12 — keep it to a handful of rows so the document stays small.",
+    "",
+    "```ts",
+    "Chart = {",
+    `  kind: ${CHART_KINDS.map((kind) => `"${kind}"`).join(" | ")};`,
+    "  title?: string;                    // drawn above the plot",
+    "  categories: string[];              // category labels, left to right",
+    "  series: { name: string; values: (number | null)[] }[];   // values aligned with categories",
+    "  options?: { legend?: boolean; showValues?: boolean; horizontal?: boolean }",
+    "}",
+    "```",
+    "",
+    "- `null` (or an empty cell) is a GAP: a missing bar, a break in the line, no slice.",
+    "- `pie` and `donut` use the FIRST series only.",
+    "- `horizontal` turns the bar kinds sideways; `legend` shows the series names; `showValues` writes",
+    "  every number next to its mark.",
+    "- A chart is data, not decoration: say what the numbers are and where they come from in `note`.",
     "",
     "## Canvas (`diagram`) and Drawing",
     "",

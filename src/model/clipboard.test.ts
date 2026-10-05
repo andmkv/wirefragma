@@ -167,6 +167,29 @@ describe("copy / paste through the internal clipboard", () => {
     expect(findElement(next, newIds[0])!.layerId).toBe(LAYER_A);
   });
 
+  it("deep-copies a chart through copy and paste", () => {
+    const chart: WireframeElement["chart"] = {
+      kind: "stackedBar",
+      title: "Totals",
+      categories: ["A", "B"],
+      series: [{ name: "S", values: [1, null] }]
+    };
+    const doc = project([element("chart1", 100, 100, LAYER_A, { type: "chart", chart })]);
+    const payload = copySelection(doc, ["chart1"])!;
+    expect(payload.elements[0].chart).not.toBe(chart);
+    expect(payload.elements[0].chart!.series).not.toBe(chart!.series);
+
+    const { project: next, newIds } = pasteClipboard(doc, payload, PASTE);
+    const copy = findElement(next, newIds[0])!;
+    expect(copy.chart).toEqual(chart);
+
+    copy.chart!.categories[0] = "changed";
+    copy.chart!.series[0].values[0] = 42;
+    expect(chart!.categories[0]).toBe("A");
+    expect(chart!.series[0].values[0]).toBe(1);
+    expect(doc.elements[0].chart!.categories[0]).toBe("A");
+  });
+
   it("does not mutate the source project or the payload", () => {
     const doc = project([element("a", 100, 100, LAYER_A)]);
     const snapshot = JSON.stringify(doc);

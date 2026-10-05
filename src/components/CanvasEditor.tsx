@@ -56,7 +56,7 @@ interface CanvasEditorProps {
   onScaleChange: (scale: number, fit: number) => void;
   /** The user pinch/wheel-zoomed; the editor switches to manual zoom. */
   onUserZoom: (scale: number) => void;
-  /** Open the scene popup of a Canvas / Drawing element (double-click or the hover pencil). */
+  /** Open the popup of a Canvas / Drawing / Chart element (double-click or the hover pencil). */
   onEditScene: (elementId: string) => void;
   /** Live canvas-edge resize (world units, already snapped and clamped by the caller). */
   onCanvasResize: (width: number, height: number) => void;
@@ -65,7 +65,14 @@ interface CanvasEditorProps {
 }
 
 const isSceneElement = (element: WireframeElement | null | undefined): element is WireframeElement =>
-  !!element && (element.type === "diagram" || element.type === "drawing");
+  !!element && (element.type === "diagram" || element.type === "drawing" || element.type === "chart");
+
+/** Pencil tooltip: the popup each scene type opens. */
+const SCENE_EDIT_KEY: Record<string, "scene.editCanvas" | "scene.editDrawing" | "chart.edit"> = {
+  diagram: "scene.editCanvas",
+  drawing: "scene.editDrawing",
+  chart: "chart.edit"
+};
 
 /** Pencil button size and inset from the element's top-right corner, in CSS px. */
 const PENCIL_PX = 22;
@@ -774,8 +781,8 @@ export function CanvasEditor({
             type="button"
             className="scene-edit-button"
             style={{ left: pencilElement.left, top: pencilElement.top, width: PENCIL_PX, height: PENCIL_PX }}
-            title={t(pencilElement.element.type === "diagram" ? "scene.editCanvas" : "scene.editDrawing")}
-            aria-label={t(pencilElement.element.type === "diagram" ? "scene.editCanvas" : "scene.editDrawing")}
+            title={t(SCENE_EDIT_KEY[pencilElement.element.type] ?? "scene.editDrawing")}
+            aria-label={t(SCENE_EDIT_KEY[pencilElement.element.type] ?? "scene.editDrawing")}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => onEditScene(pencilElement.element.id)}
           >

@@ -121,6 +121,31 @@ describe("duplicateElements", () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
+  it("deep-copies a chart, so the copy never aliases the source", () => {
+    const chart: WireframeElement["chart"] = {
+      kind: "bar",
+      title: "Sessions",
+      categories: ["Jan"],
+      series: [{ name: "Sessions", values: [120] }],
+      options: { legend: true }
+    };
+    const doc = project([element("chart1", 10, 10, LAYER_A, { type: "chart", chart })]);
+    const { project: next, newId } = duplicateElement(doc, "chart1");
+    const copy = findElement(next, newId)!;
+
+    expect(copy.chart).toEqual(chart);
+    expect(copy.chart).not.toBe(chart);
+    expect(copy.chart!.series).not.toBe(chart!.series);
+    expect(copy.chart!.categories).not.toBe(chart!.categories);
+
+    copy.chart!.categories.push("Feb");
+    copy.chart!.series[0].values.push(999);
+    copy.chart!.options!.legend = false;
+    expect(chart!.categories).toEqual(["Jan"]);
+    expect(chart!.series[0].values).toEqual([120]);
+    expect(chart!.options!.legend).toBe(true);
+  });
+
   it("duplicateElement still works for the Layers row action", () => {
     const doc = project([element("a", 10, 10, LAYER_B)]);
     const { project: next, newId } = duplicateElement(doc, "a");

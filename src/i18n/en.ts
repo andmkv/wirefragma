@@ -104,6 +104,7 @@ export const en = {
   "type.dialog": "Dialog",
   "type.diagram": "Canvas",
   "type.drawing": "Drawing",
+  "type.chart": "Chart",
 
   // ---------------------------------------------------------------- layers
   "layers.add": "+ Layer",
@@ -540,6 +541,39 @@ export const en = {
   "canvas.resizeCorner": "Resize canvas",
   "toast.canvasShrunk_one": "{count} element is now completely outside the canvas — nothing was deleted.",
   "toast.canvasShrunk_other": "{count} elements are now completely outside the canvas — nothing was deleted.",
+
+  // ---------------------------------------------------------------- chart
+  "chart.kind.bar": "Bar",
+  "chart.kind.stackedBar": "Stacked bar",
+  "chart.kind.line": "Line",
+  "chart.kind.area": "Area",
+  "chart.kind.pie": "Pie",
+  "chart.kind.donut": "Donut",
+  "chart.title": "Chart title",
+  "chart.titlePlaceholder": "Monthly revenue",
+  "chart.categories": "Categories",
+  "chart.series": "Series",
+  "chart.categoryColumn": "Category",
+  "chart.seriesLabel": "Series {index}",
+  "chart.mode.table": "Table",
+  "chart.mode.text": "Text / CSV",
+  "chart.addRow": "Add row",
+  "chart.removeRow": "Remove row",
+  "chart.addColumn": "Add series",
+  "chart.removeColumn": "Remove series",
+  "chart.swapRowsColumns": "Swap rows/columns",
+  "chart.options": "Options",
+  "chart.legend": "Legend",
+  "chart.showValues": "Values",
+  "chart.horizontal": "Horizontal",
+  "chart.invalidCells_one": "{count} invalid cell — it stays visible as text until it becomes a number.",
+  "chart.invalidCells_other": "{count} invalid cells — they stay visible as text until they become numbers.",
+  "chart.parseHint": "Paste from Excel or Sheets: comma, semicolon or tab. The first row is the header (series names), the first column the categories. A quoted cell like \"a,b\" keeps its comma; an empty cell is a gap.",
+  "chart.textPlaceholder": "Category, Revenue, Costs\nJan, 120, 80\nFeb, 180, 110",
+  "chart.edit": "Edit chart",
+  "chart.reset": "Reset to the example data",
+  "chart.emptySeries": "Add a series to plot data.",
+  "chart.summary": "{series} series × {categories} categories",
 } as const;
 
 export type MessageKey = keyof typeof en;

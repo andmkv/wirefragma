@@ -2,6 +2,28 @@
 
 ## 1.2.0 — unreleased
 
+### Chart element (new)
+- **Chart** (`chart`): a new element type with **bar / stacked bar / line / area / pie / donut**
+  datasets, drawn in the flat wireframe style (axes, light gridlines, category labels, optional
+  legend and values) entirely inside the element's bounds. The existing `diagram` element — shown as
+  "Canvas" — is untouched.
+- Additive optional `chart` field on `WireframeElement` with hard limits that keep documents small
+  (≤ 24 categories, ≤ 8 series, names ≤ 40 characters, title ≤ 80 characters, values finite and
+  clamped to ±1e12). `normalizeProject` repairs anything recoverable and never throws. **No project
+  format version bump**, and old documents import unchanged.
+- Editor popup reusing the Canvas/Drawing shell (draft copy, its own undo, **Done = one history
+  step**, Esc/× discards with confirmation if dirty): a **Table** mode (add/remove rows and columns,
+  Tab/Enter navigation, inline number validation, invalid cells highlighted) and a **Text/CSV** mode
+  that accepts pasted Excel/Sheets data (comma, semicolon or tab; decimal comma; quoted cells),
+  with the two modes kept in sync. Kind selector, title, option toggles, swap rows/columns, and the
+  emoji button in every text field.
+- Export: `elementSection` gains a compact chart block (kind, title, the data as a Markdown table),
+  the ASCII renderer draws a recognisable horizontal bar sketch (bar kinds) or a percentage list
+  (pie/donut) with the existing box fallback when the box is too small, the spatial summary mentions
+  `chart (kind, N series × M categories)`, and the WIREFRAGMA schema export has a Chart example plus
+  its JSON Schema so an LLM can generate one. Copy, duplicate, nesting, lock/hide and undo all work
+  (the dataset is deep-copied).
+
 ### Responsive editor
 - **Three layouts at 1100 px / 768 px.** Desktop is unchanged; at 768–1099 px the canvas gets the
   whole width and Add / Layers / Properties become overlay drawers (scrim + Escape close them, the

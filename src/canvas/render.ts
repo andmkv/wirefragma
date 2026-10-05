@@ -12,6 +12,12 @@
 import type { WireframeElement, WireframeProject } from "../model/project";
 import { contentSizeOf, elementsInDrawOrder, textStyleOf } from "../model/project";
 import { bezierPoint, isBoxObject, objectLabel, type DiagramData, type DiagramObject } from "../model/diagram";
+import {
+  isSingleSeriesKind,
+  normalizeChartData,
+  type ChartData,
+  type ChartSeries
+} from "../model/chart";
 import { hasDrawingDescription, type DrawingData } from "../model/drawing";
 import {
   HANDLE_SIZE_PX,
@@ -537,6 +543,14 @@ function drawElement(c: DrawContext, element: WireframeElement, bounds: Rect, sh
       return;
     }
 
+    case "chart": {
+      // Flat wireframe styling: the chart is drawn flat inside the element, with a hairline frame.
+      drawRect(c, bounds, { fill: COLORS.surface, stroke: COLORS.line, radius: 3 });
+      const data = normalizeChartData(element.chart);
+      drawChartScene(c.ctx, data, { width, height }, c.px);
+      return;
+    }
+
     case "progress": {
       const barHeight = Math.max(6, Math.min(height, 12));
       const barY = y + (height - barHeight) / 2;
@@ -691,6 +705,674 @@ export function drawDrawingScene(ctx: CanvasRenderingContext2D, data: DrawingDat
   }
   ctx.lineCap = "butt";
   ctx.lineJoin = "miter";
+}
+
+/* ------------------------------------------------------------------- chart art */
+
+/**
+ * Monochrome-friendly palette of the Chart element: an accent for the first series and readable
+ * greys for the rest. Flat fills and outlines only — no gradients, no shadows.
+ */
+const CHART_COLORS = ["#2f6fed", "#5b6470", "#98a2b3", "#8b5cf6", "#0f766e", "#b45309", "#be123c", "#4d5761"];
+
+const CHART_GRID_LINES = 4;
+/** Value labels are only drawn when they can actually be read. */
+const CHART_VALUE_FONT = 10;
+const CHART_LABEL_FONT = 10;
+/** Below this many world units a chart falls back to axes + labels only. */
+const CHART_MIN_PLOT_UNITS = 24;
+/** Below this plot height/width value labels are skipped. */
+const CHART_VALUE_MIN_PLOT = 90;
+
+interface ChartRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface ChartParts {
+  plot: ChartRect;
+  zero: { x: number; y: number };
+  extent: { positive: number; negative: number };
+}
+
+function chartColor(index: number): string {
+  return CHART_COLORS[index % CHART_COLORS.length];
+}
+
+/** Compact axis/value label: 1500 -> 1.5k, 2400000 -> 2.4M. */
+export function formatChartAxisValue(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(1).replace(/\.0$/, "")}B`;
+  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+  if (abs >= 1e4) return `${sign}${(abs / 1e3).toFixed(1).replace(/\.0$/, "")}k`;
+  return `${Math.round(value * 100) / 100}`;
+}
+
+function chartTextWidth(ctx: CanvasRenderingContext2D, text: string, size: number, weight = 400): number {
+  ctx.font = worldFont(size, weight);
+  return ctx.measureText(text).width;
+}
+
+function chartLabel(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  cx: number,
+  cy: number,
+  maxWidth: number,
+  size = CHART_LABEL_FONT,
+  color = COLORS.line
+): void {
+  if (!text || maxWidth <= 6) return;
+  ctx.font = worldFont(size, 400);
+  const content = fitText(ctx, text, maxWidth);
+  if (!content) return;
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(content, cx, cy);
+}
+
+function chartValueLabel(
+  ctx: CanvasRenderingContext2D,
+  value: number,
+  cx: number,
+  cy: number,
+  maxWidth: number,
+  color = COLORS.line
+): void {
+  if (maxWidth <= 14) return;
+  ctx.font = worldFont(CHART_VALUE_FONT, 500);
+  const content = fitText(ctx, formatChartAxisValue(value), maxWidth);
+  if (!content) return;
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(content, cx, cy);
+}
+
+/** True when the series has at least one value to draw. */
+function chartSeriesHasData(series: ChartSeries): boolean {
+  return series.values.some((value) => value !== null && value !== 0);
+}
+
+/**
+ * Legend strip. Vertical (one swatch + name per line) when `vertical`, else a wrapped row.
+ * Returns the height it consumed, so the plot can be placed under it.
+ */
+function drawChartLegend(
+  ctx: CanvasRenderingContext2D,
+  series: ChartSeries[],
+  area: ChartRect,
+  vertical: boolean,
+  size: number
+): number {
+  if (series.length === 0) return 0;
+  const rowHeight = size + 4;
+  const swatch = Math.max(6, Math.round(size * 0.7));
+
+  if (vertical) {
+    series.forEach((entry, index) => {
+      const y = area.y + index * rowHeight;
+      if (y + rowHeight > area.y + area.height) return;
+      ctx.fillStyle = chartColor(index);
+      ctx.fillRect(area.x, y + 1, swatch, swatch);
+      chartLabel(ctx, `${entry.name}`, area.x + swatch + 4 + (area.width - swatch - 8) / 2, y + rowHeight / 2 - 1, area.width - swatch - 8, size, COLORS.ink);
+    });
+    return Math.min(series.length, Math.floor(area.height / rowHeight)) * rowHeight;
+  }
+
+  let cursor = area.x;
+  let rows = 1;
+  for (const [index, entry] of series.entries()) {
+    const width = swatch + 4 + chartTextWidth(ctx, entry.name, size) + 10;
+    if (cursor + width > area.x + area.width && cursor > area.x) {
+      rows += 1;
+      cursor = area.x;
+      if (area.y + rows * rowHeight > area.y + area.height) break;
+    }
+    const y = area.y + (rows - 1) * rowHeight;
+    ctx.fillStyle = chartColor(index);
+    ctx.fillRect(cursor, y + 1, swatch, swatch);
+    chartLabel(ctx, entry.name, cursor + swatch + 4 + (width - swatch - 14) / 2, y + rowHeight / 2 - 1, width - swatch - 14, size, COLORS.ink);
+    cursor += width;
+  }
+  return rows * rowHeight;
+}
+
+/**
+ * Where the plot sits inside the chart box, which value maps to which pixel, and the zero line.
+ *
+ * `showValueAxis` reserves a gutter for the value labels; `showCategoryLabels` reserves one for the
+ * category names. Everything is derived from the box, so the chart is correct at any element size
+ * and at any zoom (the renderer draws in world units).
+ */
+function chartParts(
+  ctx: CanvasRenderingContext2D,
+  box: ChartRect,
+  extent: { positive: number; negative: number },
+  showValueAxis: boolean,
+  showCategoryLabels: boolean,
+  horizontal: boolean
+): ChartParts {
+  const pad = 10;
+  const span = extent.positive + extent.negative || 1;
+
+  const valueGutter = showValueAxis
+    ? Math.min(
+        46,
+        Math.max(18, chartTextWidth(ctx, formatChartAxisValue(extent.positive), CHART_VALUE_FONT) + 10)
+      )
+    : 0;
+  const categoryGutter = showCategoryLabels
+    ? Math.min(
+        46,
+        Math.max(12, Math.ceil(chartTextWidth(ctx, "Ww", CHART_LABEL_FONT)) + 6)
+      )
+    : 0;
+
+  const inner: ChartRect = {
+    x: box.x + pad,
+    y: box.y + pad,
+    width: Math.max(1, box.width - pad * 2),
+    height: Math.max(1, box.height - pad * 2)
+  };
+
+  const plot: ChartRect = horizontal
+    ? {
+        x: inner.x + valueGutter,
+        y: inner.y,
+        width: Math.max(1, inner.width - valueGutter),
+        height: Math.max(1, inner.height - categoryGutter)
+      }
+    : {
+        x: inner.x + categoryGutter,
+        y: inner.y,
+        width: Math.max(1, inner.width - categoryGutter),
+        height: Math.max(1, inner.height - valueGutter)
+      };
+
+  const positiveShare = plot.height * (extent.positive / span);
+  return {
+    plot,
+    zero: horizontal
+      ? { x: plot.x + plot.width * (extent.positive / span), y: plot.y }
+      : { x: plot.x, y: plot.y + positiveShare },
+    extent
+  };
+}
+
+/** Light gridlines + value axis + category labels + the zero line. */
+function drawChartAxes(
+  ctx: CanvasRenderingContext2D,
+  data: ChartData,
+  box: ChartRect,
+  parts: ChartParts,
+  horizontal: boolean
+): void {
+  const { plot, extent, zero } = parts;
+  const span = extent.positive + extent.negative || 1;
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = COLORS.hairline;
+  ctx.beginPath();
+  for (let step = 0; step <= CHART_GRID_LINES; step += 1) {
+    const ratio = step / CHART_GRID_LINES;
+    if (horizontal) {
+      const x = plot.x + plot.width * ratio;
+      ctx.moveTo(x, plot.y);
+      ctx.lineTo(x, plot.y + plot.height);
+    } else {
+      const y = plot.y + plot.height * ratio;
+      ctx.moveTo(plot.x, y);
+      ctx.lineTo(plot.x + plot.width, y);
+    }
+  }
+  ctx.stroke();
+
+  // Value labels on the value axis (skipped on a tiny box: they would be noise, not information).
+  ctx.font = worldFont(CHART_VALUE_FONT, 500);
+  ctx.fillStyle = COLORS.soft;
+  ctx.textBaseline = "middle";
+  for (let step = 0; step <= CHART_GRID_LINES; step += 1) {
+    const ratio = step / CHART_GRID_LINES;
+    if (horizontal) {
+      const value = extent.negative - ratio * span;
+      const x = plot.x + plot.width * ratio;
+      if (plot.width < 40) break;
+      ctx.textAlign = "center";
+      const content = fitText(ctx, formatChartAxisValue(value), 44);
+      if (content) ctx.fillText(content, x, plot.y + plot.height + 9);
+    } else {
+      const value = extent.positive - ratio * span;
+      const y = plot.y + plot.height * ratio;
+      if (plot.height < 40) break;
+      ctx.textAlign = "right";
+      const content = fitText(ctx, formatChartAxisValue(value), Math.max(12, plot.x - box.x - 4));
+      if (content) ctx.fillText(content, plot.x - 4, y);
+    }
+  }
+
+  // The zero line is drawn on top of the gridlines, and is always visible.
+  ctx.strokeStyle = COLORS.line;
+  ctx.beginPath();
+  if (horizontal) {
+    ctx.moveTo(zero.x, plot.y);
+    ctx.lineTo(zero.x, plot.y + plot.height);
+  } else {
+    ctx.moveTo(plot.x, zero.y);
+    ctx.lineTo(plot.x + plot.width, zero.y);
+  }
+  ctx.stroke();
+
+  // Category labels, centered on the band they describe.
+  const categories = data.categories;
+  if (categories.length === 0) return;
+  if (horizontal) {
+    if (plot.height < 22) return;
+    const band = plot.height / categories.length;
+    categories.forEach((category, index) => {
+      chartLabel(
+        ctx,
+        category,
+        plot.x + plot.width / 2,
+        plot.y + band * (index + 0.5),
+        plot.width,
+        CHART_LABEL_FONT,
+        COLORS.ink
+      );
+    });
+  } else {
+    if (plot.width < 24) return;
+    const band = plot.width / categories.length;
+    categories.forEach((category, index) => {
+      chartLabel(
+        ctx,
+        category,
+        plot.x + band * (index + 0.5),
+        plot.y + plot.height + 10,
+        Math.max(8, band - 2),
+        CHART_LABEL_FONT,
+        COLORS.ink
+      );
+    });
+  }
+}
+
+function fillChartSegment(ctx: CanvasRenderingContext2D, rect: ChartRect, color: string, radius = 0): void {
+  if (rect.width <= 0 || rect.height <= 0) return;
+  ctx.beginPath();
+  if (radius > 0 && typeof ctx.roundRect === "function") ctx.roundRect(rect.x, rect.y, rect.width, rect.height, radius);
+  else ctx.rect(rect.x, rect.y, rect.width, rect.height);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+/* ---- bar kinds ------------------------------------------------------------------- */
+
+function drawChartBar(
+  ctx: CanvasRenderingContext2D,
+  data: ChartData,
+  parts: ChartParts,
+  options: { horizontal: boolean; stacked: boolean; showValues: boolean }
+): void {
+  const { plot, zero, extent } = parts;
+  const span = extent.positive + extent.negative || 1;
+  const categories = data.categories;
+  if (categories.length === 0) return;
+  const series = data.series;
+  const band = options.horizontal ? plot.height / categories.length : plot.width / categories.length;
+  const thickness = Math.max(2, Math.min(options.stacked ? 26 : 34, band * 0.66));
+  const valueRoom = options.showValues && (options.horizontal ? plot.width >= CHART_VALUE_MIN_PLOT : plot.height >= CHART_VALUE_MIN_PLOT);
+
+  categories.forEach((_, categoryIndex) => {
+    const center = (options.horizontal ? plot.y : plot.x) + band * (categoryIndex + 0.5);
+    if (options.stacked) {
+      let positive = 0;
+      let negative = 0;
+      series.forEach((entry, seriesIndex) => {
+        const value = entry.values[categoryIndex];
+        if (value === null) return;
+        const from = value >= 0 ? positive : negative;
+        const to = from + value;
+        if (value >= 0) positive = to;
+        else negative = to;
+        const start = options.horizontal
+          ? zero.x + (from / span) * plot.width
+          : zero.y - (from / span) * plot.height;
+        const end = options.horizontal ? zero.x + (to / span) * plot.width : zero.y - (to / span) * plot.height;
+        const rect: ChartRect = options.horizontal
+          ? { x: Math.min(start, end), y: center - thickness / 2, width: Math.abs(end - start), height: thickness }
+          : { x: center - thickness / 2, y: Math.min(start, end), width: thickness, height: Math.abs(end - start) };
+        fillChartSegment(ctx, rect, chartColor(seriesIndex));
+      });
+      if (valueRoom && series.length > 0) {
+        const total = positive + negative;
+        if (total !== 0) {
+          if (options.horizontal) {
+            const x = zero.x + (total / span) * plot.width;
+            chartValueLabel(ctx, total, (zero.x + x) / 2, center, Math.abs(x - zero.x), COLORS.ink);
+          } else {
+            const y = zero.y - (total / span) * plot.height;
+            chartValueLabel(ctx, total, center, (zero.y + y) / 2, thickness, COLORS.ink);
+          }
+        }
+      }
+      return;
+    }
+
+    const slot = thickness / Math.max(1, series.length);
+    series.forEach((entry, seriesIndex) => {
+      const value = entry.values[categoryIndex];
+      if (value === null) return;
+      const offset = (seriesIndex - (series.length - 1) / 2) * slot;
+      const base = center + offset;
+      if (options.horizontal) {
+        const end = zero.x + (value / span) * plot.width;
+        fillChartSegment(
+          ctx,
+          { x: Math.min(zero.x, end), y: base - slot / 2, width: Math.abs(end - zero.x), height: Math.max(1, slot - 2) },
+          chartColor(seriesIndex)
+        );
+        if (valueRoom) chartValueLabel(ctx, value, (zero.x + end) / 2, base, Math.abs(end - zero.x) + 10);
+      } else {
+        const end = zero.y - (value / span) * plot.height;
+        fillChartSegment(
+          ctx,
+          { x: base - slot / 2, y: Math.min(zero.y, end), width: Math.max(1, slot - 2), height: Math.abs(end - zero.y) },
+          chartColor(seriesIndex)
+        );
+        if (valueRoom) chartValueLabel(ctx, value, base, (zero.y + end) / 2, Math.max(14, slot));
+      }
+    });
+  });
+}
+
+/* ---- line / area ----------------------------------------------------------------- */
+
+function drawChartLine(
+  ctx: CanvasRenderingContext2D,
+  data: ChartData,
+  parts: ChartParts,
+  options: { area: boolean; showValues: boolean }
+): void {
+  const { plot, zero, extent } = parts;
+  const span = extent.positive + extent.negative || 1;
+  const categories = data.categories;
+  if (categories.length === 0) return;
+  const band = plot.width / categories.length;
+  const pointX = (index: number) => plot.x + band * (index + 0.5);
+  const pointY = (value: number) => zero.y - (value / span) * plot.height;
+  const showValues = options.showValues && plot.height >= CHART_VALUE_MIN_PLOT;
+
+  data.series.forEach((entry, seriesIndex) => {
+    const color = chartColor(seriesIndex);
+    // A segment is broken by a `null`: a gap is information, not a zero.
+    let run: { x: number; y: number; value: number }[] = [];
+    const flush = () => {
+      if (run.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(run[0].x, run[0].y);
+        for (const point of run.slice(1)) ctx.lineTo(point.x, point.y);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = color;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.stroke();
+        if (options.area) {
+          ctx.beginPath();
+          ctx.moveTo(run[0].x, zero.y);
+          for (const point of run) ctx.lineTo(point.x, point.y);
+          ctx.lineTo(run[run.length - 1].x, zero.y);
+          ctx.closePath();
+          ctx.fillStyle = `${color}26`;
+          ctx.fill();
+        }
+      }
+      if (run.length === 1) {
+        ctx.beginPath();
+        ctx.arc(run[0].x, run[0].y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+      run = [];
+    };
+    entry.values.forEach((value, index) => {
+      if (value === null) {
+        flush();
+        return;
+      }
+      run.push({ x: pointX(index), y: pointY(value), value });
+    });
+    flush();
+
+    if (showValues) {
+      entry.values.forEach((value, index) => {
+        if (value === null) return;
+        chartValueLabel(ctx, value, pointX(index), pointY(value) - 8, Math.max(16, band - 2), COLORS.line);
+      });
+    }
+  });
+}
+
+/* ---- pie / donut ----------------------------------------------------------------- */
+
+function drawChartPie(
+  ctx: CanvasRenderingContext2D,
+  data: ChartData,
+  box: ChartRect,
+  donut: boolean,
+  showValues: boolean
+): void {
+  const categories = data.categories;
+  const series = data.series[0];
+  if (!series || categories.length === 0) return;
+
+  // Negative values have no meaning in a pie: they are treated as gaps.
+  const values = series.values.map((value) => (value !== null && value > 0 ? value : 0));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  if (total <= 0) return;
+
+  const radius = Math.max(4, Math.min(box.width, box.height) / 2 - 12);
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  let angle = -Math.PI / 2;
+
+  values.forEach((value, index) => {
+    if (value <= 0) return;
+    const sweep = (value / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, angle, angle + sweep);
+    ctx.closePath();
+    ctx.fillStyle = chartColor(index);
+    ctx.fill();
+    if (categories.length <= 8 && radius > 26) {
+      const middle = angle + sweep / 2;
+      const share = Math.round((value / total) * 100);
+      const labelRadius = donut ? radius * 0.78 : radius * 0.62;
+      chartLabel(
+        ctx,
+        showValues ? `${categories[index]} ${share}%` : `${share}%`,
+        cx + Math.cos(middle) * labelRadius,
+        cy + Math.sin(middle) * labelRadius,
+        Math.max(12, radius * 0.9),
+        CHART_VALUE_FONT,
+        COLORS.surface
+      );
+    }
+    angle += sweep;
+  });
+
+  if (donut) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(2, radius * 0.55), 0, Math.PI * 2);
+    ctx.fillStyle = COLORS.surface;
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = COLORS.hairline;
+    ctx.stroke();
+  }
+}
+
+/**
+ * Paint a Chart's data inside a box whose top-left corner is the current transform's origin, in
+ * WORLD units (`px` is one screen pixel in world units, exactly like the element renderer).
+ *
+ * Shared by the wireframe renderer and the Chart popup preview, so the thumbnail on the wireframe
+ * is the real chart. The element's id/selection/zoom never reach this function, and everything it
+ * draws is clipped to the box.
+ */
+export function drawChartScene(
+  ctx: CanvasRenderingContext2D,
+  value: ChartData,
+  size: { width: number; height: number },
+  px: number
+): void {
+  const data = normalizeChartData(value);
+  const box: ChartRect = { x: 0, y: 0, width: Math.max(1, size.width), height: Math.max(1, size.height) };
+  if (box.width < 8 || box.height < 8) return;
+
+  const frame = Math.max(1, px);
+  ctx.save();
+  // Nothing may be painted outside the element, however tight the box or extreme the zoom.
+  ctx.beginPath();
+  ctx.rect(box.x + frame / 2, box.y + frame / 2, Math.max(0, box.width - frame), Math.max(0, box.height - frame));
+  ctx.clip();
+
+  const pad = 10;
+  const single = isSingleSeriesKind(data.kind);
+  const series = single ? data.series.slice(0, 1) : data.series;
+  const options = data.options ?? {};
+  const horizontal = !single && data.kind !== "line" && data.kind !== "area" && options.horizontal === true;
+  const extent = chartExtent(data, data.kind === "stackedBar");
+
+  let cursorY = box.y + pad;
+  if (data.title) {
+    chartLabel(
+      ctx,
+      data.title,
+      box.x + box.width / 2,
+      cursorY + 7,
+      Math.max(0, box.width - pad * 2),
+      11,
+      COLORS.ink
+    );
+    cursorY += 17;
+  }
+
+  const body: ChartRect = {
+    x: box.x,
+    y: cursorY,
+    width: box.width,
+    height: Math.max(1, box.y + box.height - pad - cursorY)
+  };
+
+  if (single) {
+    if (series.length === 0 || data.categories.length === 0) {
+      chartLabel(ctx, "—", box.x + box.width / 2, box.y + box.height / 2, box.width - 20, 12, COLORS.soft);
+      ctx.restore();
+      return;
+    }
+    const legendHeight = options.legend ? drawChartLegend(ctx, series, { ...body, height: body.height }, false, CHART_LABEL_FONT) + 2 : 0;
+    const pieBox: ChartRect = {
+      x: body.x + pad,
+      y: body.y + legendHeight,
+      width: Math.max(1, body.width - pad * 2),
+      height: Math.max(1, body.height - legendHeight)
+    };
+    drawChartPie(ctx, data, pieBox, data.kind === "donut", options.showValues === true);
+    ctx.restore();
+    return;
+  }
+
+  // A vertical legend only makes sense next to vertical bars; everywhere else it is a top strip.
+  const legendVertical = horizontal;
+  const legendWidth = legendVertical ? Math.min(96, Math.max(0, body.width * 0.3)) : 0;
+  const legendHeight = !legendVertical && options.legend
+    ? drawChartLegend(ctx, series, { x: body.x + pad, y: body.y, width: Math.max(1, body.width - pad * 2), height: body.height }, false, CHART_LABEL_FONT) + 2
+    : 0;
+
+  const parts = chartParts(
+    ctx,
+    {
+      x: body.x,
+      y: body.y + legendHeight,
+      width: body.width - legendWidth,
+      height: Math.max(1, body.height - legendHeight)
+    },
+    extent,
+    true,
+    true,
+    horizontal
+  );
+
+  const hasData = series.some(chartSeriesHasData);
+  const tooSmall = parts.plot.width < CHART_MIN_PLOT_UNITS || parts.plot.height < CHART_MIN_PLOT_UNITS;
+  if (!hasData || tooSmall) {
+    // Too small (or empty) to say anything: axes and labels only, still recognisably a chart.
+    drawChartAxes(ctx, data, body, parts, horizontal);
+  } else if (data.kind === "line" || data.kind === "area") {
+    drawChartAxes(ctx, data, body, parts, false);
+    drawChartLine(ctx, data, parts, { area: data.kind === "area", showValues: options.showValues === true });
+  } else {
+    drawChartAxes(ctx, data, body, parts, horizontal);
+    drawChartBar(ctx, data, parts, {
+      horizontal,
+      stacked: data.kind === "stackedBar",
+      showValues: options.showValues === true
+    });
+  }
+
+  if (legendVertical && options.legend) {
+    drawChartLegend(
+      ctx,
+      series,
+      { x: body.x + body.width - legendWidth, y: body.y + 2, width: legendWidth, height: Math.max(1, body.height - 4) },
+      true,
+      CHART_LABEL_FONT
+    );
+  }
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.restore();
+}
+
+/**
+ * The smallest interval that contains every drawn value: how far above and below zero the chart
+ * has to reach. Stacked bars use the per-category total, everything else the values themselves.
+ */
+export function chartExtent(data: ChartData, stacked: boolean): { positive: number; negative: number } {
+  const series = isSingleSeriesKind(data.kind) ? data.series.slice(0, 1) : data.series;
+  let positive = 0;
+  let negative = 0;
+  if (stacked) {
+    data.categories.forEach((_, index) => {
+      let up = 0;
+      let down = 0;
+      for (const entry of series) {
+        const value = entry.values[index];
+        if (value === null) continue;
+        if (value >= 0) up += value;
+        else down += value;
+      }
+      positive = Math.max(positive, up);
+      negative = Math.min(negative, down);
+    });
+  } else {
+    for (const entry of series) {
+      for (const value of entry.values) {
+        if (value === null) continue;
+        if (value >= 0) positive = Math.max(positive, value);
+        else negative = Math.min(negative, value);
+      }
+    }
+  }
+  // A flat zero chart (`0, 0, 0`) still needs a scale; an all-gap chart keeps a nominal one.
+  if (positive === 0 && negative === 0) positive = 1;
+  return { positive, negative };
 }
 
 /** Amber "⚠" badge: this Drawing has no LLM description and is left out of the export. */

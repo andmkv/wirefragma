@@ -78,6 +78,9 @@ Only effective-visible elements are drawn (element `visible` AND layer `visible`
 | `badge` | `‹ Badge ›` centred |
 | `bottomNav` | box + centred item labels per segment |
 | `dialog` | box + title + a separator line |
+| `diagram` (Canvas) | box + title + the nested scene sketch |
+| `drawing` | box + "Drawing" + the wrapped LLM description |
+| `chart` | box + title + horizontal bars with values (bar kinds) or a percentage list (pie/donut); a plain box when the box is too small |
 | unknown | plain box |
 
 Labels are clipped with `clip(text, max)`, which truncates with `…`, and centred with
@@ -98,6 +101,9 @@ Labels are clipped with `clip(text, max)`, which truncates with `…`, and centr
 
 ## What ASCII deliberately does not do
 
+* A `chart` is sketched, not plotted: one row per category with a label, a compact value (`1.5k`)
+  and a proportional bar, capped at 8 rows. Pie/donut become a percentage list because a share has
+  no axis. When the box cannot hold a readable row the chart degrades to a plain box.
 * It does not resolve overlaps beyond "last drawn wins per cell".
 * It does not honour typography, colour, or `contentSize` (an icon is one cell-sized `[★]`).
 * It does not render multi-line text elements beyond stacking label lines downward.

@@ -25,6 +25,7 @@
  */
 
 import { findCanvasPreset, type CanvasPresetId } from "./canvasPresets";
+import { normalizeChartData, type ChartData } from "./chart";
 import { normalizeDiagramData, type DiagramData } from "./diagram";
 import { hasDrawingDescription, normalizeDrawingData, type DrawingData } from "./drawing";
 
@@ -54,7 +55,8 @@ export const ELEMENT_TYPES = [
   "bottomNav",
   "dialog",
   "diagram",
-  "drawing"
+  "drawing",
+  "chart"
 ] as const;
 
 export type ElementType = (typeof ELEMENT_TYPES)[number];
@@ -116,6 +118,9 @@ export interface WireframeElement {
 
   /** Freehand strokes + LLM description of a `drawing`. */
   drawing?: DrawingData;
+
+  /** Dataset of a `chart` (bar / stacked bar / line / area / pie / donut). */
+  chart?: ChartData;
 }
 
 export type TextAlign = "left" | "center" | "right";
@@ -233,7 +238,8 @@ export const ELEMENT_TYPE_LABEL: Record<ElementType, string> = {
   bottomNav: "Bottom Navigation",
   dialog: "Dialog",
   diagram: "Canvas",
-  drawing: "Drawing"
+  drawing: "Drawing",
+  chart: "Chart"
 };
 
 export class ProjectValidationError extends Error {
@@ -546,6 +552,7 @@ export function normalizeProject(raw: unknown): WireframeProject {
     // Scene data belongs to its own type only; a missing scene is recreated empty.
     if (element.type === "diagram") normalized.diagram = normalizeDiagramData(element.diagram);
     if (element.type === "drawing") normalized.drawing = normalizeDrawingData(element.drawing);
+    if (element.type === "chart") normalized.chart = normalizeChartData(element.chart);
 
     // Validated against the final id set by `canonicalizeTree` (via `reindexLayers`) below.
     const parentId = asString(element.parentId).trim();
@@ -831,6 +838,7 @@ export function cloneElement(element: WireframeElement): WireframeElement {
   if (element.textStyle) copy.textStyle = { ...element.textStyle };
   if (element.diagram) copy.diagram = JSON.parse(JSON.stringify(element.diagram)) as DiagramData;
   if (element.drawing) copy.drawing = JSON.parse(JSON.stringify(element.drawing)) as DrawingData;
+  if (element.chart) copy.chart = JSON.parse(JSON.stringify(element.chart)) as ChartData;
   return copy;
 }
 

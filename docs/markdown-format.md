@@ -73,13 +73,26 @@ Content size: 48px                  <- only for `icon`/`image` when != type defa
 
 Visible content:
 
-- <one bullet per label/items entry>            <- omitted for `table`, and when empty
+- <one bullet per label/items entry>            <- omitted for `table`/`chart`, and when empty
 
 Columns:                            <- `table` only
 - Name
 
 Rows:
 - Anna | Owner | Active             <- cell separators normalised to " | "
+
+Chart: Bar                          <- `chart` only: the kind, in words
+
+Chart title: Monthly revenue        <- only when the chart has a title
+
+| Category | Revenue | Costs |        <- categories × series, at most 12 rows
+| --- | --- | --- |
+| Jan | 120 | 80 |
+| Feb | 180 | 110 |
+
+_… 3 more categories in the project source._   <- only when the table is truncated
+
+Chart options: horizontal bars, legend.        <- only when an option is on
 
 LLM note:
 
@@ -92,10 +105,15 @@ Rules that matter:
 * `Typography:` lists **only** the attributes that differ from the defaults; a default-styled Text
   element has no `Typography:` block at all.
 * `Content size:` appears only when it differs from the type default (24 for icon, 48 for image).
-* `Visible content:` is skipped for `table` (its columns/rows replace it) and for elements with no
-  label/items.
+* `Visible content:` is skipped for `table` (its columns/rows replace it), for `chart` (its data
+  table replaces it) and for elements with no label/items.
+* A `chart` exports a **compact Markdown table** (categories as rows, series as columns, `—` for a
+  gap) instead of bullets. The table is capped at 12 category rows; the complete dataset always
+  travels in the canonical `ui-project` block below, so the round trip stays lossless.
 * Hidden elements and hidden layers never appear in the human sections; the Screen section reports
   how many were omitted.
+* A Drawing without an LLM description is omitted from every human section (`Drawings without an
+  LLM description omitted: N` in the Screen section); its strokes still travel in `ui-project`.
 
 ## `## Spatial Summary`
 
@@ -109,8 +127,9 @@ per region or structural element, for example:
 ```
 
 Layout types (`container`, `toolbar`, `sidebar`) are described first, then every other element is
-bucketed into thirds of the canvas and listed per region, ordered top→bottom, left→right. An empty
-canvas produces `- The screen is empty.`
+bucketed into thirds of the canvas and listed per region, ordered top→bottom, left→right. A `chart`
+is named with its shape, e.g. `"sessionsChart" (Chart: chart (bar, 2 series × 3 categories))`. An
+empty canvas produces `- The screen is empty.`
 
 ## `## Editable Project Source`
 

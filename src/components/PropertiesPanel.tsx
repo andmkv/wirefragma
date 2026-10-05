@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { chartSummaryCounts, type ChartKind } from "../model/chart";
 import { createDiagramData } from "../model/diagram";
 import { createDrawingData, hasDrawingDescription } from "../model/drawing";
 import { useT } from "../i18n";
@@ -252,6 +253,23 @@ function SceneSection({
   );
 }
 
+/** Chart: open the popup and a one-line summary of the dataset (its title is edited in the popup). */
+function ChartSection({ element, locked, onEdit }: { element: WireframeElement; locked: boolean; onEdit: () => void }) {
+  const t = useT();
+  const counts = chartSummaryCounts(element.chart);
+  return (
+    <div className="scene-section">
+      <button type="button" className="primary scene-edit-open" onClick={onEdit} disabled={locked}>
+        ✎ {t("chart.edit")}
+      </button>
+      <p className="hint">
+        {t(`chart.kind.${(element.chart?.kind ?? "bar") as ChartKind}`)} ·{" "}
+        {t("chart.summary", { series: counts.series, categories: counts.categories })}
+      </p>
+    </div>
+  );
+}
+
 export function PropertiesPanel({
   project,
   element,
@@ -476,6 +494,8 @@ export function PropertiesPanel({
         {element.type === "diagram" || element.type === "drawing" ? (
           <SceneSection element={element} locked={locked} onEdit={onEditScene} onUpdateElement={onUpdateElement} />
         ) : null}
+
+        {element.type === "chart" ? <ChartSection element={element} locked={locked} onEdit={onEditScene} /> : null}
 
         {isSymbol ? (
           <NumberField

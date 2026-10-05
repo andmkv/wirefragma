@@ -15,6 +15,7 @@ import {
   type WireframeProject
 } from "../model/project";
 import { findCanvasPreset } from "../model/canvasPresets";
+import { normalizeChartData } from "../model/chart";
 import { renderAscii } from "./asciiRenderer";
 import { diagramContents, diagramRelationships, renderDiagramAscii } from "./diagramText";
 import { buildSpatialSummary } from "./spatialSummary";
@@ -116,6 +117,56 @@ function diagramSections(element: WireframeElement): string[] {
   return parts;
 }
 
+/** `stackedBar` -> `Stacked bar`, for the chart's first line. */
+function chartKindLabel(kind: string): string {
+  const spaced = kind.replace(/([a-z])([A-Z])/g, "$1 $2");
+  return `${spaced.charAt(0).toUpperCase()}${spaced.slice(1)}`;
+}
+
+/** How many category rows the table shows before it is truncated (the JSON block stays complete). */
+const CHART_TABLE_ROWS = 12;
+
+const CHART_EMPTY_VALUE = "—";
+
+/**
+ * Chart: kind, title, and the dataset as a Markdown table (categories × series).
+ *
+ * Deliberately compact: a chart in a wireframe communicates a shape, and the complete numbers always
+ * travel in the canonical `ui-project` block below.
+ */
+function chartSection(element: WireframeElement): string[] {
+  if (element.type !== "chart") return [];
+  const data = normalizeChartData(element.chart);
+  const parts: string[] = ["", `Chart: ${chartKindLabel(data.kind)}`];
+  if (data.title) parts.push("", `Chart title: ${data.title}`);
+  if (data.categories.length === 0 || data.series.length === 0) {
+    parts.push("", "_The chart has no data._");
+    return parts;
+  }
+
+  const header = ["Category", ...data.series.map((series) => series.name || "Series")];
+  const rows = data.categories.slice(0, CHART_TABLE_ROWS).map((category, index) => [
+    category || `#${index + 1}`,
+    ...data.series.map((series) => {
+      const value = series.values[index];
+      return value === null || value === undefined ? CHART_EMPTY_VALUE : String(value);
+    })
+  ]);
+  parts.push("", `| ${header.join(" | ")} |`, `| ${header.map(() => "---").join(" | ")} |`);
+  for (const row of rows) parts.push(`| ${row.join(" | ")} |`);
+  if (data.categories.length > CHART_TABLE_ROWS) {
+    parts.push("", `_… ${data.categories.length - CHART_TABLE_ROWS} more categories in the project source._`);
+  }
+
+  const options = data.options ?? {};
+  const notes: string[] = [];
+  if (options.horizontal) notes.push("horizontal bars");
+  if (options.legend) notes.push("legend");
+  if (options.showValues) notes.push("values shown");
+  if (notes.length > 0) parts.push("", `Chart options: ${notes.join(", ")}.`);
+  return parts;
+}
+
 /** Drawing: only the human-written description stands in for the sketch. */
 function drawingSections(element: WireframeElement): string[] {
   if (element.type !== "drawing") return [];
@@ -133,7 +184,9 @@ function drawingSections(element: WireframeElement): string[] {
 
 function visibleContent(element: WireframeElement): string[] {
   const lines: string[] = [];
-  if (element.type === "table" || element.type === "diagram" || element.type === "drawing") return lines;
+  if (element.type === "table" || element.type === "diagram" || element.type === "drawing" || element.type === "chart") {
+    return lines;
+  }
   if (element.items && element.items.length > 0 && element.type !== "text") {
     lines.push(
       ...element.items
@@ -201,7 +254,7 @@ function elementSection(project: WireframeProject, element: WireframeElement): s
     parts.push(...table);
   }
 
-  parts.push(...diagramSections(element), ...drawingSections(element));
+  parts.push(...diagramSections(element), ...drawingSections(element), ...chartSection(element));
 
   if (element.note.trim()) {
     parts.push("");

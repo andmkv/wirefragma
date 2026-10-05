@@ -171,8 +171,9 @@ and flips/clamps inside the viewport.
 
 It is used for the element **Name**, **Label** (except Icon/Image, which keep the older
 replace-the-label picker described above), **Note**, **Items** and **Columns**, the project
-**Title**, the Canvas / Drawing popup **label / text / LLM description** fields and the **layer
-rename** field.
+**Title**, the Canvas / Drawing popup **label / text / LLM description** fields, the Chart popup's
+**title**, **kind-independent table fields** (category labels and series names) and its **Text/CSV
+area**, and the **layer rename** field.
 
 `EmojiPicker` behaviour (unchanged apart from the points above): category buttons plus a **Recent**
 tab while the search box is empty, a compact 8-column grid of `title`-labelled cells scrolled

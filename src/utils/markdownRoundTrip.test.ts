@@ -339,6 +339,43 @@ describe("new element types", () => {
   it("does not bump the project version", () => {
     expect(PROJECT_VERSION).toBe(2);
   });
+
+  it("exports a chart as a compact Markdown table and re-imports it losslessly", () => {
+    const project = emptyProject("desktop", "Chart");
+    const chart = createElement("chart", project, {
+      x: 40,
+      y: 40,
+      layerId: project.layers[0].id,
+      name: "sessionsChart"
+    });
+    const withChart: WireframeProject = { ...project, elements: [chart] };
+    const markdown = projectToMarkdown(withChart);
+
+    expect(markdown).toContain("Type: Chart");
+    expect(markdown).toContain("Chart: Bar");
+    expect(markdown).toContain("Chart title: Monthly revenue");
+    expect(markdown).toContain("| Category | Revenue | Costs |");
+    expect(markdown).toContain("| Jan | 120 | 80 |");
+    // The canonical block is untouched, so the round trip is exact.
+    expect(projectFromMarkdown(markdown)).toEqual(normalizeProject(withChart));
+  });
+
+  it("still exports a chart with no data and round-trips it", () => {
+    const project = emptyProject("desktop", "Empty chart");
+    const chart = createElement("chart", project, { x: 20, y: 20, layerId: project.layers[0].id });
+    chart.chart = { kind: "line", categories: [], series: [] };
+    const withChart: WireframeProject = { ...project, elements: [chart] };
+    const markdown = projectToMarkdown(withChart);
+    expect(markdown).toContain("_The chart has no data._");
+    expect(projectFromMarkdown(markdown)).toEqual(normalizeProject(withChart));
+  });
+
+  it("keeps a chart element out of the generic bullet list", () => {
+    const project = emptyProject("desktop", "Chart");
+    const chart = createElement("chart", project, { x: 20, y: 20, layerId: project.layers[0].id });
+    const markdown = projectToMarkdown({ ...project, elements: [chart] });
+    expect(markdown).not.toContain("Visible content:");
+  });
 });
 
 describe("mobile landscape preset", () => {

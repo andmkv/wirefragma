@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { BUILD_ID, INPUT_DEBUG_ENABLED, VITE_MODE } from "./buildIdentity";
 import { AppToolbar } from "./components/AppToolbar";
 import { CanvasEditor } from "./components/CanvasEditor";
+import { ChartEditor } from "./components/ChartEditor";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { DiagramEditor } from "./components/DiagramEditor";
 import { DrawingEditor } from "./components/DrawingEditor";
@@ -52,6 +53,7 @@ import {
   type WireframeElement,
   type WireframeProject
 } from "./model/project";
+import { createChartData } from "./model/chart";
 import { createDiagramData } from "./model/diagram";
 import { createDrawingData } from "./model/drawing";
 import { copySelection, pasteClipboard } from "./model/clipboard";
@@ -855,7 +857,7 @@ export default function App({
 
   const openSceneEditor = useCallback((elementId: string) => {
     const element = findElement(project, elementId);
-    if (!element || (element.type !== "diagram" && element.type !== "drawing")) return;
+    if (!element || (element.type !== "diagram" && element.type !== "drawing" && element.type !== "chart")) return;
     if (effectiveLocked(project, element)) return;
     setSelection(singleSelection(elementId));
     setSceneEditId(elementId);
@@ -863,7 +865,10 @@ export default function App({
   const sceneElement = sceneEditId ? findElement(project, sceneEditId) : null;
   /** Done: the whole editing session becomes ONE history step. */
   const commitScene = useCallback(
-    (elementId: string, patch: Pick<WireframeElement, "diagram"> | Pick<WireframeElement, "drawing">) => {
+    (
+      elementId: string,
+      patch: Pick<WireframeElement, "diagram"> | Pick<WireframeElement, "drawing"> | Pick<WireframeElement, "chart">
+    ) => {
       mutate((current) => updateElement(current, elementId, patch), { coalesceKey: null });
       setSceneEditId(null);
     },
@@ -1295,6 +1300,15 @@ export default function App({
           name={sceneElement.name}
           initial={sceneElement.drawing ?? createDrawingData()}
           onDone={(drawing) => commitScene(sceneElement.id, { drawing })}
+          onCancel={() => setSceneEditId(null)}
+        />
+      ) : null}
+      {sceneElement?.type === "chart" ? (
+        <ChartEditor
+          key={sceneElement.id}
+          name={sceneElement.label.trim() || sceneElement.name}
+          initial={sceneElement.chart ?? createChartData()}
+          onDone={(chart) => commitScene(sceneElement.id, { chart })}
           onCancel={() => setSceneEditId(null)}
         />
       ) : null}
