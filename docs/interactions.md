@@ -190,6 +190,7 @@ Rules that keep this safe:
 | drag (move) | yes, one `mutate()` with every moved element | one entry per gesture |
 | resize | yes, one `mutate()` | one entry per gesture |
 | viewport pan / pinch (middle drag, Space+drag, two fingers) | no — scroll offset only | no entry |
+| canvas edge resize (right / bottom / corner handles) | yes, live `canvas.width/height` | one entry per drag |
 | arrow-key nudge | yes, one `mutate()` per key press | coalesced by key/shortcut |
 | Properties field edits | yes, one `mutate()` per commit | coalesced per field |
 | delete / duplicate / paste | yes, one `mutate()` | one entry each |

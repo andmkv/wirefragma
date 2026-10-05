@@ -14,6 +14,7 @@ import {
   type WireframeElement,
   type WireframeProject
 } from "../model/project";
+import { findCanvasPreset } from "../model/canvasPresets";
 import { renderAscii } from "./asciiRenderer";
 import { diagramContents, diagramRelationships, renderDiagramAscii } from "./diagramText";
 import { buildSpatialSummary } from "./spatialSummary";
@@ -240,6 +241,11 @@ export function projectToMarkdown(project: WireframeProject): string {
   sections.push("");
   sections.push(`Type: ${canvasModeLabel(project)}`);
   sections.push(`Canvas: ${Math.round(project.canvas.width)} × ${Math.round(project.canvas.height)}`);
+  // Device presets are stored as a cosmetic id; naming the device helps an LLM reason about the
+  // target screen. Advisory only — the canonical `ui-project` block below carries the id itself,
+  // so a re-import stays lossless with or without this line.
+  const canvasPreset = findCanvasPreset(project.canvas.preset);
+  if (canvasPreset) sections.push(`Device preset: ${canvasPreset.name}`);
   sections.push(`Elements: ${exported.length}`);
   if (visible.length !== project.elements.length) {
     sections.push(`Hidden elements omitted: ${project.elements.length - visible.length}`);

@@ -96,9 +96,11 @@ for confirmation (`ConfirmDialog`) and then replaces the document and clears the
   `visible: true`, `locked: false`;
 * always returns a version 2 document.
 
-Invariant: **additive, optional fields do not bump the version.** `textStyle` and `contentSize`
-were added without changing `PROJECT_VERSION`, and the tests assert the version stays 2 and that
-v1 data still imports. Only a breaking change to existing semantics justifies a bump — and then
+Invariant: **additive, optional fields do not bump the version.** `textStyle`, `contentSize` and
+(1.2) `canvas.preset` were added without changing `PROJECT_VERSION`, and the tests assert the
+version stays 2 and that v1 data still imports. `canvas.preset` is validated on every read and
+dropped when it is unknown or contradicts the stored size, so an old or hand-edited document can
+never fail to import because of it. Only a breaking change to existing semantics justifies a bump — and then
 the migration must be added to `normalizeProject` and to the round-trip tests.
 
 ## Origin scoping

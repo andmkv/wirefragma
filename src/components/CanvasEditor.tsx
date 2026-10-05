@@ -1,5 +1,22 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { MIN_ELEMENT_SIZE, effectiveLocked, findElement, type WireframeElement, type WireframeProject } from "../model/project";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent
+} from "react";
+import {
+  MAX_CANVAS_SIZE,
+  MIN_CANVAS_SIZE,
+  MIN_ELEMENT_SIZE,
+  effectiveLocked,
+  findElement,
+  type WireframeElement,
+  type WireframeProject
+} from "../model/project";
+import { canvasSizeFromDrag, type CanvasResizeEdge } from "../model/canvasSize";
 import { hasDrawingDescription } from "../model/drawing";
 import type { SelectionState } from "../model/selection";
 import { WARNING_BADGE_PX, visibleGeometries, warningBadgeRect, type ResizeEdge } from "../canvas/geometry";
@@ -40,6 +57,10 @@ interface CanvasEditorProps {
   onUserZoom: (scale: number) => void;
   /** Open the scene popup of a Canvas / Drawing element (double-click or the hover pencil). */
   onEditScene: (elementId: string) => void;
+  /** Live canvas-edge resize (world units, already snapped and clamped by the caller). */
+  onCanvasResize: (width: number, height: number) => void;
+  /** The canvas resize gesture finished: closes its history step and reports the outcome. */
+  onCanvasResizeEnd: () => void;
 }
 
 const isSceneElement = (element: WireframeElement | null | undefined): element is WireframeElement =>
@@ -81,7 +102,9 @@ export function CanvasEditor({
   onEndInteraction,
   onScaleChange,
   onUserZoom,
-  onEditScene
+  onEditScene,
+  onCanvasResize,
+  onCanvasResizeEnd
 }: CanvasEditorProps) {
   const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,8 +133,26 @@ export function CanvasEditor({
   // Latest values for the imperative renderer/interaction (no re-render per pointermove).
   const latest = useRef({ project, selection, showGrid, gridSize, transform, snapToGrid, dpr });
   latest.current = { project, selection, showGrid, gridSize, transform, snapToGrid, dpr };
-  const callbacks = useRef({ onSelect, onMove, onResize, onBeginInteraction, onEndInteraction, onEditScene });
-  callbacks.current = { onSelect, onMove, onResize, onBeginInteraction, onEndInteraction, onEditScene };
+  const callbacks = useRef({
+    onSelect,
+    onMove,
+    onResize,
+    onBeginInteraction,
+    onEndInteraction,
+    onEditScene,
+    onCanvasResize,
+    onCanvasResizeEnd
+  });
+  callbacks.current = {
+    onSelect,
+    onMove,
+    onResize,
+    onBeginInteraction,
+    onEndInteraction,
+    onEditScene,
+    onCanvasResize,
+    onCanvasResizeEnd
+  };
 
   /**
    * Hover state for the scene affordances, updated only when it changes (not per pointermove):
@@ -127,6 +168,8 @@ export function CanvasEditor({
    */
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [panning, setPanning] = useState(false);
+  /** Live canvas size while an edge handle is being dragged (drives the "W × H" badge). */
+  const [canvasDrag, setCanvasDrag] = useState<({ width: number; height: number } & { edge: CanvasResizeEdge }) | null>(null);
   const spaceHeldRef = useRef(false);
   const panActiveRef = useRef(false);
   spaceHeldRef.current = spaceHeld;
@@ -291,6 +334,55 @@ export function CanvasEditor({
   })();
   const badgeElement = hover.badgeId && !pointerDown ? findElement(project, hover.badgeId) : undefined;
   const badgeRect = badgeElement ? warningBadgeRect(badgeElement, transform) : null;
+
+  /**
+   * Canvas edge resize. Only `project.canvas.width/height` change — elements are never moved,
+   * scaled or deleted, and the model is untouched by the geometry/hit-test pipeline. One drag is
+   * one history step (the same transaction pair an element gesture uses); the screen delta is
+   * divided by the zoom, and snapping follows the toolbar's Snap toggle.
+   */
+  const startCanvasResize = (event: ReactPointerEvent<HTMLDivElement>, edge: CanvasResizeEdge) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const start = { width: project.canvas.width, height: project.canvas.height };
+    const origin = { x: event.clientX, y: event.clientY };
+    const gestureScale = latest.current.transform.scale;
+    callbacks.current.onBeginInteraction();
+    setCanvasDrag({ ...start, edge });
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const next = canvasSizeFromDrag(
+        start,
+        {
+          dx: (moveEvent.clientX - origin.x) / gestureScale,
+          dy: (moveEvent.clientY - origin.y) / gestureScale
+        },
+        edge,
+        {
+          snap: latest.current.snapToGrid,
+          gridSize: latest.current.gridSize,
+          min: MIN_CANVAS_SIZE,
+          max: MAX_CANVAS_SIZE
+        }
+      );
+      setCanvasDrag({ ...next, edge });
+      callbacks.current.onCanvasResize(next.width, next.height);
+    };
+    const finish = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      setCanvasDrag(null);
+      // Closes the transaction (an unchanged size records nothing) and then reports elements
+      // that ended up completely outside the new canvas.
+      callbacks.current.onEndInteraction();
+      callbacks.current.onCanvasResizeEnd();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  };
 
   /* ---------------------------------------------- canvas size + repaint */
 
@@ -632,6 +724,37 @@ export function CanvasEditor({
         style={{ width: Math.round(canvasWidth * scale), height: Math.round(canvasHeight * scale) }}
       >
         <canvas ref={canvasRef} className="canvas-surface" />
+        {/*
+          Canvas edge handles: DOM affordances of the canvas FRAME, never elements, never part of
+          the geometry/hit-test pipeline. They sit half outside the frame so they do not cover the
+          outermost pixels of the drawing area.
+        */}
+        <div
+          className="canvas-resize-handle canvas-resize-right"
+          role="separator"
+          aria-label={t("canvas.resizeRight")}
+          title={t("canvas.resizeRight")}
+          onPointerDown={(event) => startCanvasResize(event, "right")}
+        />
+        <div
+          className="canvas-resize-handle canvas-resize-bottom"
+          role="separator"
+          aria-label={t("canvas.resizeBottom")}
+          title={t("canvas.resizeBottom")}
+          onPointerDown={(event) => startCanvasResize(event, "bottom")}
+        />
+        <div
+          className="canvas-resize-handle canvas-resize-corner"
+          role="separator"
+          aria-label={t("canvas.resizeCorner")}
+          title={t("canvas.resizeCorner")}
+          onPointerDown={(event) => startCanvasResize(event, "bottom-right")}
+        />
+        {canvasDrag ? (
+          <div className="canvas-size-badge">
+            {Math.round(canvasDrag.width)} × {Math.round(canvasDrag.height)}
+          </div>
+        ) : null}
         {pencilElement ? (
           <button
             type="button"

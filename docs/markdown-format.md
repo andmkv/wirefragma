@@ -30,6 +30,7 @@ same character, so the round trip is exact.
 ```text
 Type: Mobile                   <- Desktop | Mobile | Custom
 Canvas: 390 × 844
+Device preset: iPhone 15       <- only when canvas.preset names a known device
 Elements: 3                    <- effective-visible element count
 Hidden elements omitted: 1     <- only when hidden elements/layers exist
 Layers (front to back): Controls → Content → Layout
@@ -37,6 +38,10 @@ Layers (front to back): Controls → Content → Layout
 
 `Type` is `Desktop` for `canvas.mode === "desktop"`, `Mobile` for `"mobile"`, `Mobile landscape`
 for `"mobileLandscape"`, and `Custom` for `"custom"` (`canvasModeLabel` in `markdownExport.ts`).
+`Device preset` is emitted only for a known `canvas.preset` and is advisory as well: the
+authoritative id travels in the `ui-project` block, so the round trip is lossless with or without
+the line.
+
 The line is prose only — the importer never reads it, and the authoritative mode always comes
 from `ui-project`.
 

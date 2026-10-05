@@ -18,7 +18,10 @@ import {
   ELEMENT_DEFAULTS,
   createBlankProject,
   createElement,
+  findCanvasPreset,
+  flipCanvas,
 } from "./model/defaults";
+import { elementsOutsideCanvas } from "./model/canvasSize";
 import {
   MAX_CANVAS_SIZE,
   MIN_CANVAS_SIZE,
@@ -728,12 +731,11 @@ export default function App({
   const handleProjectChange = useCallback(
     (patch: { title?: string; width?: number; height?: number }) => {
       mutate(
-        (current) => ({
-          ...current,
-          title: patch.title ?? current.title,
-          canvas: {
-            ...current.canvas,
-            mode: patch.width !== undefined || patch.height !== undefined ? "custom" : current.canvas.mode,
+        (current) => {
+          const resizing = patch.width !== undefined || patch.height !== undefined;
+          const canvas: WireframeProject["canvas"] = {
+            // A manual size is no longer the device preset it started from.
+            mode: resizing ? "custom" : current.canvas.mode,
             width:
               patch.width === undefined
                 ? current.canvas.width
@@ -742,8 +744,10 @@ export default function App({
               patch.height === undefined
                 ? current.canvas.height
                 : Math.min(MAX_CANVAS_SIZE, Math.max(MIN_CANVAS_SIZE, Math.round(patch.height)))
-          }
-        }),
+          };
+          if (!resizing && current.canvas.preset !== undefined) canvas.preset = current.canvas.preset;
+          return { ...current, title: patch.title ?? current.title, canvas };
+        },
         { coalesceKey: `project:${Object.keys(patch).join(",")}` }
       );
     },
@@ -755,9 +759,9 @@ export default function App({
       mutate(
         (current) => {
           if (mode === "custom") {
-            return current.canvas.mode === "custom"
-              ? current
-              : { ...current, canvas: { ...current.canvas, mode: "custom" } };
+            if (current.canvas.mode === "custom" && current.canvas.preset === undefined) return current;
+            // "Custom…" means exactly that: the preset identity is dropped.
+            return { ...current, canvas: { mode: "custom", width: current.canvas.width, height: current.canvas.height } };
           }
           return { ...current, canvas: { mode, ...CANVAS_PRESETS[mode] } };
         },
@@ -766,6 +770,62 @@ export default function App({
     },
     [mutate]
   );
+
+  /** A device preset: `mode: "custom"` plus the additive `preset` id, one history step. */
+  const handlePresetChange = useCallback(
+    (presetId: string) => {
+      const preset = findCanvasPreset(presetId);
+      if (!preset) return;
+      mutate(
+        (current) => {
+          if (
+            current.canvas.preset === preset.id &&
+            current.canvas.width === preset.width &&
+            current.canvas.height === preset.height
+          ) {
+            return current;
+          }
+          return {
+            ...current,
+            canvas: { mode: "custom", preset: preset.id, width: preset.width, height: preset.height }
+          };
+        },
+        { coalesceKey: null }
+      );
+    },
+    [mutate]
+  );
+
+  const handleFlipCanvas = useCallback(() => {
+    mutate((current) => ({ ...current, canvas: flipCanvas(current.canvas) }), { coalesceKey: null });
+  }, [mutate]);
+
+  /**
+   * Canvas edge drag: transient updates while the pointer moves (the gesture opened a history
+   * transaction), so the whole drag is ONE undo step. Elements are never moved, scaled or deleted.
+   */
+  const handleCanvasResize = useCallback(
+    (width: number, height: number) => {
+      mutate(
+        (current) => {
+          const next = {
+            width: Math.min(MAX_CANVAS_SIZE, Math.max(MIN_CANVAS_SIZE, Math.round(width))),
+            height: Math.min(MAX_CANVAS_SIZE, Math.max(MIN_CANVAS_SIZE, Math.round(height)))
+          };
+          if (next.width === current.canvas.width && next.height === current.canvas.height) return current;
+          return { ...current, canvas: { mode: "custom", width: next.width, height: next.height } };
+        },
+        { transient: true }
+      );
+    },
+    [mutate]
+  );
+
+  /** Non-blocking report of elements left completely outside the canvas; nothing is deleted. */
+  const handleCanvasResizeEnd = useCallback(() => {
+    const outside = elementsOutsideCanvas(project.elements, project.canvas.width, project.canvas.height);
+    if (outside > 0) flash(tr("toast.canvasShrunk", { count: outside }));
+  }, [flash, project]);
 
   const closeDialog = useCallback(() => setDialog("none"), []);
 
@@ -1008,6 +1068,8 @@ export default function App({
         zoomScale={zoomView.scale}
         layersOpen={layersOpen}
         onModeChange={handleModeChange}
+        onPresetChange={handlePresetChange}
+        onFlipCanvas={handleFlipCanvas}
         onCanvasSizeChange={(width, height) => handleProjectChange({ width, height })}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -1133,6 +1195,8 @@ export default function App({
             onScaleChange={handleScaleChange}
             onUserZoom={applyZoom}
             onEditScene={openSceneEditor}
+            onCanvasResize={handleCanvasResize}
+            onCanvasResizeEnd={handleCanvasResizeEnd}
           />
           <div className="canvas-hint">{t("canvas.hint", { grid: gridSize })}</div>
         </section>

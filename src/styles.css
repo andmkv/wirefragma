@@ -936,6 +936,7 @@ body.is-resizing-panel * {
 }
 
 .canvas-frame {
+  position: relative;
   background: var(--surface);
   box-shadow: 0 8px 26px rgba(15, 23, 42, 0.13);
   outline: 1px solid var(--border);
@@ -949,6 +950,121 @@ body.is-resizing-panel * {
 .canvas-surface {
   display: block;
   touch-action: none;
+}
+
+/* ---------------------------------------------- canvas edge resize handles */
+
+/*
+  DOM affordances of the canvas FRAME (not elements): right edge, bottom edge and the
+  bottom-right corner. They are centred on the border line so they cover as little of the drawing
+  area as possible, and they are never scaled by zoom.
+*/
+.canvas-resize-handle {
+  position: absolute;
+  z-index: 2;
+  background: transparent;
+  touch-action: none;
+}
+
+.canvas-resize-handle::after {
+  content: "";
+  position: absolute;
+  border-radius: 2px;
+  background: var(--border);
+  opacity: 0.75;
+}
+
+.canvas-resize-handle:hover::after {
+  background: var(--accent, #2f6fed);
+  opacity: 1;
+}
+
+.canvas-resize-right {
+  top: 0;
+  bottom: 14px;
+  right: -7px;
+  width: 14px;
+  cursor: ew-resize;
+}
+
+.canvas-resize-right::after {
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+}
+
+.canvas-resize-bottom {
+  left: 0;
+  right: 14px;
+  bottom: -7px;
+  height: 14px;
+  cursor: ns-resize;
+}
+
+.canvas-resize-bottom::after {
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 4px;
+  transform: translate(-50%, -50%);
+}
+
+.canvas-resize-corner {
+  right: -7px;
+  bottom: -7px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+}
+
+.canvas-resize-corner::after {
+  right: 3px;
+  bottom: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px 0 2px 0;
+}
+
+/* Live size readout while an edge handle is dragged. */
+.canvas-size-badge {
+  position: absolute;
+  right: -8px;
+  bottom: -30px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--ink, #1f2429);
+  color: var(--surface, #fff);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Coarse pointers get a bigger grab area for the same affordance. */
+@media (pointer: coarse) {
+  .canvas-resize-right,
+  .canvas-resize-bottom {
+    right: -14px;
+    width: 28px;
+  }
+  .canvas-resize-bottom {
+    right: 0;
+    bottom: -14px;
+    height: 28px;
+  }
+  .canvas-resize-corner {
+    right: -12px;
+    bottom: -12px;
+    width: 28px;
+    height: 28px;
+  }
+  .canvas-flip {
+    min-width: 40px;
+    min-height: 40px;
+  }
 }
 
 .input-debug-panel {

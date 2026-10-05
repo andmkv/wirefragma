@@ -246,6 +246,27 @@ Invariant: zoom must never alter `element.x/y/width/height`, never change `canva
 and never appear in an export. `src/utils/zoom.test.ts` and the persistence self-test pass assert
 this.
 
+## Canvas size (1.2)
+
+`project.canvas.width/height` are document data; nothing in the view layer may change them except
+an explicit user gesture.
+
+* **Device presets** — the catalog lives in `src/model/canvasPresets.ts` (pure data: id, English
+  name, group, size). The toolbar renders one grouped `<select>`: the three classic modes
+  (`desktop` / `mobile` / `mobileLandscape`) first, then Phone / Tablet / Desktop / Other, then
+  "Custom…". Choosing a preset stores `mode: "custom"` + `preset: <id>` (see
+  [data-model.md](./data-model.md)). ⇄ flips portrait ↔ landscape via `flipCanvas`.
+* **Edge handles** — a right-edge, bottom-edge and bottom-right DOM affordance inside
+  `.canvas-frame` (not elements, and not part of `geometry.ts`/`hitTest.ts`). Dragging one calls
+  `canvasSizeFromDrag` in `src/model/canvasSize.ts`: the world delta is the screen delta divided by
+  the current scale, only the dragged axes change, the edge is snapped when Snap is on, and the
+  result is clamped to `MIN_CANVAS_SIZE`/`MAX_CANVAS_SIZE`. The drag opens the usual history
+  transaction, so one drag is one undo step, and a "W × H" badge shows the live size.
+* Resizing the canvas **never** moves, scales or deletes elements. When the new bounds leave
+  elements completely outside, the editor shows a non-blocking toast with the count
+  (`elementsOutsideCanvas`); nothing is removed, and the user can undo.
+* A manual size (typed or dragged) switches `canvas.mode` to `custom` and drops `canvas.preset`.
+
 ## Canvas host (`src/components/CanvasEditor.tsx`)
 
 The component is deliberately thin; the engine does the work.

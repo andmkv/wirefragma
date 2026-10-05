@@ -2,6 +2,20 @@
 
 ## 1.2.0 — unreleased
 
+### Canvas size
+- **Device presets**: the 3-item canvas menu became one grouped list — the three classic modes
+  (unchanged for old documents), plus Phone (iPhone SE / 15 / 15 Pro Max, Android, Android large),
+  Tablet (iPad, iPad landscape, iPad Pro 11"), Desktop (1280×720, 1366×768, 1440×900, 1536×864,
+  1920×1080) and Other (A4, Square, 16:9, 4:3). A ⇄ button flips portrait ↔ landscape. The choice
+  is stored as `canvas.mode: "custom"` plus an additive `canvas.preset` id; an unknown id, or one
+  whose size disagrees with `width`/`height`, is dropped by `normalizeProject` (no version bump).
+  The Markdown export names the preset in the advisory `## Screen` section only.
+- **Canvas edge resize**: right-edge, bottom-edge and bottom-right handles on the canvas frame
+  resize the canvas live — zoom-aware, snapped to the grid when Snap is on, clamped to the canvas
+  limits, one drag = one undo step, with a "W × H" badge. Elements are never moved or scaled; if
+  elements end up completely outside the new bounds a non-blocking toast reports the count and
+  nothing is deleted.
+
 ### Editor
 - **Viewport panning**: middle-mouse drag, `Space` + left drag (grab cursor) and — on touch — a
   two-finger drag that pans while a pinch zooms, anchored at the gesture centre. Panning only moves

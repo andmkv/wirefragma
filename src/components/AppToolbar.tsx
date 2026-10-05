@@ -1,5 +1,13 @@
 import type { ReactNode } from "react";
-import { CANVAS_MODES, MAX_CANVAS_SIZE, MIN_CANVAS_SIZE, type CanvasMode, type WireframeProject } from "../model/project";
+import {
+  CANVAS_MODES,
+  MAX_CANVAS_SIZE,
+  MIN_CANVAS_SIZE,
+  isCanvasMode,
+  type CanvasMode,
+  type WireframeProject
+} from "../model/project";
+import { CANVAS_DEVICE_PRESETS, CANVAS_PRESET_GROUPS } from "../model/defaults";
 import { DraftNumberInput } from "./DraftNumberInput";
 import { useT } from "../i18n";
 import { ZOOM_PRESETS, formatZoom, type ZoomMode } from "../utils/zoom";
@@ -15,6 +23,10 @@ interface AppToolbarProps {
   zoomScale: number;
   layersOpen: boolean;
   onModeChange: (mode: CanvasMode) => void;
+  /** Pick a device preset from the catalog (stored as `mode: "custom"` + `preset`). */
+  onPresetChange: (presetId: string) => void;
+  /** Portrait ↔ landscape for the current size. */
+  onFlipCanvas: () => void;
   onCanvasSizeChange: (width: number, height: number) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -50,6 +62,8 @@ export function AppToolbar({
   zoomScale,
   layersOpen,
   onModeChange,
+  onPresetChange,
+  onFlipCanvas,
   onCanvasSizeChange,
   onUndo,
   onRedo,
@@ -83,17 +97,51 @@ export function AppToolbar({
       <div className="toolbar-group">
         <label className="field inline">
           <span className="field-label">{t("toolbar.canvas")}</span>
+          {/*
+            One grouped list: the three classic modes stay selectable for old documents, the
+            device catalog follows, and "Custom…" stays last. Picking a preset is stored as
+            mode "custom" + a preset id, so the list shows the preset again after a reload.
+          */}
           <select
-            value={project.canvas.mode}
-            onChange={(event) => onModeChange(event.target.value as CanvasMode)}
+            value={project.canvas.preset ?? project.canvas.mode}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (isCanvasMode(value)) {
+                onModeChange(value);
+                return;
+              }
+              onPresetChange(value);
+            }}
           >
-            {CANVAS_MODES.map((mode) => (
-              <option key={mode} value={mode}>
-                {t(`toolbar.mode.${mode}`)}
-              </option>
+            <optgroup label={t("canvas.group.classic")}>
+              {CANVAS_MODES.filter((mode) => mode !== "custom").map((mode) => (
+                <option key={mode} value={mode}>
+                  {t(`toolbar.mode.${mode}`)}
+                </option>
+              ))}
+            </optgroup>
+            {CANVAS_PRESET_GROUPS.map((group) => (
+              <optgroup key={group} label={t(`canvas.group.${group}`)}>
+                {CANVAS_DEVICE_PRESETS.filter((preset) => preset.group === group).map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {t(`canvas.preset.${preset.id}`)} · {preset.width}×{preset.height}
+                  </option>
+                ))}
+              </optgroup>
             ))}
+            <option value="custom">{t("toolbar.mode.custom")}</option>
           </select>
         </label>
+
+        <button
+          type="button"
+          className="canvas-flip"
+          onClick={onFlipCanvas}
+          title={t("toolbar.flipCanvas")}
+          aria-label={t("toolbar.flipCanvas")}
+        >
+          ⇄
+        </button>
 
         {isCustom ? (
           <div className="size-inputs">

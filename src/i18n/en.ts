@@ -500,7 +500,37 @@ export const en = {
   "scene.text": "Text",
   "scene.forward": "Bring forward",
   "scene.backward": "Send backward",
-  "scene.diagramHint": "Pick a tool and drag on the canvas to add a shape. Drag the handles to reshape; Delete removes the selected shape."
+  "scene.diagramHint": "Pick a tool and drag on the canvas to add a shape. Drag the handles to reshape; Delete removes the selected shape.",
+
+  // ------------------------------------------------------- canvas presets
+  "canvas.group.classic": "Classic",
+  "canvas.group.phone": "Phone",
+  "canvas.group.tablet": "Tablet",
+  "canvas.group.desktop": "Desktop",
+  "canvas.group.other": "Other",
+  "canvas.preset.phone-iphone-se": "iPhone SE",
+  "canvas.preset.phone-iphone-15": "iPhone 15",
+  "canvas.preset.phone-iphone-15-pro-max": "iPhone 15 Pro Max",
+  "canvas.preset.phone-android": "Android",
+  "canvas.preset.phone-android-large": "Android large",
+  "canvas.preset.tablet-ipad": "iPad",
+  "canvas.preset.tablet-ipad-landscape": "iPad landscape",
+  "canvas.preset.tablet-ipad-pro-11": "iPad Pro 11\"",
+  "canvas.preset.desktop-1280x720": "Desktop 1280×720",
+  "canvas.preset.desktop-1366x768": "Laptop 1366×768",
+  "canvas.preset.desktop-1440x900": "Desktop 1440×900",
+  "canvas.preset.desktop-1536x864": "Desktop 1536×864",
+  "canvas.preset.desktop-1920x1080": "Full HD 1920×1080",
+  "canvas.preset.other-a4": "A4",
+  "canvas.preset.other-square": "Square 1080×1080",
+  "canvas.preset.other-16-9": "16:9 1280×720",
+  "canvas.preset.other-4-3": "4:3 1024×768",
+  "toolbar.flipCanvas": "Flip orientation (portrait ↔ landscape)",
+  "canvas.resizeRight": "Resize canvas width",
+  "canvas.resizeBottom": "Resize canvas height",
+  "canvas.resizeCorner": "Resize canvas",
+  "toast.canvasShrunk_one": "{count} element is now completely outside the canvas — nothing was deleted.",
+  "toast.canvasShrunk_other": "{count} elements are now completely outside the canvas — nothing was deleted.",
 } as const;
 
 export type MessageKey = keyof typeof en;

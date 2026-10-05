@@ -24,6 +24,7 @@
  *    applied by `reindexLayers`, which every structural transform funnels through.
  */
 
+import { findCanvasPreset, type CanvasPresetId } from "./canvasPresets";
 import { normalizeDiagramData, type DiagramData } from "./diagram";
 import { hasDrawingDescription, normalizeDrawingData, type DrawingData } from "./drawing";
 
@@ -186,6 +187,12 @@ export interface WireframeProject {
     mode: CanvasMode;
     width: number;
     height: number;
+    /**
+     * Optional device-preset id from `model/canvasPresets.ts` (`mode` is then `custom`).
+     * Additive: documents written before it exists simply have none, and an unknown id is dropped
+     * by `normalizeProject`. Never changes how the canvas is drawn.
+     */
+    preset?: CanvasPresetId;
   };
   layers: WireframeLayer[];
   elements: WireframeElement[];
@@ -547,14 +554,22 @@ export function normalizeProject(raw: unknown): WireframeProject {
     return normalized;
   });
 
+  const canvas: WireframeProject["canvas"] = {
+    mode,
+    width: clamp(Math.round(width), MIN_CANVAS_SIZE, MAX_CANVAS_SIZE),
+    height: clamp(Math.round(height), MIN_CANVAS_SIZE, MAX_CANVAS_SIZE)
+  };
+  // The device preset is additive and cosmetic: an unknown id is dropped, and so is one whose
+  // dimensions disagree with the stored size (otherwise the export would describe the wrong thing).
+  const preset = findCanvasPreset(rawCanvas.preset);
+  if (preset && preset.width === canvas.width && preset.height === canvas.height) {
+    canvas.preset = preset.id;
+  }
+
   return reindexLayers({
     version: PROJECT_VERSION,
     title: asString(source.title, "Untitled").trim() || "Untitled",
-    canvas: {
-      mode,
-      width: clamp(Math.round(width), MIN_CANVAS_SIZE, MAX_CANVAS_SIZE),
-      height: clamp(Math.round(height), MIN_CANVAS_SIZE, MAX_CANVAS_SIZE)
-    },
+    canvas,
     layers,
     elements
   });

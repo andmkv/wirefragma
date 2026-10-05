@@ -10,7 +10,7 @@ produces an equivalent project.
 export interface WireframeProject {
   version: 2;
   title: string;
-  canvas: { mode: CanvasMode; width: number; height: number };
+  canvas: { mode: CanvasMode; width: number; height: number; preset?: string };
   layers: WireframeLayer[];       // layers[0] is the FRONT-most layer
   elements: WireframeElement[];   // ONE flat array: the global back-to-front paint order
 }
@@ -22,6 +22,15 @@ export interface WireframeProject {
 * `canvas.mode` is one of `desktop | mobile | mobileLandscape | custom`.
 * `canvas.width` / `height` are logical project units, clamped to
   `MIN_CANVAS_SIZE = 120` … `MAX_CANVAS_SIZE = 6000`.
+* `canvas.preset` (additive, optional, 1.2) names a device from the catalog in
+  [`src/model/canvasPresets.ts`](../src/model/canvasPresets.ts) — `phone-iphone-15`,
+  `tablet-ipad-landscape`, `desktop-1920x1080`, … Picking one stores `mode: "custom"` plus the id,
+  exactly like a hand-typed size; the id never changes how anything is drawn, and the toolbar
+  shows the preset again after a reload. `normalizeProject` drops an unknown id **and** an id whose
+  dimensions disagree with the stored `width`/`height`, so the document can never describe two
+  different canvases. The three classic modes keep working unchanged for old documents, and the
+  ⇄ button flips portrait ↔ landscape (re-deriving the preset or the classic mode when the flipped
+  size has one, otherwise a plain custom size).
 
 ### Ordering rules (the only ones that exist)
 
@@ -205,6 +214,7 @@ Repairs silently when:
 * `items`/`columns` contain empty or non-string entries -> filtered out;
 * `textStyle`/`contentSize` are invalid, empty or out of range -> dropped or clamped;
 * `canvas.mode` is missing/unknown -> inferred from the dimensions (`inferCanvasMode`);
+* `canvas.preset` is unknown, not a string, or disagrees with `width`/`height` -> dropped;
 * `zIndex` is missing -> recomputed by `reindexLayers`.
 
 ## Element defaults
