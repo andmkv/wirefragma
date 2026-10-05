@@ -82,8 +82,8 @@ Measured with `node scripts/measure-layout.mjs` (the DEV-only `?measure=1` harne
 | touch pinch | scale 0.637 → 1.401 | 0.278 → 0.612 | 0.422 → 0.928 |
 | touch pan (two fingers +60/+30 px) | scroll moved exactly −60 / −30 | −60 / −3 (clamped at the top edge) | −60 / −30 |
 | error boundary | rendered, "Try again" recovers | rendered, "Try again" recovers | rendered, "Try again" recovers |
-| emoji picker (C1/C3) | 171 cells, inside the viewport, inserts at the caret | box (8, 221) 374 × 344; the picker box was 492, 260 320 × 344 at tablet width | — |
-| Chart element (E2–E4) | added, popup opened, Done committed, history grew | same; dialog 390 × 616 at (0, 0) — a full-screen sheet inside 390 × 700 | same; dialog 1100 × 792 at (90, 54) inside 1280 × 900 |
+| emoji picker (C1/C3) | 171 cells, 320 × 344 at (492, 260), inserts at the caret | 171 cells, 374 × 344 at (8, 221), inserts at the caret | 171 cells, 320 × 344 at (952, 219), inserts at the caret |
+| Chart element (E2–E4) | added, popup opened, Done committed, history grew; dialog 754 × 792 at (33, 54) | same; dialog **390 × 616 at (0, 0)** — a full-screen sheet inside 390 × 700 | same; dialog 1100 × 792 at (90, 54) inside 1280 × 900 |
 
 Before this release the same harness shape read ~174 px canvas viewport at 820 px and ~40 px at
 390 px with a horizontally scrolling page (the numbers quoted in the task). The projects drawer is
