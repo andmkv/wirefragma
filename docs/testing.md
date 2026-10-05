@@ -28,11 +28,12 @@ There is **no jsdom, no happy-dom and no browser test runner**. That shapes the 
 | Geometry / hit tests | `src/canvas/{hitTest,containerDrag}.test.ts`, `src/model/{hitAreas,overlapRegression}.test.ts` | the canonical hit test and geometry rules, including zoom independence |
 | Synthetic pointer tests | `src/canvas/{containerGesture,marqueeOverlay}.test.ts` | the real `CanvasInteraction` state machine driven through a fake canvas element |
 | Browser self-test harness | `src/dev/selfTest.ts`, run manually in a browser | the real application with real DOM events: React wiring, canvas host, panels, storage, export |
+| Browser layout measurement | `src/dev/measureLayout.ts` + `scripts/measure-layout.mjs` | the responsive shell (1.2): page scroll, canvas width, drawers, a synthetic two-finger pinch/pan and the error boundary |
 
 Manual, human-verified checks (visual quality, real emoji rendering, an actual trackpad pinch) are
 not automated and must not be claimed as automated.
 
-## Test inventory (31 files, 319 cases)
+## Test inventory (39 files, 451 cases)
 
 | File | Cases | Covers |
 | --- | --- | --- |
@@ -56,6 +57,15 @@ not automated and must not be claimed as automated.
 | `src/utils/history.test.ts` | 5 | commit/undo/redo, coalescing, transactions, bounds |
 | `src/utils/storage.test.ts` | 4 | key precedence, legacy migration, corrupted data |
 | `src/utils/zoom.test.ts` | 9 | clamping, fit, presets, wheel zoom, pointer anchoring |
+| `src/i18n/i18n.test.ts` | 26 | every locale has every key, identical placeholders, all plural categories; `translate` fallbacks |
+| `src/utils/layoutMode.test.ts` | 3 | the 1100 / 768 breakpoints (pure) and which modes use overlay drawers |
+| `src/canvas/pan.test.ts` | 12 | viewport pan deltas, pinch scale, touch centroid/distance, the shared zoom/pan anchoring formula |
+| `src/canvas/handleTolerance.test.ts` | 10 | fine vs coarse handle tolerance at 0.25×–4×, still one hit test and zoom-independent |
+| `src/model/canvasPresets.test.ts` | 23 | device preset catalog, flip portrait↔landscape, unknown-preset normalization, edge-drag size maths |
+| `src/model/selectAll.test.ts` | 5 | `selectableElements` (Cmd/Ctrl+A) matches the marquee predicate |
+| `src/model/chart.test.ts` | 15 | `ChartData` kinds, limits, coercion, never-throws, JSON round trip |
+| `src/utils/chartText.test.ts` | 19 | Table ⇄ Text/CSV parsing and serialization (delimiters, quoting, limits) |
+| `src/utils/emojiInsert.test.ts` | 9 | insert-at-caret / replace-selection, including multi-codepoint emoji |
 | `src/utils/asciiRenderer.test.ts` | 10 | determinism, grid containment, per-type glyphs, wide/narrow grids |
 | `src/utils/spatialSummary.test.ts` | 3 | deterministic prose, hidden elements ignored, empty canvas |
 | `src/utils/markdownRoundTrip.test.ts` | 32 | the full export/import contract, v1 import, all element types, invalid input, the `## Screen` mode label |
@@ -129,7 +139,8 @@ captcha answer from the PHP session file, so it cannot run against a real deploy
 * Visual quality of the rendered wireframe (only a few pixel-level assertions exist — the
   typography centring check in pass 10).
 * Platform emoji glyph appearance (it depends on the OS font).
-* Real trackpad pinch and multi-touch behaviour (the wheel path is tested; the hardware is not).
+* Real trackpad pinch and multi-touch behaviour (the wheel path is tested, the 1.2 layout harness
+  drives *synthetic* touch pointers in a headless browser, but the hardware is not).
 * Real `localStorage` quota behaviour, private-mode quirks and cross-browser scrolling.
 * Email delivery (only that `mail()` / SMTP accepted the message) and the translations' wording.
 
