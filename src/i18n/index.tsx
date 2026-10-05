@@ -4,7 +4,7 @@ import { en, type MessageKey } from "./en";
 /**
  * UI languages, in the order the language menus list them. EN is the default and fallback.
  *
- * Since 1.2 only English is part of the base chunk: every other dictionary is a lazy chunk
+ * Since 1.4 only English is part of the base chunk: every other dictionary is a lazy chunk
  * (`import("./locales/xx")`) that is fetched *before* the language is applied, so the UI never
  * flashes untranslated text. `main.tsx` preloads the stored language before the first render.
  */

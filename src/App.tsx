@@ -166,7 +166,7 @@ export default function App({
   // Remembered per browser, so opening another wireframe (a fresh editor) keeps the layout.
   const [layersOpen, setLayersOpen] = usePanelFlag("wirefragma.panel.layersOpen", true);
   /**
-   * Responsive layout (1.2). `desktop` keeps the three-column workspace; `tablet` and `phone`
+   * Responsive layout (1.4). `desktop` keeps the three-column workspace; `tablet` and `phone`
    * give the canvas the full width and turn Add / Layers / Properties into overlay drawers.
    */
   const layout = useLayoutMode();

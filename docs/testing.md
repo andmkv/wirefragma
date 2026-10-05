@@ -28,7 +28,7 @@ There is **no jsdom, no happy-dom and no browser test runner**. That shapes the 
 | Geometry / hit tests | `src/canvas/{hitTest,containerDrag}.test.ts`, `src/model/{hitAreas,overlapRegression}.test.ts` | the canonical hit test and geometry rules, including zoom independence |
 | Synthetic pointer tests | `src/canvas/{containerGesture,marqueeOverlay}.test.ts` | the real `CanvasInteraction` state machine driven through a fake canvas element |
 | Browser self-test harness | `src/dev/selfTest.ts`, run manually in a browser | the real application with real DOM events: React wiring, canvas host, panels, storage, export |
-| Browser layout measurement | `src/dev/measureLayout.ts` + `scripts/measure-layout.mjs` | the responsive shell (1.2): page scroll, canvas width, drawers, a synthetic two-finger pinch/pan and the error boundary |
+| Browser layout measurement | `src/dev/measureLayout.ts` + `scripts/measure-layout.mjs` | the responsive shell (1.4): page scroll, canvas width, drawers, a synthetic two-finger pinch/pan and the error boundary |
 
 Manual, human-verified checks (visual quality, real emoji rendering, an actual trackpad pinch) are
 not automated and must not be claimed as automated.
@@ -50,14 +50,14 @@ not automated and must not be claimed as automated.
 | `src/model/layers.test.ts` | 23 | draw order, per-layer reordering, layer ops, visibility/locking, normalization of layer data |
 | `src/model/selectionState.test.ts` | 16 | selection state helpers, marquee selection rules, movable/deletable membership |
 | `src/model/typography.test.ts` | 15 | `textStyleOf`, `contentSizeOf`, `mergeTextStyle`, normalization/round-trip of the optional fields |
-| `src/model/emoji.test.ts` | 7 | catalog integrity, search, emoji + content size through JSON and `localStorage` |
-| `src/model/duplicate.test.ts` | 7 | single/multi duplication, relative layout, layers, styles, names |
-| `src/model/clipboard.test.ts` | 7 | copy/paste one and many, cascade, layer fallback, immutability |
+| `src/model/emoji.test.ts` | 19 | catalog integrity, search, emoji + content size through JSON and `localStorage` |
+| `src/model/duplicate.test.ts` | 8 | single/multi duplication, relative layout, layers, styles, names |
+| `src/model/clipboard.test.ts` | 24 | copy/paste one and many, cascade, layer fallback by id then name, immutability, the cross-wireframe store and its `localStorage` mirror (a chart survives it) |
+| `src/canvas/renderChart.test.ts` | 1 | a Chart paints inside its own bounds, not at the canvas origin (regression) |
 | `src/model/startup.test.ts` | 8 | blank first launch, `New`, saved projects untouched, v1 migration |
 | `src/utils/history.test.ts` | 5 | commit/undo/redo, coalescing, transactions, bounds |
 | `src/utils/storage.test.ts` | 4 | key precedence, legacy migration, corrupted data |
 | `src/utils/zoom.test.ts` | 9 | clamping, fit, presets, wheel zoom, pointer anchoring |
-| `src/i18n/i18n.test.ts` | 26 | every locale has every key, identical placeholders, all plural categories; `translate` fallbacks |
 | `src/utils/layoutMode.test.ts` | 3 | the 1100 / 768 breakpoints (pure) and which modes use overlay drawers |
 | `src/canvas/pan.test.ts` | 12 | viewport pan deltas, pinch scale, touch centroid/distance, the shared zoom/pan anchoring formula |
 | `src/canvas/handleTolerance.test.ts` | 10 | fine vs coarse handle tolerance at 0.25×–4×, still one hit test and zoom-independent |
@@ -66,16 +66,16 @@ not automated and must not be claimed as automated.
 | `src/model/chart.test.ts` | 15 | `ChartData` kinds, limits, coercion, never-throws, JSON round trip |
 | `src/utils/chartText.test.ts` | 19 | Table ⇄ Text/CSV parsing and serialization (delimiters, quoting, limits) |
 | `src/utils/emojiInsert.test.ts` | 9 | insert-at-caret / replace-selection, including multi-codepoint emoji |
-| `src/utils/asciiRenderer.test.ts` | 10 | determinism, grid containment, per-type glyphs, wide/narrow grids |
+| `src/utils/asciiRenderer.test.ts` | 13 | determinism, grid containment, per-type glyphs, wide/narrow grids |
 | `src/utils/spatialSummary.test.ts` | 4 | deterministic prose, hidden elements ignored, empty canvas, nested elements in reading order |
-| `src/utils/markdownRoundTrip.test.ts` | 34 | the full export/import contract, v1 import, all element types, invalid input, the `## Screen` mode label, compact element sections, one-element-per-line `ui-project` |
+| `src/utils/markdownRoundTrip.test.ts` | 37 | the full export/import contract, v1 import, all element types, invalid input, the `## Screen` mode label, compact element sections, one-element-per-line `ui-project` |
 | `src/utils/markdownSemantics.test.ts` | 8 | `Typography:` / `Content size:` output and the emoji round trip |
 | `src/model/hierarchy.test.ts` | 19 | nesting: canonical tree order, repair of bad links, inheritance, nest/unnest/move, subtree delete/duplicate/copy, multi-row drops, round trip |
 | `src/model/layerExport.test.ts` | 5 | layer-scoped export: filtering, crop, minimum canvas, immutability, re-import |
 | `src/canvas/pointerGuard.test.ts` | 2 | one pointer per gesture (no orphaned transaction), parents drag their children |
 | `src/utils/auditRegressions.test.ts` | 5 | backticks in notes round-trip, undo inert mid-gesture, unreadable-storage backup, font-size clamp, DPR cap |
 | `src/utils/schemaExport.test.ts` | 6 | WIREFRAGMA schema covers every type, its example imports unchanged, lenient LLM-answer import |
-| `src/i18n/i18n.test.ts` | 34 | every locale has every key, keeps placeholders, covers its plural categories and stays within the English length; `translate` fallback |
+| `src/i18n/i18n.test.ts` | 35 | every locale has every key, keeps placeholders, covers its plural categories and stays within the English length; `translate` fallback |
 | `src/account/projectsPanel.test.ts` | 2 | compact relative ages for the projects panel |
 | `src/account/remoteSync.test.ts` | 13 | noticing changes made elsewhere: clean reload, dirty → conflict path, no action mid-save, evict/removed, loading a server revision is clean (no save loop), poll back-off |
 | `src/utils/projectBundle.test.ts` | 5 | `.wfproj` round trips, title handling, rejects (never half-imported), file names |
@@ -167,7 +167,7 @@ database. The MCP Inspector (`npx @modelcontextprotocol/inspector --cli …`, se
 * Visual quality of the rendered wireframe (only a few pixel-level assertions exist — the
   typography centring check in pass 10).
 * Platform emoji glyph appearance (it depends on the OS font).
-* Real trackpad pinch and multi-touch behaviour (the wheel path is tested, the 1.2 layout harness
+* Real trackpad pinch and multi-touch behaviour (the wheel path is tested, the 1.4 layout harness
   drives *synthetic* touch pointers in a headless browser, but the hardware is not).
 * Real `localStorage` quota behaviour, private-mode quirks and cross-browser scrolling.
 * Email delivery (only that `mail()` / SMTP accepted the message) and the translations' wording.

@@ -60,7 +60,7 @@ After sign-in the account's stored preferences are applied (they win over the br
 choice). The Settings dialog also edits the display name, changes the password
 (`password-change`, requires the current one) and holds **Delete account**.
 
-## Lazy dictionaries (1.2)
+## Lazy dictionaries (1.4)
 
 Only English is part of the base chunk. Every other dictionary is a chunk of its own
 (`import("./locales/xx")`) and is fetched **before** the language is applied:

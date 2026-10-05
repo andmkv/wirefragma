@@ -108,7 +108,7 @@
 update_wireframe(baseRevision=5) → {"error": "conflict", "current": {"revision": 6, "data": {…}}}
 agent merges its change into current.data → update_wireframe(baseRevision=6) → 7
 your browser notices 7 within seconds and shows it</code></pre>
-<p>Documents are checked against the Wirefragma JSON Schema before they are saved, so an agent cannot store something the editor cannot open.</p>
+<p>Documents are checked against the Wirefragma JSON Schema before they are saved, so an agent cannot store something the editor cannot open. The schema covers every element type, including <code>chart</code> datasets, so an agent can create charts by writing plain JSON.</p>
 
 <h2 id="examples">Things to ask your agent</h2>
 <ul>
@@ -116,6 +116,7 @@ your browser notices 7 within seconds and shows it</code></pre>
   <li>“Read the <i>Checkout</i> wireframe and implement it in React with our component library.”</li>
   <li>“Add an error state for the email field to <i>Sign in</i> and describe it in the note.”</li>
   <li>“Draw the onboarding flow as a Canvas with boxes and arrows.”</li>
+  <li>“Add a bar chart of last quarter's signups per week to the <i>Dashboard</i> wireframe.”</li>
 </ul>
 
 <h2 id="errors">Errors</h2>

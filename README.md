@@ -152,13 +152,18 @@ tries to reconstruct geometry from ASCII.
 
 ### Canvas and editing
 
-- desktop, portrait-mobile, landscape-mobile, and custom canvas sizes;
+- desktop, portrait-mobile, landscape-mobile and custom canvas sizes, plus a catalog of common
+  device presets (iPhone, Android, iPad, laptop and desktop resolutions, A4, 16:9, 4:3) with a
+  portrait/landscape flip and drag handles on the canvas edges;
 - configurable grid and snapping;
-- fit-to-window, preset zoom levels, buttons, shortcuts, and trackpad zoom;
+- fit-to-window, preset zoom levels, buttons, shortcuts, trackpad and touch pinch zoom, and panning
+  with the middle mouse button, Space + drag or two fingers;
+- a responsive shell: side panels become overlay drawers on tablets and phones;
 - drag and resize with deterministic hit testing;
 - multi-selection with Shift/Cmd-click and marquee selection;
 - rigid multi-object movement that preserves relative positions;
-- duplicate, internal copy/paste, delete, arrow-key nudging, undo, and redo.
+- duplicate, copy/cut/paste (also between wireframes and between tabs), select all, delete,
+  arrow-key nudging, undo, and redo.
 
 ### Layers
 
@@ -174,7 +179,9 @@ tries to reconstruct geometry from ASCII.
 
 The palette includes containers, toolbars, sidebars, dialogs, bottom navigation, text, images,
 icons, avatars, lists, tables, tabs, buttons, icon buttons, inputs, textareas, dropdowns,
-checkboxes, radio controls, toggles, sliders, progress indicators, and badges/chips — plus two
+checkboxes, radio controls, toggles, sliders, progress indicators, badges/chips and **charts** (bar,
+stacked bar, line, area, pie, donut — typed into a table or pasted from Excel/Sheets and exported
+as a Markdown data table) — plus two
 scene elements: a **Canvas** for small structured diagrams (shapes, arrows, curves, labels, exported
 as an ASCII sketch, a primitive list and relationships) and a **Drawing** for freehand sketches
 described in words. Double-click either one (or use its hover pencil) to edit it in a popup.
@@ -186,7 +193,8 @@ an LLM note.
 ### Text and symbols
 
 - basic text size, weight, italic, underline, and alignment controls;
-- emoji/symbol picker for Icon and Image elements;
+- full emoji picker (all base emoji and flags) with search in every UI language, a "recent" tab,
+  and an emoji button in every text field;
 - configurable symbol content size;
 - Unicode-safe label fitting.
 

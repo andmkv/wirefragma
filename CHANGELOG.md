@@ -2,6 +2,11 @@
 
 ## 1.4.0 — unreleased
 
+Builds on 1.3.0 (MCP, project files, LLM-export audit). **MCP compatibility:** nothing changes on
+the server — documents are still validated against the generated JSON Schema, which was regenerated
+(`npm run mcp:resources`) so agents can read and write `chart` elements; verified by validating a
+Chart document with the same `opis/json-schema` validator the PHP endpoint uses.
+
 ### Chart element (new)
 - **Chart** (`chart`): a new element type with **bar / stacked bar / line / area / pie / donut**
   datasets, drawn in the flat wireframe style (axes, light gridlines, category labels, optional
@@ -33,7 +38,7 @@
   A breakpoint hook shares the thresholds with the stylesheet.
 - Measured with a headless browser at 820 / 390 / 1280 px: **no horizontal page scroll at any
   width**, the canvas viewport is **100 % of the width** on tablet and phone (was ~174 px and
-  ~40 px), the toolbar is 2 rows at 820 px (was 3) and 1 row at 390 px, every drawer opens, is
+  ~40 px), the toolbar is 2 rows at 820 px (was 3) and wraps to 2 rows at 390 px with every button on screen (no sideways scrolling), every drawer opens, is
   visible and closes again, and a synthetic two-finger pinch + pan still pans and zooms.
 - **Touch ergonomics**: toolbar / panel hit targets are ≥ 40 px at ≤ 1099 px or with a coarse
   pointer, and the canvas handle grab tolerance grows through the single shared hit test
@@ -45,11 +50,20 @@
   history and the autosave state survive) and "Export what I have" (the current project JSON).
 - **Lazy locale chunks**: only English ships in the base bundle; the stored language is preloaded
   before the first render, so switching or starting a language never flashes untranslated text.
-  The base JS chunk dropped from 176 kB to 125 kB gzip.
+  The base JS chunk is 141.5 kB gzip even with charts, the emoji picker and the new editors (1.3.0: 176 kB).
 - Fixed the zoom/pinch anchoring arithmetic: the correction is now
   `canvasPosition − (pointer − content × scale)`, measured against the canvas position read on
   every step, so pinch-zoom keeps the grabbed point under the fingers and panning follows the
   pointer exactly (previously the sign was inverted and the pan over-corrected).
+
+### Fixes found while auditing this release
+- A Chart on the canvas was painted at the canvas origin instead of inside its element (the popup
+  preview was right) — fixed, with a regression test.
+- A Chart copied in one tab was pasted as the demo dataset in another tab (the `localStorage`
+  mirror of the clipboard dropped the `chart` field) — fixed, with a round-trip test.
+- The Add drawer now closes after adding an element on tablet and phone layouts.
+- Merged with 1.3.0: icon-button toolbar kept on desktop/tablet, the phone "⋯" menu reuses it; every
+  new string fits the English length rule in all languages (test-enforced).
 
 ### Emoji
 - **Generated full catalog** (1914 fully-qualified emoji, base glyphs only — no skin tones — with
@@ -57,7 +71,7 @@
   existing eight category ids keep working. The data is produced by the dev-only
   `scripts/generate-emoji.mjs` and committed.
 - **Search in all 8 UI languages** (en, ru, de, fr, es, sr, ja, zh) — case- and accent-insensitive
-  (`é`/`e`, `ё`/`е`), always covering the current language *plus* English. Serbian has no
+  (`é`/`e`, `ё`/`е`, katakana/hiragana), always covering the current language *plus* English. Serbian has no
   emojibase data and comes from CLDR `sr-Latn`; nothing falls back to English silently. The old
   curated keywords (`rocket`, `cart`, `warning`, …) survive as English extras.
 - **Lazy chunks**: the glyph list is one chunk (~5 kB gzip) and every language is its own chunk

@@ -3210,7 +3210,7 @@ body.is-resizing-panel * {
 }
 
 /* ====================================================================== *
- * Responsive shell (1.2)                                                  *
+ * Responsive shell (1.4)                                                  *
  *                                                                        *
  * Two breakpoints, matching `src/utils/layoutMode.ts` exactly:            *
  *   ≥ 1100 px          desktop  — today's three-column workspace          *
@@ -3453,20 +3453,26 @@ body.is-resizing-panel * {
 /* ------------------------------------------------------------ < 768 px (phone) */
 
 @media (max-width: 767px) {
+  /* Everything stays reachable without sideways scrolling: the actions wrap onto a second row
+     when the drawer buttons, undo/redo, zoom, Export and "⋯" do not fit one (e.g. 390 px). */
   .app-toolbar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
     padding: 6px 8px;
   }
 
+  /* The wordmark has no room on a phone; the toolbar actions take the full width. */
   .toolbar-brand {
-    flex: 0 0 auto;
+    display: none;
   }
 
-  .brand-tag,
-  .brand-name {
-    display: none;
+  .toolbar-actions {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .toolbar-actions .toolbar-menu {
+    margin-left: auto;
   }
 
   /* The desktop control group is empty on phones; the "⋯" menu holds it instead. */
@@ -3475,7 +3481,7 @@ body.is-resizing-panel * {
   }
 
   .toolbar-actions {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 4px;
   }
 

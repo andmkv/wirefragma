@@ -106,7 +106,7 @@ callbacks, and never mutate the document themselves.
 | `selection.ts` | `SelectionState` plus every selection rule (toggle, normalize, bounds, marquee, movable/deletable membership) |
 | `clipboard.ts` | `copySelection`, `pasteClipboard`, `CLIPBOARD_OFFSET` |
 | `hitAreas.ts` | `hitRectsFor` — the semantic hit regions per element type (container border/label, divider band, full bounds) |
-| `emoji.ts` | 336-entry curated emoji catalog with categories, names and keywords; `searchEmoji`, `emojiByCategory` |
+| `emoji.ts` | emoji catalog API over the generated data in `model/emoji/` (1914 base glyphs, lazy glyph chunk + one lazy names chunk per UI language); localized, accent-insensitive `searchEmoji`, `emojiByCategory`; `emojiRecent.ts` keeps the last 24 picks in `localStorage` |
 
 ### Canvas engine — `src/canvas/`
 

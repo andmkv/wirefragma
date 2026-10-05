@@ -61,7 +61,7 @@ interface PropertiesPanelProps {
   footer?: ReactNode;
   /** Open the Canvas / Drawing popup for the selected element. */
   onEditScene: () => void;
-  /** Overlay layout (tablet / phone): the panel becomes a right-hand drawer (1.2). */
+  /** Overlay layout (tablet / phone): the panel becomes a right-hand drawer (1.4). */
   overlay?: boolean;
   /** Drawer is open (overlay layouts only). */
   open?: boolean;

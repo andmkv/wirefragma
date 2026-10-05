@@ -1,5 +1,5 @@
 /**
- * Canvas-edge resize maths (1.2). Pure functions: the DOM wiring lives in `components/CanvasEditor.tsx`.
+ * Canvas-edge resize maths (1.4). Pure functions: the DOM wiring lives in `components/CanvasEditor.tsx`.
  *
  * Dragging a canvas edge changes `project.canvas.width` / `height` only — elements are never moved,
  * scaled or deleted, and zoom is divided out by the caller before these functions see a delta.

@@ -256,6 +256,25 @@ Agents and the browser's popup editors write the same fields, so a Canvas drawn 
 in the browser editor and vice versa. A compact MCP representation that omits Drawing
 strokes (for token efficiency) may be added later; it is not needed yet.
 
+### Chart elements and canvas presets
+
+`chart` elements (`element.chart`: `kind`, `title?`, `categories[]`, `series[{name, values[]}]`,
+`options?`) are described by the same generated schema: the `chart` type is in the `type` enum and
+the dataset has its limits spelled out (≤ 24 categories, ≤ 8 series, names ≤ 40 characters, title ≤
+80 characters; values are numbers, numeric strings or `null` for a gap). An agent can therefore
+create a Chart by writing plain JSON — the example in `get_wirefragma_schema` shows one — and the
+browser draws it; the PHP server needs no change because it only checks for a JSON object with an
+`elements` array plus this schema.
+
+The optional `canvas.preset` (a device id such as `phone-iphone-15`, paired with `mode: "custom"`)
+is not described by the schema on purpose: it is cosmetic, the schema allows unknown fields, and the
+browser drops an id that is unknown or disagrees with the stored `width` × `height`. Agents should
+simply choose a `mode` and a size.
+
+Every model change that adds element types or documented fields must be followed by
+`npm run mcp:resources`; `src/utils/mcpResources.test.ts` and `build:deploy` fail on stale files
+(1.4 regenerated them for `chart`).
+
 ## Limits
 
 | Limit | Value | Where |

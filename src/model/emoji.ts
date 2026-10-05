@@ -99,7 +99,7 @@ export function loadEmojiNames(language: EmojiLanguage): Promise<NamesModule> {
 }
 
 /**
- * Case- and accent-insensitive folding used by the search: `é` → `e`, `č` → `c`, `ё` → `е`.
+ * Case- and accent-insensitive folding used by the search: `é` → `e`, `č` → `c`, `ё` → `е`, katakana → hiragana.
  * Emoji names in every supported language are plain words, so stripping combining marks is enough.
  */
 export function foldEmojiText(text: string): string {
@@ -107,7 +107,9 @@ export function foldEmojiText(text: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\u0451/g, "\u0435");
+    .replace(/\u0451/g, "\u0435")
+    // Katakana → hiragana, so typing ねこ finds ネコ (Japanese names are mostly katakana/kanji).
+    .replace(/[\u30a1-\u30f6]/g, (kana) => String.fromCharCode(kana.charCodeAt(0) - 0x60));
 }
 
 /** `"name|keyword|keyword"` → tokens, or `[]` for an empty/missing entry. */
@@ -161,7 +163,7 @@ export async function loadEmojiCatalog(options: EmojiCatalogOptions = {}): Promi
     };
     for (const token of primaryTokens.slice(1)) add(token);
     for (const token of englishTokens) add(token);
-    // The curated extras from the pre-1.2 hand-written list (rocket, cart, warning, …) are
+    // The curated extras from the pre-1.4 hand-written list (rocket, cart, warning, …) are
     // English-only conveniences layered on top of the generated keywords.
     for (const token of (extras[glyph.emoji] ?? "").split(/\s+/)) {
       if (token) add(token);

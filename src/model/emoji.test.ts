@@ -90,6 +90,8 @@ describe("generated emoji catalog", () => {
     expect(searchEmoji(ru, "ракета").map((entry) => entry.emoji)).toContain("🚀");
     expect(searchEmoji(ru, "rocket").map((entry) => entry.emoji)).toContain("🚀");
     expect(searchEmoji(ja, "ロケット").map((entry) => entry.emoji)).toContain("🚀");
+    // A Japanese IME produces hiragana by default; the names are katakana.
+    expect(searchEmoji(ja, "ろけっと").map((entry) => entry.emoji)).toContain("🚀");
     // Serbian comes from CLDR `sr-Latn`: Latin script, real data, no English fallback.
     expect(searchEmoji(sr, "raketa").map((entry) => entry.emoji)).toContain("🚀");
     expect(sr.find((entry) => entry.emoji === "🚀")?.name).not.toBe(
@@ -145,6 +147,10 @@ describe("foldEmojiText", () => {
     expect(foldEmojiText("Café")).toBe("cafe");
     expect(foldEmojiText("Čokoláda")).toBe("cokolada");
     expect(foldEmojiText("Ёжик")).toBe("ежик");
+  });
+
+  it("treats katakana and hiragana alike", () => {
+    expect(foldEmojiText("ネコ")).toBe(foldEmojiText("ねこ"));
   });
 });
 

@@ -9,7 +9,7 @@ interface LeftPanelProps {
   layersPanel: ReactNode;
   layersOpen: boolean;
   onToggleLayers: () => void;
-  /** Overlay layout (tablet / phone): both columns become slide-in drawers instead (1.2). */
+  /** Overlay layout (tablet / phone): both columns become slide-in drawers instead (1.4). */
   overlay?: boolean;
   /** Which drawer is open; only `add` and `layers` belong to this component. */
   openDrawer?: string;

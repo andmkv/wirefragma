@@ -1,4 +1,4 @@
-# Wirefragma 1.2 — release report
+# Wirefragma 1.4 — release report
 
 Branch `feature/1.2-editor-maturity`, created from `feature/canvas-and-drawing`. Seven commits:
 **one per block (A–E)**, plus two documentation commits (`f0adc78`, `3739bce`) for this report and
@@ -584,3 +584,32 @@ strings, ±1e12) so a document stays far below the 2 MB limit.
 12. **The generated emoji catalog is only as good as `emojibase-data` / CLDR.** Serbian depends on
     `sr-Latn` annotations; if that package's shape changes, the generator (not the app) breaks —
     the committed data keeps working regardless.
+
+
+---
+
+## Post-audit addendum (merge with 1.3.0 and fixes)
+
+The release was audited after the work above; the audit changed the following.
+
+* **Chart painted at the canvas origin** (`render.ts` called `drawChartScene` without translating to
+  the element) — the popup preview was right, the wireframe was wrong. Fixed;
+  `src/canvas/renderChart.test.ts` fails without the fix.
+* **Chart lost in the cross-tab clipboard**: `parseElement` in `clipboardStore.ts` kept `diagram` and
+  `drawing` but dropped `chart`, so a Chart pasted in another tab became the demo dataset. Fixed;
+  `clipboard.test.ts` now round-trips a chart through the storage mirror.
+* **Phone toolbar hid Export and "⋯"**: the harness measured "1 row, 68 px" but that bar scrolled
+  sideways with its last buttons off-screen. The phone toolbar now wraps to two rows (97 px at
+  390 px, 0 buttons outside the viewport, canvas 592 px tall). Lesson for the harness: measure that
+  every button's rectangle is inside the viewport, not only the row count.
+* **The branch was based on `feature/canvas-and-drawing`, which predates 1.3.0.** `main` (MCP, project
+  files, LLM-export audit, icon toolbar, shorter translations) was merged in; the release is labelled
+  **1.4.0** because 1.3.0 is already published. Conflicts were resolved in the toolbar (icon buttons
+  from 1.3.0 inside the new three-layout structure), `markdownExport.ts` (1.3.0's compact format,
+  `chart` added to the skipped types), the dictionaries (key-level three-way merge; the new strings
+  were shortened to satisfy the 1.3.0 "fits the English length" test in every language) and the docs.
+* **MCP**: `npm run mcp:resources` regenerated `server/mcp/resources/*` (the `chart` type and dataset
+  schema); a Chart document passes, and an invalid chart kind is rejected, by the same
+  `opis/json-schema` validator the PHP endpoint uses. The PHP server needed no change.
+* Japanese emoji search now folds katakana to hiragana (typing `ねこ` finds `ネコ`).
+* Build size after the merge: `index-*.js` 452.70 kB raw / **141.50 kB gzip** (1.3.0: 603 kB / 176 kB).

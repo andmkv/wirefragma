@@ -45,7 +45,8 @@
 <ul>
   <li>Units are logical pixels; origin at the canvas top-left, y grows down; coordinates are absolute, also for nested elements.</li>
   <li><code>layers[0]</code> is the front-most layer; within a layer, later elements draw on top. Children follow their parent and use its layer.</li>
-  <li>Optional per-type fields: <code>items</code>, <code>columns</code>, <code>textStyle</code>, <code>contentSize</code>, <code>diagram</code> (Canvas scene), <code>drawing</code> (strokes + description).</li>
+  <li>Optional per-type fields: <code>items</code>, <code>columns</code>, <code>textStyle</code>, <code>contentSize</code>, <code>diagram</code> (Canvas scene), <code>drawing</code> (strokes + description), <code>chart</code> (a Chart's dataset: <code>kind</code>, <code>title</code>, <code>categories</code>, <code>series</code>, <code>options</code>; at most 24 categories and 8 series).</li>
+  <li><code>canvas</code> may also carry an optional <code>preset</code> (a device id such as <code>phone-iphone-15</code>, used with <code>mode: "custom"</code>). It is cosmetic: an unknown id, or one that disagrees with <code>width</code> × <code>height</code>, is dropped on import.</li>
   <li>Unknown fields are preserved by the server; the editor repairs recoverable problems (missing ids, bad layer references, too-small sizes) when it loads a document.</li>
 </ul>
 <p>The complete, always-current description — every element type, limits, an example and a JSON Schema — is the <b>WIREFRAGMA schema</b> (Export dialog, or <code>get_wirefragma_schema</code> over MCP).</p>

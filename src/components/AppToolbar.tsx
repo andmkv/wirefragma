@@ -55,7 +55,7 @@ interface AppToolbarProps {
   onZoomFit: () => void;
   onZoomPreset: (scale: number) => void;
   onToggleLayers: () => void;
-  /** Active layout breakpoint: desktop keeps today's toolbar, phone collapses it (1.2). */
+  /** Active layout breakpoint: desktop keeps today's toolbar, phone collapses it (1.4). */
   layout: LayoutMode;
   /** Add / Properties drawers (overlay layouts only). */
   addOpen?: boolean;

@@ -205,7 +205,7 @@ describe("copy / paste through the internal clipboard", () => {
 });
 
 /* ------------------------------------------------------------------ *
- * Cross-wireframe clipboard store (1.2)
+ * Cross-wireframe clipboard store (1.4)
  * ------------------------------------------------------------------ */
 
 describe("clipboard payload validation", () => {
