@@ -30,7 +30,7 @@ interface EmojiTextFieldProps {
 }
 
 /**
- * A text field with an emoji button (1.4).
+ * A text field with an emoji button (1.3.5).
  *
  * One component for every text input in the editor. The button inserts the picked emoji **at the
  * caret, replacing the selection** — never the whole value — through the same `onChange` the user

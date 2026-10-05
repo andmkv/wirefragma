@@ -28,7 +28,7 @@ There is **no jsdom, no happy-dom and no browser test runner**. That shapes the 
 | Geometry / hit tests | `src/canvas/{hitTest,containerDrag}.test.ts`, `src/model/{hitAreas,overlapRegression}.test.ts` | the canonical hit test and geometry rules, including zoom independence |
 | Synthetic pointer tests | `src/canvas/{containerGesture,marqueeOverlay}.test.ts` | the real `CanvasInteraction` state machine driven through a fake canvas element |
 | Browser self-test harness | `src/dev/selfTest.ts`, run manually in a browser | the real application with real DOM events: React wiring, canvas host, panels, storage, export |
-| Browser layout measurement | `src/dev/measureLayout.ts` + `scripts/measure-layout.mjs` | the responsive shell (1.4): page scroll, canvas width, drawers, a synthetic two-finger pinch/pan and the error boundary |
+| Browser layout measurement | `src/dev/measureLayout.ts` + `scripts/measure-layout.mjs` | the responsive shell (1.3.5): page scroll, canvas width, drawers, a synthetic two-finger pinch/pan and the error boundary |
 
 Manual, human-verified checks (visual quality, real emoji rendering, an actual trackpad pinch) are
 not automated and must not be claimed as automated.
@@ -167,7 +167,7 @@ database. The MCP Inspector (`npx @modelcontextprotocol/inspector --cli …`, se
 * Visual quality of the rendered wireframe (only a few pixel-level assertions exist — the
   typography centring check in pass 10).
 * Platform emoji glyph appearance (it depends on the OS font).
-* Real trackpad pinch and multi-touch behaviour (the wheel path is tested, the 1.4 layout harness
+* Real trackpad pinch and multi-touch behaviour (the wheel path is tested, the 1.3.5 layout harness
   drives *synthetic* touch pointers in a headless browser, but the hardware is not).
 * Real `localStorage` quota behaviour, private-mode quirks and cross-browser scrolling.
 * Email delivery (only that `mail()` / SMTP accepted the message) and the translations' wording.

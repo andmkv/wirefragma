@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.4.0 — 2026-10-05
+## 1.3.5 — 2026-10-05
 
 Builds on 1.3.0 (MCP, project files, LLM-export audit). **MCP compatibility:** nothing changes on
 the server — documents are still validated against the generated JSON Schema, which was regenerated

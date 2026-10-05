@@ -44,7 +44,7 @@ define: { __WIREFRAGMA_BUILD_ID__, __WIREFRAGMA_BUILD_TIME__ }
 Relative paths mean the same `dist/` can be served from a domain root, a sub-directory or a static
 file host without configuration.
 
-Since 1.4 the build contains ~18 files in `dist/assets/` (about 1.7 MB in total on disk). A visitor
+Since 1.3.5 the build contains ~18 files in `dist/assets/` (about 1.7 MB in total on disk). A visitor
 downloads the main script and only the language chunks they use; upload the **whole** `assets/`
 folder or a language / the emoji picker will fail to load. The hashed file names make the chunks
 safe to cache for a long time (`Cache-Control: public, max-age=31536000, immutable` on

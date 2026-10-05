@@ -1,5 +1,5 @@
 /**
- * Recently used emoji (1.4).
+ * Recently used emoji (1.3.5).
  *
  * A picker convenience, stored per browser in `localStorage` — never in the project, never in the
  * cloud. Reads are defensive: anything that is not a list of plausible emoji strings is ignored.

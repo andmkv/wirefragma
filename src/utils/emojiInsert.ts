@@ -1,5 +1,5 @@
 /**
- * Pure insertion of an emoji into a text field at the caret (1.4).
+ * Pure insertion of an emoji into a text field at the caret (1.3.5).
  *
  * Kept out of the component so it can be unit-tested: every `EmojiTextField` in the editor uses
  * this one function, which is what makes "insert at the caret / replace the selection" behave

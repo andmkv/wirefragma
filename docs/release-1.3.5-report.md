@@ -1,4 +1,4 @@
-# Wirefragma 1.4 — release report
+# Wirefragma 1.3.5 — release report
 
 Branch `feature/1.2-editor-maturity`, created from `feature/canvas-and-drawing`. Seven commits:
 **one per block (A–E)**, plus two documentation commits (`f0adc78`, `3739bce`) for this report and
@@ -604,7 +604,7 @@ The release was audited after the work above; the audit changed the following.
   every button's rectangle is inside the viewport, not only the row count.
 * **The branch was based on `feature/canvas-and-drawing`, which predates 1.3.0.** `main` (MCP, project
   files, LLM-export audit, icon toolbar, shorter translations) was merged in; the release is labelled
-  **1.4.0** because 1.3.0 is already published. Conflicts were resolved in the toolbar (icon buttons
+  **1.3.5** because 1.3.0 is already published. Conflicts were resolved in the toolbar (icon buttons
   from 1.3.0 inside the new three-layout structure), `markdownExport.ts` (1.3.0's compact format,
   `chart` added to the skipped types), the dictionaries (key-level three-way merge; the new strings
   were shortened to satisfy the 1.3.0 "fits the English length" test in every language) and the docs.

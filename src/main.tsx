@@ -13,7 +13,7 @@ const reactRoot = createRoot(container);
 if (import.meta.env.DEV && INPUT_DEBUG_ENABLED) logBuildIdentity();
 
 /**
- * The UI languages other than English are lazy chunks (1.4). The stored language is fetched
+ * The UI languages other than English are lazy chunks (1.3.5). The stored language is fetched
  * *before* the first render, so a non-English user never sees a frame of untranslated text.
  */
 async function boot(): Promise<void> {

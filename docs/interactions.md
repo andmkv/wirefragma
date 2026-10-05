@@ -155,7 +155,7 @@ null` into the hit test, so a multi-selection never shows or grabs handles.
 Handle geometry, screen-pixel sizing and the Container corner-only rule are documented in
 [canvas-engine.md](./canvas-engine.md#resize-handles).
 
-## Responsive layouts (1.4)
+## Responsive layouts (1.3.5)
 
 Below 1100 px the workspace switches to overlay drawers (see
 [canvas-engine.md](./canvas-engine.md#responsive-layouts-and-drawers-12)): the same panels slide in
@@ -164,7 +164,7 @@ selecting an element never opens one. Touch targets are ≥ 40 px at those width
 pointers, and the canvas handle grab tolerance grows through the shared hit test
 (`coarsePointer`), never through a second one.
 
-## Viewport panning (view-only, 1.4)
+## Viewport panning (view-only, 1.3.5)
 
 Panning moves the scrollable viewport, never the document. It is implemented in
 `src/canvas/pan.ts` (pure maths: `panScroll`, `pinchScale`, `touchCentroid`, `touchDistance`,

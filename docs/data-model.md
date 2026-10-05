@@ -22,7 +22,7 @@ export interface WireframeProject {
 * `canvas.mode` is one of `desktop | mobile | mobileLandscape | custom`.
 * `canvas.width` / `height` are logical project units, clamped to
   `MIN_CANVAS_SIZE = 120` … `MAX_CANVAS_SIZE = 6000`.
-* `canvas.preset` (additive, optional, 1.4) names a device from the catalog in
+* `canvas.preset` (additive, optional, 1.3.5) names a device from the catalog in
   [`src/model/canvasPresets.ts`](../src/model/canvasPresets.ts) — `phone-iphone-15`,
   `tablet-ipad-landscape`, `desktop-1920x1080`, … Picking one stores `mode: "custom"` plus the id,
   exactly like a hand-typed size; the id never changes how anything is drawn, and the toolbar

@@ -118,7 +118,7 @@ Content size (px)[ 48 ]
 The button toggles `EmojiPicker`; the picker and the button share an `anchorRef`, so clicking the
 button while open closes the popover instead of immediately reopening it.
 
-## Emoji picker and catalog (1.4)
+## Emoji picker and catalog (1.3.5)
 
 `src/model/emoji.ts` is the **generated** catalog: every fully-qualified emoji of a recent Unicode
 version, base glyphs only (**no skin-tone variants**), including flags and ZWJ sequences that render
@@ -128,7 +128,7 @@ as one glyph — currently **1914 entries**. The data is produced by the dev-onl
 
 Everything is **lazily loaded** so the base chunk stays small on shared hosting:
 
-| Chunk | Content | gzip (1.4) |
+| Chunk | Content | gzip (1.3.5) |
 | --- | --- | --- |
 | `glyphs.generated-*.js` | the 1914 glyphs + their category | ~5 kB |
 | `names.en.generated-*.js` | English names + keywords + the curated extras | ~33 kB |
@@ -145,7 +145,7 @@ names and keywords; every word of a multi-word query must match. The **Recent** 
 only when non-empty) lists the last 24 picks from `localStorage` key `wirefragma.emoji.recent` —
 never part of a project, never in the cloud.
 
-The pre-1.4 hand-written list is gone, but its convenience keywords (`rocket`, `cart`, `warning`,
+The pre-1.3.5 hand-written list is gone, but its convenience keywords (`rocket`, `cart`, `warning`,
 …) survive as English extras in `EMOJI_KEYWORD_EXTRAS`, so existing habits keep working.
 
 ```ts

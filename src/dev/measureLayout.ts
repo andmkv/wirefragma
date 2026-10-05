@@ -1,7 +1,7 @@
 /**
  * Development-only layout measurement harness (`?measure=1`).
  *
- * It exists for the responsive release (1.4, D7): the numbers a browser actually computes are the
+ * It exists for the responsive release (1.3.5, D7): the numbers a browser actually computes are the
  * only honest evidence that "the canvas gets the full width", "no page scroll" and "every drawer
  * opens and closes" hold. The results are written as JSON into a hidden `<pre id="dsh-layout-measure">`
  * element, which `scripts/measure-layout.mjs` reads back from a headless browser (`--dump-dom`).

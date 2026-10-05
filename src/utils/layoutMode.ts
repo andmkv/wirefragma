@@ -1,5 +1,5 @@
 /**
- * Layout breakpoints (1.4).
+ * Layout breakpoints (1.3.5).
  *
  * The three modes drive both CSS and JS:
  *

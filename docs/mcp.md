@@ -273,7 +273,7 @@ simply choose a `mode` and a size.
 
 Every model change that adds element types or documented fields must be followed by
 `npm run mcp:resources`; `src/utils/mcpResources.test.ts` and `build:deploy` fail on stale files
-(1.4 regenerated them for `chart`).
+(1.3.5 regenerated them for `chart`).
 
 ## Limits
 

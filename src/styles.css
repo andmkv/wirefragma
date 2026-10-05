@@ -3210,7 +3210,7 @@ body.is-resizing-panel * {
 }
 
 /* ====================================================================== *
- * Responsive shell (1.4)                                                  *
+ * Responsive shell (1.3.5)                                                *
  *                                                                        *
  * Two breakpoints, matching `src/utils/layoutMode.ts` exactly:            *
  *   ≥ 1100 px          desktop  — today's three-column workspace          *

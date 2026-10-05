@@ -163,7 +163,7 @@ export async function loadEmojiCatalog(options: EmojiCatalogOptions = {}): Promi
     };
     for (const token of primaryTokens.slice(1)) add(token);
     for (const token of englishTokens) add(token);
-    // The curated extras from the pre-1.4 hand-written list (rocket, cart, warning, …) are
+    // The curated extras from the pre-1.3.5 hand-written list (rocket, cart, warning, …) are
     // English-only conveniences layered on top of the generated keywords.
     for (const token of (extras[glyph.emoji] ?? "").split(/\s+/)) {
       if (token) add(token);

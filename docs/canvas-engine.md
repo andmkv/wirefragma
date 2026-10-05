@@ -249,7 +249,7 @@ Invariant: zoom must never alter `element.x/y/width/height`, never change `canva
 and never appear in an export. `src/utils/zoom.test.ts` and the persistence self-test pass assert
 this.
 
-## Canvas size (1.4)
+## Canvas size (1.3.5)
 
 `project.canvas.width/height` are document data; nothing in the view layer may change them except
 an explicit user gesture.
@@ -270,7 +270,7 @@ an explicit user gesture.
   (`elementsOutsideCanvas`); nothing is removed, and the user can undo.
 * A manual size (typed or dragged) switches `canvas.mode` to `custom` and drops `canvas.preset`.
 
-## Responsive layouts and drawers (1.4)
+## Responsive layouts and drawers (1.3.5)
 
 `src/utils/layoutMode.ts` holds the breakpoints as pure data (`layoutModeForWidth`) and
 `src/utils/useMediaQuery.ts` reads the *same* thresholds through `matchMedia`, so CSS and JS can
