@@ -1,6 +1,9 @@
 # Wirefragma 1.2 — release report
 
-Branch `feature/1.2-editor-maturity`, five commits (one per block, no attribution trailers):
+Branch `feature/1.2-editor-maturity`, created from `feature/canvas-and-drawing`. Seven commits:
+**one per block (A–E)**, plus two documentation commits (`f0adc78`, `3739bce`) for this report and
+the refreshed test inventory. No commit carries a Co-Authored-By / "Generated with" trailer, and
+nothing was pushed.
 
 | Commit | Block |
 | --- | --- |
@@ -9,6 +12,8 @@ Branch `feature/1.2-editor-maturity`, five commits (one per block, no attributio
 | `e3abdc7` | C — generated lazy emoji catalog, recent picks, emoji field for every text input |
 | `2f03d0f` | D — responsive layouts with overlay drawers, error boundary, lazy locales |
 | `726393c` | E — Chart element with table/CSV editor, ASCII and Markdown export, schema |
+| `f0adc78` | docs — this report + test inventory |
+| `3739bce` | docs — corrected the measured browser geometry table |
 
 Every number below was produced by a command run in this repository during the work; nothing is
 projected. Where a check could not be run, it says so explicitly.
