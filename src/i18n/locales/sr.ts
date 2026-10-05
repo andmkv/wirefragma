@@ -149,6 +149,7 @@ export const sr: Dictionary = {
   "props.moveOutTitle": "Izvadi iz roditeljskog elementa",
   "props.lockedBanner": "Zaključano — otključajte ovaj element (ili njegov sloj) na kartici Slojevi da biste ga pomerili, promenili mu veličinu ili ga obrisali.",
   "props.name": "Naziv",
+  "props.nameF2": "Naziv elementa — pritisnite F2 da pređete ovde",
   "props.label": "Oznaka",
   "props.labelSymbolPlaceholder": "🚀 ili kratak natpis",
   "props.labelPlaceholder": "Vidljivi tekst",
@@ -199,7 +200,7 @@ export const sr: Dictionary = {
   "canvas.selectedName": "izabrano: {name}",
   "canvas.layer": "sloj: {name}",
   "canvas.hint":
-    "Klik za izbor · Shift/⌘-klik za dodavanje · prevlačenje po praznom platnu za okvir izbora · prevucite izabrani objekat da pomerite skup · ručke menjaju veličinu · ⌘/Ctrl+C/V kopiranje i lepljenje · ⌘/Ctrl+D dupliranje · Del briše · strelice pomeraju (Shift = {grid}px) · ⌘/Ctrl+Z poništavanje",
+    "Klik za izbor · Shift/⌘-klik za dodavanje · prevlačenje po praznom platnu za okvir izbora · prevucite izabrani objekat da pomerite skup · ručke menjaju veličinu · ⌘/Ctrl+C/V kopiranje i lepljenje · ⌘/Ctrl+D dupliranje · Del briše · strelice pomeraju (Shift = {grid}px) · ⌘/Ctrl+Z poništavanje · Space ili prevlačenje srednjim tasterom pomera prikaz · ⌘/Ctrl+A izbor svega · ⌘/Ctrl+X iseci · F2 polje naziva",
 
   // ------------------------------------------------------------ emoji picker
   "emoji.picker": "Birač emodžija",
@@ -245,6 +246,11 @@ export const sr: Dictionary = {
   "toast.pastedText": "nalepljeni tekst",
   "toast.llmCopied": "Markdown spreman za LLM je kopiran u međuspremnik.",
   "toast.copyFailed": "Kopiranje nije uspelo — koristite Izvoz.",
+  "toast.cut_one": "Isečen {count} objekat — ⌘/Ctrl+V za lepljenje.",
+  "toast.cut_few": "Isečena {count} objekta — ⌘/Ctrl+V za lepljenje.",
+  "toast.cut_other": "Isečeno {count} objekata — ⌘/Ctrl+V za lepljenje.",
+  "toast.cutPartial": "Isečeno {copied} od {total} objekata — zaključani ostaju.",
+  "toast.selectNone": "Nema šta da se izabere — svi elementi su skriveni ili zaključani.",
   "count.elements_one": "{count} element",
   "count.elements_few": "{count} elementa",
   "count.elements_other": "{count} elemenata",

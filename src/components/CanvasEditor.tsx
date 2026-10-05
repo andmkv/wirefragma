@@ -8,8 +8,16 @@ import { CanvasInteraction, type InteractionState } from "../canvas/interaction"
 import { renderScene, type PreviewOverride } from "../canvas/render";
 import { createTransform, rectContains, screenToWorld, worldRectToScreen, type Point, type Rect, type ViewTransform } from "../canvas/transform";
 import { useT } from "../i18n";
-import { fitScale, scaleForMode, zoomFromWheel, type ZoomMode } from "../utils/zoom";
+import { fitScale, scaleForMode, zoomFromWheel, MAX_ZOOM, MIN_ZOOM, type ZoomMode } from "../utils/zoom";
 import { isEditingTextInput } from "../utils/keyboard";
+import {
+  anchorScrollFor,
+  panScroll,
+  pinchScale,
+  touchCentroid,
+  touchDistance,
+  type TouchPoint
+} from "../canvas/pan";
 
 interface CanvasEditorProps {
   project: WireframeProject;
@@ -112,6 +120,17 @@ export function CanvasEditor({
   const [hover, setHover] = useState<{ sceneId: string | null; badgeId: string | null }>({ sceneId: null, badgeId: null });
   const [pointerDown, setPointerDown] = useState(false);
 
+  /**
+   * Viewport panning (view-only, see `canvas/pan.ts`). `spaceHeld` is mirrored in a ref so the
+   * pointer listeners never have to be re-registered while Space is held, and `panActiveRef` lets
+   * the pan cursor win over the engine's hover cursor.
+   */
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  const [panning, setPanning] = useState(false);
+  const spaceHeldRef = useRef(false);
+  const panActiveRef = useRef(false);
+  spaceHeldRef.current = spaceHeld;
+
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -186,6 +205,8 @@ export function CanvasEditor({
       },
       requestRender: render,
       setCursor: (cursor) => {
+        // The pan cursor (grab / grabbing) wins while Space is held or a pan is running.
+        if (panActiveRef.current) return;
         canvas.style.cursor = cursor;
       }
     });
@@ -337,6 +358,203 @@ export function CanvasEditor({
     node.addEventListener("wheel", handleWheel, { passive: false });
     return () => node.removeEventListener("wheel", handleWheel);
   }, [onUserZoom, scale]);
+
+  /* ------------------------------------------------------------- panning (A1) */
+
+  /**
+   * Space is a pan modifier the user *holds*: it never reaches the engine (the pointerdown
+   * listener below stops the event in the capture phase) and it never scrolls the page.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== " " && event.code !== "Space") return;
+      if (isEditingTextInput(event.target)) return;
+      const target = event.target as HTMLElement | null;
+      // Only swallow the browser's page scroll while the user works in the canvas column;
+      // inside a panel the space bar keeps scrolling that panel.
+      if (target === document.body || target?.closest?.(".canvas-column")) {
+        event.preventDefault();
+      }
+      if (!event.repeat) setSpaceHeld(true);
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key !== " " && event.code !== "Space") return;
+      setSpaceHeld(false);
+    };
+    // A held Space must not survive the window losing focus (its keyup would never arrive).
+    const onBlur = () => setSpaceHeld(false);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const active = panning || spaceHeld;
+    panActiveRef.current = active;
+    canvas.style.cursor = active
+      ? panning
+        ? "grabbing"
+        : "grab"
+      : (interactionRef.current?.getCursor() ?? "default");
+  }, [panning, spaceHeld]);
+
+  /**
+   * Pan / pinch for the scrollable viewport. This only ever writes `scrollLeft` / `scrollTop` of
+   * `.canvas-viewport`: the document, the transform, the geometry and the hit test are untouched,
+   * no history transaction is opened and nothing is serialized.
+   *
+   *  - middle mouse button drag, and Space + left drag (the screenshot-tool gesture);
+   *  - touch: a second finger turns the gesture into a two-finger pan + pinch anchored at the
+   *    centroid. One finger keeps the engine's marquee semantics, and a second finger arriving
+   *    during a document-changing gesture is ignored so its history step is never orphaned.
+   */
+  useEffect(() => {
+    const node = scrollRef.current;
+    const canvas = canvasRef.current;
+    if (!node || !canvas) return;
+
+    /** A viewport drag: the last pointer position seen. */
+    let pan: { pointerId: number; x: number; y: number } | null = null;
+    /** Two-finger gesture: the content point that must stay under the moving centroid. */
+    let pinch: { contentX: number; contentY: number; distance: number; scale: number } | null = null;
+    const touches = new Map<number, TouchPoint>();
+
+    const startPinch = () => {
+      const points = [...touches.values()];
+      if (points.length < 2) return;
+      const rect = canvas.getBoundingClientRect();
+      const centroid = touchCentroid(points);
+      const scale = latest.current.transform.scale;
+      pinch = {
+        contentX: (centroid.x - rect.left) / scale,
+        contentY: (centroid.y - rect.top) / scale,
+        distance: touchDistance(points),
+        scale
+      };
+    };
+
+    /** Put the grabbed content point back under the pointer, at `scale`. */
+    const anchor = (centroid: TouchPoint, scale: number) => {
+      if (!pinch) return;
+      const rect = canvas.getBoundingClientRect();
+      const next = anchorScrollFor(
+        centroid,
+        { x: pinch.contentX, y: pinch.contentY },
+        scale,
+        rect.left,
+        rect.top,
+        { left: node.scrollLeft, top: node.scrollTop }
+      );
+      node.scrollLeft = next.left;
+      node.scrollTop = next.top;
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (touches.size !== 2) return;
+        const kind = interactionRef.current?.getGestureKind() ?? "none";
+        // Never hijack a document-changing gesture: its history transaction would be orphaned.
+        // A marquee only changes the selection, so it may be dropped.
+        if (kind === "move" || kind === "resize") return;
+        interactionRef.current?.cancel();
+        startPinch();
+        return;
+      }
+      const middle = event.button === 1;
+      const spaceDrag = event.button === 0 && spaceHeldRef.current;
+      if (!middle && !spaceDrag) return;
+      // Capture-phase stopPropagation keeps the canvas engine from ever seeing this pointerdown,
+      // so a pan can neither start nor cancel an element drag.
+      event.preventDefault();
+      event.stopPropagation();
+      pan = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+      setPanning(true);
+      try {
+        node.setPointerCapture(event.pointerId);
+      } catch {
+        /* synthetic events cannot be captured */
+      }
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        if (!touches.has(event.pointerId)) return;
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (!pinch) return;
+        const points = [...touches.values()];
+        const centroid = touchCentroid(points);
+        const next = pinchScale(pinch.scale, pinch.distance, touchDistance(points), MIN_ZOOM, MAX_ZOOM);
+        anchor(centroid, next);
+        if (Math.abs(next - latest.current.transform.scale) > 1e-4) {
+          // Goes through the same anchoring path as the wheel / trackpad pinch.
+          pendingZoomRef.current = {
+            pointerX: centroid.x,
+            pointerY: centroid.y,
+            contentX: pinch.contentX,
+            contentY: pinch.contentY
+          };
+          onUserZoom(next);
+        }
+        return;
+      }
+      if (!pan || pan.pointerId !== event.pointerId) return;
+      const next = panScroll(
+        { left: node.scrollLeft, top: node.scrollTop },
+        { dx: event.clientX - pan.x, dy: event.clientY - pan.y }
+      );
+      pan.x = event.clientX;
+      pan.y = event.clientY;
+      node.scrollLeft = next.left;
+      node.scrollTop = next.top;
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        touches.delete(event.pointerId);
+        if (touches.size < 2) pinch = null;
+        return;
+      }
+      if (!pan || pan.pointerId !== event.pointerId) return;
+      pan = null;
+      setPanning(false);
+      try {
+        node.releasePointerCapture(event.pointerId);
+      } catch {
+        /* the pointer was already released */
+      }
+    };
+
+    // Middle-click: no autoscroll, no paste-on-middle-click.
+    const onMouseDown = (event: MouseEvent) => {
+      if (event.button === 1) event.preventDefault();
+    };
+    const onAuxClick = (event: MouseEvent) => {
+      if (event.button === 1) event.preventDefault();
+    };
+
+    node.addEventListener("pointerdown", onPointerDown, true);
+    node.addEventListener("mousedown", onMouseDown, true);
+    node.addEventListener("auxclick", onAuxClick, true);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      node.removeEventListener("pointerdown", onPointerDown, true);
+      node.removeEventListener("mousedown", onMouseDown, true);
+      node.removeEventListener("auxclick", onAuxClick, true);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [onUserZoom]);
 
   /* ------------------------------------------------------- dev diagnostics */
 

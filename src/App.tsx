@@ -12,7 +12,7 @@ import { LayersPanel } from "./components/LayersPanel";
 import { LeftPanel } from "./components/LeftPanel";
 import { usePanelFlag } from "./components/PanelResize";
 import { useT, type TranslationKey, type TranslationParams } from "./i18n";
-import { PropertiesPanel } from "./components/PropertiesPanel";
+import { PROPERTIES_NAME_FIELD_ID, PropertiesPanel } from "./components/PropertiesPanel";
 import {
   CANVAS_PRESETS,
   ELEMENT_DEFAULTS,
@@ -50,12 +50,14 @@ import {
 } from "./model/project";
 import { createDiagramData } from "./model/diagram";
 import { createDrawingData } from "./model/drawing";
-import { copySelection, pasteClipboard, type WirefragmaClipboard } from "./model/clipboard";
+import { copySelection, pasteClipboard } from "./model/clipboard";
+import { clipboardStore } from "./model/clipboardStore";
 import {
   EMPTY_SELECTION,
   deletableSelection,
   movableSelection,
   normalizeSelectionState,
+  selectableElements,
   selectionEquals,
   selectionOf,
   singleSelection,
@@ -132,13 +134,16 @@ export default function App({
   }, [history, onHistoryChange]);
   const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
   /**
-   * Internal clipboard — core copy/paste never depends on OS clipboard permissions, and it is a
-   * ref rather than state so Cmd+C and Cmd+V stay correct even when they land in the same task
-   * (nothing in the UI renders from the clipboard).
+   * Internal clipboard — core copy/paste never depends on OS clipboard permissions.
+   *
+   * The payload lives in a module-level store (`model/clipboardStore.ts`) rather than in this
+   * component: the signed-in workspace remounts `<App key=…>` per wireframe, so a ref would be
+   * lost on every switch. It stays out of React state (nothing in the UI renders from it), and
+   * only the cascade counter is per editor — keyed by the payload's token so a fresh copy
+   * restarts the cascade exactly like the old per-App ref did.
    */
-  const clipboardRef = useRef<WirefragmaClipboard | null>(null);
-  /** How many times the current clipboard payload has been pasted (drives the cascade). */
   const pasteCounterRef = useRef(0);
+  const pasteTokenRef = useRef<string | null>(null);
   const [activeLayerId, setActiveLayerId] = useState<string | null>(boot.project.layers[0]?.id ?? null);
   const [dialog, setDialog] = useState<Dialog>("none");
   /** Layer the Export dialog is scoped to (Layers "…" → Export layer), or null for the whole project. */
@@ -432,18 +437,21 @@ export default function App({
   const handleCopy = useCallback(() => {
     const payload = copySelection(project, selection.ids);
     if (!payload) return;
-    clipboardRef.current = payload;
+    clipboardStore.set(payload);
     pasteCounterRef.current = 0;
+    pasteTokenRef.current = null;
     flash(
       tr("toast.copied", { count: payload.elements.length })
     );
   }, [flash, project, selection.ids]);
 
   const handlePaste = useCallback(() => {
-    const clipboard = clipboardRef.current;
+    const clipboard = clipboardStore.get();
     if (!clipboard || clipboard.elements.length === 0) return;
     // Each paste cascades one step further, so repeated pastes never land on top of each other.
-    const pasteIndex = pasteCounterRef.current + 1;
+    // A different payload (a new copy, or a copy made in another wireframe/tab) restarts it.
+    const pasteIndex = pasteTokenRef.current === clipboard.token ? pasteCounterRef.current + 1 : 1;
+    pasteTokenRef.current = clipboard.token;
     pasteCounterRef.current = pasteIndex;
     const result = pasteClipboard(project, clipboard, { pasteIndex, activeLayerId });
     if (result.newIds.length === 0) return;
@@ -464,6 +472,50 @@ export default function App({
       })
     );
   }, [activeLayerId, flash, mutate, project]);
+
+  /**
+   * Cmd/Ctrl+X: copy the deletable members of the selection, then delete them. Copying and
+   * deleting happen in one pass, so the whole cut is exactly one history step, and locked
+   * members are skipped (they stay in the document and outside the payload).
+   */
+  const handleCut = useCallback(() => {
+    if (selection.ids.length === 0) return;
+    const removable = deletableSelection(project, selection.ids);
+    if (removable.length === 0) {
+      flash(selection.ids.length === 1 ? tr("toast.deleteLockedOne") : tr("toast.deleteLockedAll"));
+      return;
+    }
+    const payload = copySelection(project, removable);
+    if (!payload) return;
+    clipboardStore.set(payload);
+    pasteCounterRef.current = 0;
+    pasteTokenRef.current = null;
+    mutate((current) => removeElements(current, removable), { coalesceKey: null });
+    setSelection(EMPTY_SELECTION);
+    flash(
+      removable.length < selection.ids.length
+        ? tr("toast.cutPartial", { copied: payload.elements.length, total: selection.ids.length })
+        : tr("toast.cut", { count: payload.elements.length })
+    );
+  }, [flash, mutate, project, selection.ids]);
+
+  /** Cmd/Ctrl+A: every visible, unlocked element — the same rule the marquee uses. */
+  const handleSelectAll = useCallback(() => {
+    const ids = selectableElements(project);
+    if (ids.length === 0) {
+      flash(tr("toast.selectNone"));
+      return;
+    }
+    setSelection(selectionOf(ids));
+  }, [flash, project]);
+
+  /** F2: jump to the Name field of the single selected element. */
+  const focusNameField = useCallback(() => {
+    const input = document.getElementById(PROPERTIES_NAME_FIELD_ID);
+    if (!(input instanceof HTMLInputElement)) return;
+    input.focus();
+    input.select();
+  }, []);
 
   /* --------------------------------------------------- canvas gesture commits */
 
@@ -744,8 +796,9 @@ export default function App({
     const next = createBlankProject();
     setHistory(resetHistory(next));
     setSelection(EMPTY_SELECTION);
-    clipboardRef.current = null;
-    pasteCounterRef.current = 0;
+    // The clipboard deliberately survives New/Import: it is a cross-wireframe clipboard now and
+    // behaves like the OS clipboard (replacing a document never empties it). Pasting into a
+    // project that has no matching layer falls back to the active layer, so it stays safe.
     setActiveLayerId(next.layers[0]?.id ?? null);
     setDialog("none");
     flash(tr("toast.newProject"));
@@ -769,8 +822,7 @@ export default function App({
         const imported = projectFromText(text);
         setHistory(resetHistory(imported));
         setSelection(EMPTY_SELECTION);
-        clipboardRef.current = null;
-        pasteCounterRef.current = 0;
+        // See startBlankProject: the cross-wireframe clipboard survives an import.
         setActiveLayerId(imported.layers[0]?.id ?? null);
         flash(
           tr("toast.imported", {
@@ -875,6 +927,24 @@ export default function App({
         handlePaste();
         return;
       }
+      if (mod && key.toLowerCase() === "x") {
+        // handleCut skips locked members itself and explains when nothing is left.
+        if (selectedIds.length === 0) return;
+        event.preventDefault();
+        handleCut();
+        return;
+      }
+      if (mod && key.toLowerCase() === "a") {
+        event.preventDefault();
+        handleSelectAll();
+        return;
+      }
+      if (key === "F2") {
+        if (selectedIds.length !== 1) return;
+        event.preventDefault();
+        focusNameField();
+        return;
+      }
       if (key === "Delete" || key === "Backspace") {
         if (selectedIds.length === 0) return;
         event.preventDefault();
@@ -907,12 +977,15 @@ export default function App({
   }, [
     clearSelection,
     flash,
+    focusNameField,
     gridSize,
     handleCopy,
+    handleCut,
     handleDelete,
     handleDuplicate,
     handlePaste,
     handleRedo,
+    handleSelectAll,
     handleUndo,
     handleZoomFit,
     handleZoomIn,

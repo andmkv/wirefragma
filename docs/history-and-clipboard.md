@@ -111,7 +111,11 @@ Invariant: duplication never duplicates a **layer**. It only ever produces eleme
 ```ts
 export const CLIPBOARD_OFFSET = 16;
 
-interface WirefragmaClipboard { elements: WireframeElement[] }
+interface WirefragmaClipboard {
+  elements: WireframeElement[];
+  /** layerId -> layer name of the copy source; used when pasting into another wireframe. */
+  layerNames?: Record<string, string>;
+}
 
 copySelection(project, ids): WirefragmaClipboard | null
 pasteClipboard(project, clipboard, { pasteIndex, activeLayerId }): { project; newIds }
@@ -120,9 +124,29 @@ pasteClipboard(project, clipboard, { pasteIndex, activeLayerId }): { project; ne
 ### Why an internal clipboard
 
 Core copy/paste must work without OS clipboard permissions, without a secure context and without
-user prompts. `Cmd/Ctrl+C` / `Cmd/Ctrl+V` therefore use an in-memory payload owned by
-`App.tsx` (`clipboardRef`), which is why paste works in `http://localhost` dev, in `file://`
-contexts and in embedded browsers alike.
+user prompts. `Cmd/Ctrl+C` / `Cmd/Ctrl+V` therefore use an in-memory payload, which is why paste
+works in `http://localhost` dev, in `file://` contexts and in embedded browsers alike.
+
+### Cross-wireframe store (`src/model/clipboardStore.ts`)
+
+The signed-in workspace remounts `<App key=…>` for every wireframe, so a payload held in an
+`App` ref would die on every switch. It lives in a **module-level store** instead:
+
+* `createClipboardStore(storage)` returns `{ get(), set(payload) }`; the editor uses the shared
+  `clipboardStore`, which is backed by `localStorage` (`wirefragma.clipboard`).
+* The store is **not** React state — nothing in the UI renders from the clipboard, so `Cmd+C`
+  followed by `Cmd+V` in the same task still works.
+* Every `set()` gets a fresh `token`; `App` compares it with the token of the previous paste and
+  restarts the cascade (`pasteIndex = 1`) when the payload changed. Inside one wireframe the
+  cascade behaviour is therefore exactly what it was before this store existed.
+* Storage is best-effort: writes and reads are wrapped in `try/catch`, payloads are re-validated
+  on read (unknown element types, missing geometry, non-finite numbers and oversized payloads are
+  rejected), and a payload larger than `MAX_STORED_CLIPBOARD_CHARS` (64 K) stays in memory and is
+  not mirrored. That is what makes a copy in one **tab** pasteable in another tab of the same
+  origin — not between origins, and never in another application.
+* **New / Import keep the clipboard.** Replacing the document no longer empties it, because the
+  clipboard is cross-wireframe now and behaves like the OS clipboard. This is safe: pasting into a
+  project that has no matching layer falls back to the active layer and never creates layers.
 
 The **OS** clipboard is used only for the explicit "Copy" / "Copy for LLM" buttons, through
 `src/utils/clipboard.ts::copyText`, which prefers `navigator.clipboard.writeText` and falls back
@@ -139,8 +163,9 @@ to a hidden `<textarea>` + `document.execCommand("copy")`.
 `pasteClipboard`:
 
 * creates a new `id` for every element and a unique `name` (`uniqueName`);
-* keeps each source's `layerId` **when that layer still exists**, otherwise falls back to
-  `activeLayerId`, otherwise to `project.layers[0]`;
+* keeps each source's `layerId` **when that layer still exists**; otherwise it looks for a layer
+  with the same **name** (`layerNames` in the payload, i.e. a paste from another wireframe); and
+  only then falls back to `activeLayerId`, then to `project.layers[0]`. Layers are never created;
 * offsets every element by `CLIPBOARD_OFFSET * pasteIndex`, where `pasteIndex` is
   `1` for the first paste, `2` for the next, … so repeated pastes **cascade** (+16, +32, +48, …)
   instead of stacking identical copies;
@@ -150,16 +175,17 @@ to a hidden `<textarea>` + `document.execCommand("copy")`.
 * returns the ids of the pasted **roots**, which `App` turns into the new selection (their
   children come along).
 
-`App` keeps `pasteCounterRef`, resets it on every copy, and increments it on every paste. Copy and
-paste both live in a **ref**, not in React state, so a `Cmd+C` immediately followed by `Cmd+V`
-works even when both land in the same task, and nothing in the UI renders from the clipboard.
+`App` keeps the cascade counter (`pasteCounterRef`) plus the token of the payload it belongs to
+(`pasteTokenRef`): a copy resets both, and a paste increments the counter only while the payload is
+unchanged. The payload itself lives in `clipboardStore` (see above), so `Cmd+C` immediately
+followed by `Cmd+V` works even when both land in the same task.
 
 ### Shortcut safety
 
 `src/utils/keyboard.ts::isEditingTextInput(target)` guards every global shortcut:
 `INPUT` of any type except button/checkbox/radio/submit/range/color, `TEXTAREA`, `SELECT` and
-`contentEditable`. While the user is typing, `Cmd+C`, `Cmd+V`, `Cmd+D`, `Delete`, arrows and zoom
-keys are ignored and the browser keeps its native behaviour.
+`contentEditable`. While the user is typing, `Cmd+C`, `Cmd+V`, `Cmd+X`, `Cmd+A`, `Cmd+D`, `F2`,
+`Space`, `Delete`, arrows and zoom keys are ignored and the browser keeps its native behaviour.
 
 Invariant: never bypass `isEditingTextInput` when adding a global shortcut.
 

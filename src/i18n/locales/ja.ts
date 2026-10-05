@@ -146,6 +146,7 @@ export const ja: Dictionary = {
   "props.moveOutTitle": "親要素の外に移動",
   "props.lockedBanner": "ロックされています。移動・サイズ変更・削除するには、レイヤータブでこの要素（またはそのレイヤー）のロックを解除してください。",
   "props.name": "名前",
+  "props.nameF2": "要素名 — F2 でここに移動",
   "props.label": "ラベル",
   "props.labelSymbolPlaceholder": "🚀 または短いキャプション",
   "props.labelPlaceholder": "表示テキスト",
@@ -195,7 +196,7 @@ export const ja: Dictionary = {
   "canvas.selectedName": "選択中: {name}",
   "canvas.layer": "レイヤー: {name}",
   "canvas.hint":
-    "クリックで選択 · Shift/⌘＋クリックで追加 · 空白部分をドラッグで範囲選択 · 選択中のオブジェクトをドラッグでまとめて移動 · ハンドルでサイズ変更 · ⌘/Ctrl+C/V でコピー＆ペースト · ⌘/Ctrl+D で複製 · Del で削除 · 矢印キーで微調整（Shift = {grid}px） · ⌘/Ctrl+Z で元に戻す",
+    "クリックで選択 · Shift/⌘＋クリックで追加 · 空白部分をドラッグで範囲選択 · 選択中のオブジェクトをドラッグでまとめて移動 · ハンドルでサイズ変更 · ⌘/Ctrl+C/V でコピー＆ペースト · ⌘/Ctrl+D で複製 · Del で削除 · 矢印キーで微調整（Shift = {grid}px） · ⌘/Ctrl+Z で元に戻す · スペースまたは中ボタンのドラッグで表示を移動 · ⌘/Ctrl+A で全選択 · ⌘/Ctrl+X で切り取り · F2 で名前フィールド",
 
   // ------------------------------------------------------------ emoji picker
   "emoji.picker": "絵文字ピッカー",
@@ -237,6 +238,10 @@ export const ja: Dictionary = {
   "toast.pastedText": "貼り付けたテキスト",
   "toast.llmCopied": "LLM 向けの Markdown をクリップボードにコピーしました。",
   "toast.copyFailed": "コピーに失敗しました。代わりにエクスポートを使用してください。",
+  "toast.cut_one": "{count} 個のオブジェクトを切り取りました — ⌘/Ctrl+V で貼り付け。",
+  "toast.cut_other": "{count} 個のオブジェクトを切り取りました — ⌘/Ctrl+V で貼り付け。",
+  "toast.cutPartial": "{total} 個中 {copied} 個を切り取りました — ロックされたものは残ります。",
+  "toast.selectNone": "選択できるものがありません — すべての要素が非表示かロックされています。",
   "count.elements_one": "{count} 個の要素",
   "count.elements_other": "{count} 個の要素",
   "count.layers_one": "{count} レイヤー",

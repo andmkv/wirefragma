@@ -28,6 +28,9 @@ interface ChangeOptions {
   coalesceKey?: string | null;
 }
 
+/** DOM id of the element Name input; F2 in the editor focuses it. */
+export const PROPERTIES_NAME_FIELD_ID = "props-element-name";
+
 interface PropertiesPanelProps {
   project: WireframeProject;
   /** The primary selected element, or null when nothing is selected. */
@@ -394,9 +397,11 @@ export function PropertiesPanel({
         <label className="field">
           <span className="field-label">{t("props.name")}</span>
           <input
+            id={PROPERTIES_NAME_FIELD_ID}
             type="text"
             value={element.name}
             placeholder="saveButton"
+            title={t("props.nameF2")}
             onChange={(event) =>
               onChangeElement({ name: event.target.value }, { coalesceKey: "name" })
             }

@@ -132,6 +132,17 @@ export function elementRect(element: WireframeElement): SelectionRect {
 }
 
 /**
+ * Every element a "select all" may pick: visible and unlocked, in document (back-to-front) order.
+ * Deliberately the same predicate the marquee uses, so Cmd/Ctrl+A and a rubber band over the whole
+ * canvas can never disagree about what is selectable.
+ */
+export function selectableElements(project: WireframeProject): string[] {
+  return project.elements
+    .filter((element) => effectiveVisible(project, element) && !effectiveLocked(project, element))
+    .map((element) => element.id);
+}
+
+/**
  * Marquee selection: every visible, unlocked element whose bounds intersect the rectangle,
  * in document (back-to-front) order.
  */

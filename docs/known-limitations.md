@@ -68,8 +68,10 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
 
 ## Clipboard
 
-* Object copy/paste uses an **internal** clipboard. Elements cannot be pasted between browser tabs,
-  between origins or into another application.
+* Object copy/paste uses an **internal** clipboard. Since 1.2 the payload survives switching
+  wireframes and is mirrored into `localStorage`, so it can also be pasted in another tab of the
+  **same origin** — but not between origins, in another browser profile, or into another
+  application. A payload larger than 64 K stays in memory and is not shared across tabs.
 * Only plain text goes to the OS clipboard (the Markdown export, "Copy for LLM"). The OS clipboard
   path can be unavailable over `file://` or without permission, which is exactly why object
   copy/paste never depends on it.

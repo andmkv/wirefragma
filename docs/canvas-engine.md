@@ -233,6 +233,15 @@ Zoom lives in `CanvasEditor` + `src/utils/zoom.ts` and is **view state only**.
   each scale change `CanvasEditor` reads the pending pointer position and adjusts `scrollLeft` /
   `scrollTop` in `useLayoutEffect`.
 
+### Panning
+
+Panning (middle-drag, `Space` + left drag, two-finger touch drag/pinch) is **view-only**: it
+changes `scrollLeft` / `scrollTop` of `.canvas-viewport` and nothing else. The maths lives in
+`src/canvas/pan.ts` (`panScroll`, `pinchScale`, `touchCentroid`, `touchDistance`,
+`anchorScrollFor`); `anchorScrollFor` deliberately reproduces the zoom-anchoring correction above
+so a pinch cannot introduce a second anchoring formula. See
+[interactions.md](./interactions.md#viewport-panning-view-only-12).
+
 Invariant: zoom must never alter `element.x/y/width/height`, never change `canvas.width/height`,
 and never appear in an export. `src/utils/zoom.test.ts` and the persistence self-test pass assert
 this.

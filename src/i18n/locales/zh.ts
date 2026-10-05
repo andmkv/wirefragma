@@ -146,6 +146,7 @@ export const zh: Dictionary = {
   "props.moveOutTitle": "移出父元素",
   "props.lockedBanner": "已锁定——请在“图层”标签页中解锁此元素（或其图层）后再移动、调整大小或删除。",
   "props.name": "名称",
+  "props.nameF2": "元素名称——按 F2 跳转到此处",
   "props.label": "标签",
   "props.labelSymbolPlaceholder": "🚀 或简短说明",
   "props.labelPlaceholder": "可见文本",
@@ -195,7 +196,7 @@ export const zh: Dictionary = {
   "canvas.selectedName": "已选中：{name}",
   "canvas.layer": "图层：{name}",
   "canvas.hint":
-    "单击选择 · Shift/⌘ 单击添加 · 在空白画布上拖动进行框选 · 拖动任一选中对象移动整组 · 拖动手柄调整大小 · ⌘/Ctrl+C/V 复制粘贴 · ⌘/Ctrl+D 创建副本 · Del 删除 · 方向键微调（Shift = {grid}px）· ⌘/Ctrl+Z 撤销",
+    "单击选择 · Shift/⌘ 单击添加 · 在空白画布上拖动进行框选 · 拖动任一选中对象移动整组 · 拖动手柄调整大小 · ⌘/Ctrl+C/V 复制粘贴 · ⌘/Ctrl+D 创建副本 · Del 删除 · 方向键微调（Shift = {grid}px）· ⌘/Ctrl+Z 撤销 · 空格或中键拖动平移视图 · ⌘/Ctrl+A 全选 · ⌘/Ctrl+X 剪切 · F2 名称字段",
 
   // ------------------------------------------------------------ emoji picker
   "emoji.picker": "表情符号选择器",
@@ -237,6 +238,10 @@ export const zh: Dictionary = {
   "toast.pastedText": "粘贴的文本",
   "toast.llmCopied": "已将可供 LLM 使用的 Markdown 复制到剪贴板。",
   "toast.copyFailed": "复制失败——请改用“导出”。",
+  "toast.cut_one": "已剪切 {count} 个对象——按 ⌘/Ctrl+V 粘贴。",
+  "toast.cut_other": "已剪切 {count} 个对象——按 ⌘/Ctrl+V 粘贴。",
+  "toast.cutPartial": "已剪切 {total} 个对象中的 {copied} 个——锁定的对象保留。",
+  "toast.selectNone": "没有可选择的元素——所有元素都已隐藏或锁定。",
   "count.elements_one": "{count} 个元素",
   "count.elements_other": "{count} 个元素",
   "count.layers_one": "{count} 个图层",

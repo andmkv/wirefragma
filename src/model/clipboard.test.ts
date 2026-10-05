@@ -7,6 +7,26 @@ import {
   type WireframeProject
 } from "./project";
 import { CLIPBOARD_OFFSET, copySelection, pasteClipboard } from "./clipboard";
+import {
+  CLIPBOARD_STORAGE_KEY,
+  MAX_CLIPBOARD_ELEMENTS,
+  createClipboardStore,
+  parseClipboardPayload
+} from "./clipboardStore";
+import type { StorageLike } from "../utils/storage";
+
+class MemoryStorage implements StorageLike {
+  readonly map = new Map<string, string>();
+  getItem(key: string): string | null {
+    return this.map.get(key) ?? null;
+  }
+  setItem(key: string, value: string): void {
+    this.map.set(key, value);
+  }
+  removeItem(key: string): void {
+    this.map.delete(key);
+  }
+}
 
 const LAYER_A = "layer_a";
 const LAYER_B = "layer_b";
@@ -158,5 +178,226 @@ describe("copy / paste through the internal clipboard", () => {
     expect(next.elements[0]).toEqual(doc.elements[0]);
     expect(JSON.stringify(doc)).toBe(snapshot);
     expect(JSON.stringify(payload)).toBe(payloadSnapshot);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Cross-wireframe clipboard store (1.2)
+ * ------------------------------------------------------------------ */
+
+describe("clipboard payload validation", () => {
+  it("accepts a payload produced by copySelection", () => {
+    const doc = project([element("a", 10, 10, LAYER_A)]);
+    const payload = copySelection(doc, ["a"])!;
+    const parsed = parseClipboardPayload(JSON.parse(JSON.stringify(payload)));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.elements).toHaveLength(1);
+    expect(parsed!.elements[0].id).toBe("a");
+    expect(parsed!.layerNames).toEqual({ [LAYER_A]: "Front" });
+  });
+
+  it("rejects anything that is not a usable payload", () => {
+    const good = copySelection(project([element("a", 0, 0, LAYER_A)]), ["a"])!;
+    expect(parseClipboardPayload(null)).toBeNull();
+    expect(parseClipboardPayload("nope")).toBeNull();
+    expect(parseClipboardPayload([])).toBeNull();
+    expect(parseClipboardPayload({})).toBeNull();
+    expect(parseClipboardPayload({ elements: [] })).toBeNull();
+    expect(parseClipboardPayload({ elements: "nope" })).toBeNull();
+    // Unknown element type.
+    expect(parseClipboardPayload({ elements: [{ ...good.elements[0], type: "spaceship" }] })).toBeNull();
+    // Missing geometry.
+    const { x, ...noX } = good.elements[0];
+    expect(x).toBe(0);
+    expect(parseClipboardPayload({ elements: [noX] })).toBeNull();
+    // Non-finite / degenerate geometry.
+    expect(parseClipboardPayload({ elements: [{ ...good.elements[0], width: 0 }] })).toBeNull();
+    expect(parseClipboardPayload({ elements: [{ ...good.elements[0], y: Number.NaN }] })).toBeNull();
+    // Too many elements.
+    const many = Array.from({ length: MAX_CLIPBOARD_ELEMENTS + 1 }, (_, index) => ({
+      ...good.elements[0],
+      id: `e${index}`
+    }));
+    expect(parseClipboardPayload({ elements: many })).toBeNull();
+  });
+
+  it("drops unusable layer names instead of failing the whole payload", () => {
+    const payload = copySelection(project([element("a", 0, 0, LAYER_A)]), ["a"])!;
+    const parsed = parseClipboardPayload({ ...payload, layerNames: { [LAYER_A]: 42 } });
+    expect(parsed!.layerNames).toBeUndefined();
+  });
+
+  it("repairs a payload that lacks the optional fields", () => {
+    const minimal = {
+      elements: [
+        {
+          id: "x",
+          type: "button",
+          name: "x",
+          label: "",
+          note: "",
+          x: 1,
+          y: 2,
+          width: 10,
+          height: 10,
+          layerId: "l1"
+        }
+      ]
+    };
+    const parsed = parseClipboardPayload(minimal)!;
+    expect(parsed.elements[0].visible).toBe(true);
+    expect(parsed.elements[0].locked).toBe(false);
+    expect(parsed.elements[0].zIndex).toBe(0);
+  });
+});
+
+describe("clipboard store", () => {
+  it("keeps the payload in memory when there is no storage at all", () => {
+    const store = createClipboardStore(null);
+    expect(store.get()).toBeNull();
+    const payload = copySelection(project([element("a", 0, 0, LAYER_A)]), ["a"])!;
+    store.set(payload);
+    expect(store.get()!.elements[0].id).toBe("a");
+  });
+
+  it("gives every copy its own token, so the paste cascade restarts", () => {
+    const store = createClipboardStore(null);
+    const payload = copySelection(project([element("a", 0, 0, LAYER_A)]), ["a"])!;
+    store.set(payload);
+    const first = store.get()!.token;
+    store.set(payload);
+    expect(store.get()!.token).not.toBe(first);
+  });
+
+  it("survives a remount through localStorage and is stable while unchanged", () => {
+    const storage = new MemoryStorage();
+    const editor1 = createClipboardStore(storage);
+    const payload = copySelection(project([element("a", 5, 6, LAYER_A)]), ["a"])!;
+    editor1.set(payload);
+    expect(storage.getItem(CLIPBOARD_STORAGE_KEY)).not.toBeNull();
+
+    // A second editor (another wireframe, or another tab) reads the same payload back.
+    const editor2 = createClipboardStore(storage);
+    const restored = editor2.get()!;
+    expect(restored.elements[0].id).toBe("a");
+    expect(restored.elements[0].x).toBe(5);
+    expect(restored.layerNames).toEqual({ [LAYER_A]: "Front" });
+    // The token is derived from the stored bytes, so it does not change between reads.
+    expect(editor2.get()!.token).toBe(restored.token);
+  });
+
+  it("clears memory and storage when the payload is set to null", () => {
+    const storage = new MemoryStorage();
+    const store = createClipboardStore(storage);
+    store.set(copySelection(project([element("a", 0, 0, LAYER_A)]), ["a"])!);
+    store.set(null);
+    expect(store.get()).toBeNull();
+    expect(storage.getItem(CLIPBOARD_STORAGE_KEY)).toBeNull();
+  });
+
+  it("ignores unreadable or hostile stored data", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(CLIPBOARD_STORAGE_KEY, "{not json");
+    expect(createClipboardStore(storage).get()).toBeNull();
+
+    storage.setItem(CLIPBOARD_STORAGE_KEY, JSON.stringify({ elements: [{ type: "nope" }] }));
+    expect(createClipboardStore(storage).get()).toBeNull();
+
+    storage.setItem(CLIPBOARD_STORAGE_KEY, JSON.stringify({ elements: [] }));
+    expect(createClipboardStore(storage).get()).toBeNull();
+  });
+
+  it("keeps a huge payload in memory but does not mirror it into storage", () => {
+    const storage = new MemoryStorage();
+    const store = createClipboardStore(storage);
+    const big = copySelection(
+      project([
+        element("a", 0, 0, LAYER_A, {
+          note: "x".repeat(80 * 1024)
+        })
+      ]),
+      ["a"]
+    )!;
+    store.set(big);
+    expect(store.get()!.elements[0].note.length).toBe(80 * 1024);
+    expect(storage.getItem(CLIPBOARD_STORAGE_KEY)).toBeNull();
+  });
+
+  it("copies the payload instead of aliasing the caller's array", () => {
+    const store = createClipboardStore(null);
+    const payload = copySelection(project([element("a", 0, 0, LAYER_A)]), ["a"])!;
+    store.set(payload);
+    payload.elements[0].x = 9999;
+    expect(store.get()!.elements[0].x).toBe(0);
+  });
+});
+
+describe("pasting a payload copied in another wireframe", () => {
+  function otherProject(): WireframeProject {
+    return {
+      version: PROJECT_VERSION,
+      title: "Other",
+      canvas: { mode: "desktop", width: 1200, height: 800 },
+      layers: [createLayer("Front", { id: "other_front" }), createLayer("Back", { id: "other_back" })],
+      elements: []
+    };
+  }
+
+  it("matches a missing layer by name, not by id", () => {
+    const source = project([element("a", 10, 10, LAYER_B)]);
+    const payload = copySelection(source, ["a"])!;
+    const target = otherProject();
+    const { project: next, newIds } = pasteClipboard(target, payload, {
+      pasteIndex: 1,
+      activeLayerId: "other_front"
+    });
+    // LAYER_B ("Back") does not exist, but a layer named "Back" does.
+    expect(findElement(next, newIds[0])!.layerId).toBe("other_back");
+  });
+
+  it("falls back to the active layer when neither the id nor the name matches", () => {
+    const source = project([element("a", 10, 10, LAYER_B)]);
+    const payload = copySelection(source, ["a"])!;
+    const target = otherProject();
+    target.layers = [createLayer("Only", { id: "solo" }), createLayer("Other", { id: "solo2" })];
+    const { project: next, newIds } = pasteClipboard(target, payload, {
+      pasteIndex: 1,
+      activeLayerId: "solo2"
+    });
+    expect(findElement(next, newIds[0])!.layerId).toBe("solo2");
+    expect(next.layers).toHaveLength(2);
+  });
+
+  it("keeps names unique in the target document", () => {
+    const source = project([element("a", 10, 10, LAYER_A)]);
+    const payload = copySelection(source, ["a"])!;
+    const target: WireframeProject = {
+      ...otherProject(),
+      layers: [createLayer("Front", { id: LAYER_A })],
+      elements: [element("existing", 0, 0, LAYER_A)]
+    };
+    const { project: next, newIds } = pasteClipboard(target, payload, {
+      pasteIndex: 1,
+      activeLayerId: LAYER_A
+    });
+    const names = next.elements.map((candidate) => candidate.name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(findElement(next, newIds[0])!.name).not.toBe("a");
+  });
+
+  it("drops parent links that do not exist in the target document", () => {
+    const parent = element("parent", 0, 0, LAYER_A);
+    const child = element("child", 5, 5, LAYER_A, { parentId: "parent" });
+    const source = project([parent, child]);
+    const payload = copySelection(source, ["child"])!;
+    const target: WireframeProject = {
+      ...otherProject(),
+      layers: [createLayer("Front", { id: LAYER_A })]
+    };
+    const { project: next, newIds } = pasteClipboard(target, payload, {
+      pasteIndex: 1,
+      activeLayerId: LAYER_A
+    });
+    expect(findElement(next, newIds[0])!.parentId).toBeUndefined();
   });
 });

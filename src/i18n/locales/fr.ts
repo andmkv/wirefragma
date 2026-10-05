@@ -149,6 +149,7 @@ export const fr: Dictionary = {
   "props.moveOutTitle": "Sortir du parent",
   "props.lockedBanner": "Verrouillé — déverrouillez cet élément (ou son calque) dans l’onglet Calques pour le déplacer, le redimensionner ou le supprimer.",
   "props.name": "Nom",
+  "props.nameF2": "Nom de l’élément — F2 pour y accéder",
   "props.label": "Libellé",
   "props.labelSymbolPlaceholder": "🚀 ou une courte légende",
   "props.labelPlaceholder": "Texte visible",
@@ -199,7 +200,7 @@ export const fr: Dictionary = {
   "canvas.selectedName": "sélection : {name}",
   "canvas.layer": "calque : {name}",
   "canvas.hint":
-    "Clic pour sélectionner · Shift/⌘-clic pour ajouter · glisser sur le canevas vide pour une sélection rectangulaire · glisser un objet sélectionné pour déplacer l’ensemble · poignées pour redimensionner · ⌘/Ctrl+C/V copier-coller · ⌘/Ctrl+D dupliquer · Del supprime · flèches pour décaler (Shift = {grid}px) · ⌘/Ctrl+Z annuler",
+    "Clic pour sélectionner · Shift/⌘-clic pour ajouter · glisser sur le canevas vide pour une sélection rectangulaire · glisser un objet sélectionné pour déplacer l’ensemble · poignées pour redimensionner · ⌘/Ctrl+C/V copier-coller · ⌘/Ctrl+D dupliquer · Del supprime · flèches pour décaler (Shift = {grid}px) · ⌘/Ctrl+Z annuler · Espace ou glisser avec le bouton du milieu pour déplacer la vue · ⌘/Ctrl+A tout sélectionner · ⌘/Ctrl+X couper · F2 champ du nom",
 
   // ------------------------------------------------------------ emoji picker
   "emoji.picker": "Sélecteur d’emoji",
@@ -245,6 +246,11 @@ export const fr: Dictionary = {
   "toast.pastedText": "le texte collé",
   "toast.llmCopied": "Markdown prêt pour LLM copié dans le presse-papiers.",
   "toast.copyFailed": "Échec de la copie — utilisez plutôt Exporter.",
+  "toast.cut_one": "{count} objet coupé — ⌘/Ctrl+V pour coller.",
+  "toast.cut_many": "{count} objets coupés — ⌘/Ctrl+V pour coller.",
+  "toast.cut_other": "{count} objets coupés — ⌘/Ctrl+V pour coller.",
+  "toast.cutPartial": "{copied} objets sur {total} coupés — les verrouillés restent.",
+  "toast.selectNone": "Rien à sélectionner — tous les éléments sont masqués ou verrouillés.",
   "count.elements_one": "{count} élément",
   "count.elements_many": "{count} éléments",
   "count.elements_other": "{count} éléments",

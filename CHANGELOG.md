@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.2.0 — unreleased
+
+### Editor
+- **Viewport panning**: middle-mouse drag, `Space` + left drag (grab cursor) and — on touch — a
+  two-finger drag that pans while a pinch zooms, anchored at the gesture centre. Panning only moves
+  the scroll offset of the canvas viewport: no history entry, nothing serialized, and a pan can
+  never start or cancel an element drag. The browser's middle-click autoscroll and paste are
+  suppressed, one-finger touch keeps the marquee semantic.
+- **Clipboard across wireframes**: the internal copy/paste payload moved out of `App` into a
+  module-level store that survives switching wireframes, and is mirrored into `localStorage` so it
+  also works between tabs of the same origin. Pasting into a project whose layer ids do not exist
+  matches a layer by **name** first and otherwise uses the active layer — layers are never created.
+  Copy/paste inside one wireframe behaves exactly as before (same cascade offset).
+- **New shortcuts**: `Cmd/Ctrl+A` selects every visible, unlocked element, `Cmd/Ctrl+X` cuts
+  (copy + delete in one undo step, locked members skipped) and `F2` jumps to the Name field in
+  Properties. All of them are ignored while a text field has focus. The canvas hint lists them.
+
 ## 1.1.0 — 2026-09-27
 
 ### Editor

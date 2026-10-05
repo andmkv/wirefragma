@@ -146,6 +146,7 @@ export const de: Dictionary = {
   "props.moveOutTitle": "Aus dem Elternelement herauslösen",
   "props.lockedBanner": "Gesperrt – dieses Element (oder seine Ebene) im Tab „Ebenen“ entsperren, um es zu verschieben, in der Größe zu ändern oder zu löschen.",
   "props.name": "Name",
+  "props.nameF2": "Elementname — F2 springt hierher",
   "props.label": "Beschriftung",
   "props.labelSymbolPlaceholder": "🚀 oder eine kurze Beschriftung",
   "props.labelPlaceholder": "Sichtbarer Text",
@@ -195,7 +196,7 @@ export const de: Dictionary = {
   "canvas.selectedName": "ausgewählt: {name}",
   "canvas.layer": "Ebene: {name}",
   "canvas.hint":
-    "Klicken zum Auswählen · Shift/⌘-Klick zum Hinzufügen · leeren Canvas ziehen für Auswahlrahmen · ausgewähltes Objekt ziehen verschiebt die Auswahl · Griffe ändern die Größe · ⌘/Ctrl+C/V Kopieren/Einfügen · ⌘/Ctrl+D Duplizieren · Del löscht · Pfeiltasten verschieben (Shift = {grid}px) · ⌘/Ctrl+Z Rückgängig",
+    "Klicken zum Auswählen · Shift/⌘-Klick zum Hinzufügen · leeren Canvas ziehen für Auswahlrahmen · ausgewähltes Objekt ziehen verschiebt die Auswahl · Griffe ändern die Größe · ⌘/Ctrl+C/V Kopieren/Einfügen · ⌘/Ctrl+D Duplizieren · Del löscht · Pfeiltasten verschieben (Shift = {grid}px) · ⌘/Ctrl+Z Rückgängig · Leertaste oder Mittelklick-Ziehen verschiebt die Ansicht · ⌘/Ctrl+A alles auswählen · ⌘/Ctrl+X ausschneiden · F2 Namensfeld",
 
   // ------------------------------------------------------------ emoji picker
   "emoji.picker": "Emoji-Auswahl",
@@ -237,6 +238,10 @@ export const de: Dictionary = {
   "toast.pastedText": "eingefügtem Text",
   "toast.llmCopied": "LLM-fertiges Markdown in die Zwischenablage kopiert.",
   "toast.copyFailed": "Kopieren fehlgeschlagen – stattdessen „Exportieren“ verwenden.",
+  "toast.cut_one": "{count} Objekt ausgeschnitten — ⌘/Ctrl+V zum Einfügen.",
+  "toast.cut_other": "{count} Objekte ausgeschnitten — ⌘/Ctrl+V zum Einfügen.",
+  "toast.cutPartial": "{copied} von {total} Objekten ausgeschnitten — gesperrte bleiben.",
+  "toast.selectNone": "Nichts auszuwählen — alle Elemente sind ausgeblendet oder gesperrt.",
   "count.elements_one": "{count} Element",
   "count.elements_other": "{count} Elemente",
   "count.layers_one": "{count} Ebene",

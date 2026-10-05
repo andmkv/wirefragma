@@ -929,6 +929,10 @@ body.is-resizing-panel * {
   display: flex;
   overflow: auto;
   padding: 20px;
+  /* Touch is handled by the engine (marquee) and by the viewport pan/pinch gesture, so the
+     browser must not scroll or zoom this element itself. */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .canvas-frame {

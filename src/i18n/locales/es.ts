@@ -149,6 +149,7 @@ export const es: Dictionary = {
   "props.moveOutTitle": "Sacar del elemento padre",
   "props.lockedBanner": "Bloqueado: desbloquea este elemento (o su capa) en la pestaña Capas para moverlo, cambiar su tamaño o eliminarlo.",
   "props.name": "Nombre",
+  "props.nameF2": "Nombre del elemento: pulsa F2 para ir aquí",
   "props.label": "Etiqueta",
   "props.labelSymbolPlaceholder": "🚀 o un texto corto",
   "props.labelPlaceholder": "Texto visible",
@@ -199,7 +200,7 @@ export const es: Dictionary = {
   "canvas.selectedName": "seleccionado: {name}",
   "canvas.layer": "capa: {name}",
   "canvas.hint":
-    "Clic para seleccionar · Shift/⌘+clic para añadir · arrastra sobre el lienzo vacío para seleccionar un área · arrastra cualquier objeto seleccionado para mover el conjunto · los tiradores cambian el tamaño · ⌘/Ctrl+C/V copiar y pegar · ⌘/Ctrl+D duplicar · Del elimina · las flechas desplazan (Shift = {grid}px) · ⌘/Ctrl+Z deshacer",
+    "Clic para seleccionar · Shift/⌘+clic para añadir · arrastra sobre el lienzo vacío para seleccionar un área · arrastra cualquier objeto seleccionado para mover el conjunto · los tiradores cambian el tamaño · ⌘/Ctrl+C/V copiar y pegar · ⌘/Ctrl+D duplicar · Del elimina · las flechas desplazan (Shift = {grid}px) · ⌘/Ctrl+Z deshacer · Espacio o arrastrar con el botón central desplaza la vista · ⌘/Ctrl+A seleccionar todo · ⌘/Ctrl+X cortar · F2 campo de nombre",
 
   // ------------------------------------------------------------ emoji picker
   "emoji.picker": "Selector de emojis",
@@ -245,6 +246,11 @@ export const es: Dictionary = {
   "toast.pastedText": "texto pegado",
   "toast.llmCopied": "Markdown listo para LLM copiado al portapapeles.",
   "toast.copyFailed": "No se pudo copiar: usa Exportar.",
+  "toast.cut_one": "{count} objeto cortado: ⌘/Ctrl+V para pegar.",
+  "toast.cut_many": "{count} objetos cortados: ⌘/Ctrl+V para pegar.",
+  "toast.cut_other": "{count} objetos cortados: ⌘/Ctrl+V para pegar.",
+  "toast.cutPartial": "Se cortaron {copied} de {total} objetos: los bloqueados permanecen.",
+  "toast.selectNone": "No hay nada que seleccionar: todos los elementos están ocultos o bloqueados.",
   "count.elements_one": "{count} elemento",
   "count.elements_many": "{count} elementos",
   "count.elements_other": "{count} elementos",

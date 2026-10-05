@@ -154,6 +154,7 @@ export const en = {
   "props.moveOutTitle": "Move out of the parent",
   "props.lockedBanner": "Locked — unlock this element (or its layer) in the Layers tab to move, resize or delete it.",
   "props.name": "Name",
+  "props.nameF2": "Element name — press F2 to jump here",
   "props.label": "Label",
   "props.labelSymbolPlaceholder": "🚀 or a short caption",
   "props.labelPlaceholder": "Visible text",
@@ -203,7 +204,7 @@ export const en = {
   "canvas.selectedName": "selected: {name}",
   "canvas.layer": "layer: {name}",
   "canvas.hint":
-    "Click to select · Shift/⌘-click to add · drag empty canvas to marquee · drag any selected object to move the set · handles resize · ⌘/Ctrl+C/V copy-paste · ⌘/Ctrl+D duplicate · Del deletes · arrows nudge (Shift = {grid}px) · ⌘/Ctrl+Z undo",
+    "Click to select · Shift/⌘-click to add · drag empty canvas to marquee · drag any selected object to move the set · handles resize · ⌘/Ctrl+C/V copy-paste · ⌘/Ctrl+D duplicate · Del deletes · arrows nudge (Shift = {grid}px) · ⌘/Ctrl+Z undo · Space or middle-drag pans · ⌘/Ctrl+A select all · ⌘/Ctrl+X cut · F2 name field",
 
   // ------------------------------------------------------------ emoji picker
   "emoji.picker": "Emoji picker",
@@ -245,6 +246,10 @@ export const en = {
   "toast.pastedText": "pasted text",
   "toast.llmCopied": "LLM-ready Markdown copied to the clipboard.",
   "toast.copyFailed": "Copy failed — use Export instead.",
+  "toast.cut_one": "Cut {count} object — ⌘/Ctrl+V to paste.",
+  "toast.cut_other": "Cut {count} objects — ⌘/Ctrl+V to paste.",
+  "toast.cutPartial": "Cut {copied} of {total} objects — the locked ones stay.",
+  "toast.selectNone": "Nothing to select — every element is hidden or locked.",
   "count.elements_one": "{count} element",
   "count.elements_other": "{count} elements",
   "count.layers_one": "{count} layer",

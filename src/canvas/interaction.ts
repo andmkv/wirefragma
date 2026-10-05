@@ -241,6 +241,15 @@ export class CanvasInteraction {
     return this.gesture.kind !== "none";
   }
 
+  /**
+   * Which gesture is running. `none` also covers "no document change": a marquee only changes the
+   * selection, so the viewport's two-finger pan may cancel it (and must never cancel a move or a
+   * resize, whose history transaction would be orphaned).
+   */
+  getGestureKind(): Gesture["kind"] {
+    return this.gesture.kind;
+  }
+
   /** Escape / external cancel: drop the gesture without committing. */
   cancel(): void {
     if (this.gesture.kind === "none" && this.preview === null) return;
