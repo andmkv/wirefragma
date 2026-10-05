@@ -547,7 +547,11 @@ function drawElement(c: DrawContext, element: WireframeElement, bounds: Rect, sh
       // Flat wireframe styling: the chart is drawn flat inside the element, with a hairline frame.
       drawRect(c, bounds, { fill: COLORS.surface, stroke: COLORS.line, radius: 3 });
       const data = normalizeChartData(element.chart);
+      // `drawChartScene` paints in the box's own (0,0)-based space, shared with the popup preview.
+      c.ctx.save();
+      c.ctx.translate(x, y);
       drawChartScene(c.ctx, data, { width, height }, c.px);
+      c.ctx.restore();
       return;
     }
 

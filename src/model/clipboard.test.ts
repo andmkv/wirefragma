@@ -424,3 +424,20 @@ describe("pasting a payload copied in another wireframe", () => {
     expect(findElement(next, newIds[0])!.parentId).toBeUndefined();
   });
 });
+
+describe("a chart survives the localStorage mirror", () => {
+  it("keeps the chart dataset when the payload is read back by another tab", () => {
+    const storage = new MemoryStorage();
+    const chart: WireframeElement["chart"] = {
+      kind: "line",
+      title: "Visits",
+      categories: ["Mon", "Tue"],
+      series: [{ name: "Web", values: [3, 7] }]
+    };
+    const doc = project([element("chart1", 10, 10, LAYER_A, { type: "chart", chart })]);
+    createClipboardStore(storage).set(copySelection(doc, ["chart1"]));
+    // A second store instance reads only from storage, like a fresh tab or a reload.
+    const restored = createClipboardStore(storage).get();
+    expect(restored?.elements[0].chart).toEqual(chart);
+  });
+});

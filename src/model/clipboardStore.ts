@@ -76,6 +76,8 @@ function parseElement(raw: unknown): WireframeElement | null {
   if (finite(raw.contentSize)) element.contentSize = raw.contentSize;
   if (isRecord(raw.diagram)) element.diagram = raw.diagram as unknown as WireframeElement["diagram"];
   if (isRecord(raw.drawing)) element.drawing = raw.drawing as unknown as WireframeElement["drawing"];
+  // Same for a chart: dropping it here would turn a pasted Chart into the demo dataset.
+  if (isRecord(raw.chart)) element.chart = raw.chart as unknown as WireframeElement["chart"];
   return element;
 }
 

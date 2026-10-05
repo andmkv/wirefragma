@@ -321,12 +321,14 @@ export default function App({
       const element = createElement(type, project, { x, y, layerId: targetLayer.id });
       mutate((current) => addElement(current, element), { coalesceKey: null });
       setSelection(singleSelection(element.id));
+      // In the overlay layouts the Add drawer covers the canvas: close it so the new element shows.
+      if (overlay) setDrawer((current) => (current === "add" ? "none" : current));
 
       if (!targetLayer.visible || targetLayer.locked) {
         flash(tr(targetLayer.visible ? "toast.addedToLocked" : "toast.addedToHidden", { layer: targetLayer.name }));
       }
     },
-    [activeLayerId, flash, mutate, project, snapValue]
+    [activeLayerId, flash, mutate, overlay, project, snapValue]
   );
 
   const handleElementChange = useCallback(
