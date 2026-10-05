@@ -50,6 +50,7 @@ export const sr: Dictionary = {
   "toolbar.copyForLlmTitle": "Kopirajte Markdown izvoz za LLM",
   "toolbar.export": "Izvoz",
   "toolbar.exportTitle": "Izvezite Markdown",
+  "toolbar.more": "Više",
   "toolbar.signIn": "Prijava",
   "toolbar.signInTitle": "Prijavite se da biste čuvali projekte na svom nalogu",
 
@@ -378,6 +379,12 @@ export const sr: Dictionary = {
   "error.too_large": "Ovaj wireframe je veći od 2 MB i ne može se sačuvati.",
   "error.conflict": "Ovaj wireframe je izmenjen u drugoj kartici ili na drugom uređaju.",
   "error.server": "Došlo je do greške na serveru.",
+  "error.boundaryTitle": "Došlo je do greške u editoru",
+  "error.boundaryMessage": "Tvoj dokument je i dalje tu — ništa nije izgubljeno. Pokušaj ponovo da ga prikažeš ili preuzmi trenutni projekat kao JSON.",
+  "error.boundaryContext": "Projekat: {title}",
+  "error.boundaryRetry": "Pokušaj ponovo",
+  "error.boundaryExport": "Izvezi ono što imam",
+  "error.boundaryExportHint": "Preuzima trenutni projekat kao JSON — nalepi ga u „Uvoz“ da nastaviš.",
 
   // -------------------------------------------------------------- privacy
   "privacy.title": "Politika privatnosti",

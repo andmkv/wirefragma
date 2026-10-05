@@ -155,6 +155,15 @@ null` into the hit test, so a multi-selection never shows or grabs handles.
 Handle geometry, screen-pixel sizing and the Container corner-only rule are documented in
 [canvas-engine.md](./canvas-engine.md#resize-handles).
 
+## Responsive layouts (1.2)
+
+Below 1100 px the workspace switches to overlay drawers (see
+[canvas-engine.md](./canvas-engine.md#responsive-layouts-and-drawers-12)): the same panels slide in
+over a full-width canvas, the toolbar buttons toggle them, Escape or a scrim click closes them and
+selecting an element never opens one. Touch targets are ≥ 40 px at those widths and for coarse
+pointers, and the canvas handle grab tolerance grows through the shared hit test
+(`coarsePointer`), never through a second one.
+
 ## Viewport panning (view-only, 1.2)
 
 Panning moves the scrollable viewport, never the document. It is implemented in

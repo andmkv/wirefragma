@@ -50,6 +50,7 @@ export const es: Dictionary = {
   "toolbar.copyForLlmTitle": "Copiar la exportación Markdown para un LLM",
   "toolbar.export": "Exportar",
   "toolbar.exportTitle": "Exportar Markdown",
+  "toolbar.more": "Más",
   "toolbar.signIn": "Iniciar sesión",
   "toolbar.signInTitle": "Inicia sesión para guardar proyectos en tu cuenta",
 
@@ -378,6 +379,12 @@ export const es: Dictionary = {
   "error.too_large": "Este wireframe ocupa más de 2 MB y no se puede guardar.",
   "error.conflict": "Este wireframe se modificó en otra pestaña o en otro dispositivo.",
   "error.server": "Algo salió mal en el servidor.",
+  "error.boundaryTitle": "Se ha producido un error en el editor",
+  "error.boundaryMessage": "Tu documento sigue ahí: no se ha perdido nada. Intenta mostrarlo de nuevo o descarga el proyecto actual en JSON.",
+  "error.boundaryContext": "Proyecto: {title}",
+  "error.boundaryRetry": "Reintentar",
+  "error.boundaryExport": "Exportar lo que tengo",
+  "error.boundaryExportHint": "Descarga el proyecto actual en JSON: pégalo en «Importar» para continuar.",
 
   // -------------------------------------------------------------- privacy
   "privacy.title": "Política de privacidad",

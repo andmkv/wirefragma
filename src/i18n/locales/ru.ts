@@ -50,6 +50,7 @@ export const ru: Dictionary = {
   "toolbar.copyForLlmTitle": "Скопировать Markdown-экспорт для LLM",
   "toolbar.export": "Экспорт",
   "toolbar.exportTitle": "Экспортировать в Markdown",
+  "toolbar.more": "Ещё",
   "toolbar.signIn": "Войти",
   "toolbar.signInTitle": "Войдите, чтобы сохранять проекты в аккаунте",
 
@@ -391,6 +392,12 @@ export const ru: Dictionary = {
   "error.too_large": "Этот макет больше 2 МБ, его нельзя сохранить.",
   "error.conflict": "Этот макет был изменён в другой вкладке или на другом устройстве.",
   "error.server": "На сервере что-то пошло не так.",
+  "error.boundaryTitle": "В редакторе произошла ошибка",
+  "error.boundaryMessage": "Документ на месте — ничего не потеряно. Попробуйте отрисовать его снова или скачайте текущий проект в JSON.",
+  "error.boundaryContext": "Проект: {title}",
+  "error.boundaryRetry": "Попробовать снова",
+  "error.boundaryExport": "Выгрузить то, что есть",
+  "error.boundaryExportHint": "Скачивает текущий проект в JSON — вставьте его в «Импорт», чтобы продолжить.",
 
   // -------------------------------------------------------------- privacy
   "privacy.title": "Политика конфиденциальности",

@@ -17,6 +17,7 @@ import {
   type WireframeProject
 } from "../model/project";
 import { canvasSizeFromDrag, type CanvasResizeEdge } from "../model/canvasSize";
+import { useCoarsePointer } from "../utils/useMediaQuery";
 import { hasDrawingDescription } from "../model/drawing";
 import type { SelectionState } from "../model/selection";
 import { WARNING_BADGE_PX, visibleGeometries, warningBadgeRect, type ResizeEdge } from "../canvas/geometry";
@@ -107,6 +108,7 @@ export function CanvasEditor({
   onCanvasResizeEnd
 }: CanvasEditorProps) {
   const t = useT();
+  const coarsePointer = useCoarsePointer();
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const interactionRef = useRef<CanvasInteraction | null>(null);
@@ -131,8 +133,8 @@ export function CanvasEditor({
   const transform = useMemo(() => createTransform(scale, 0, 0), [scale]);
 
   // Latest values for the imperative renderer/interaction (no re-render per pointermove).
-  const latest = useRef({ project, selection, showGrid, gridSize, transform, snapToGrid, dpr });
-  latest.current = { project, selection, showGrid, gridSize, transform, snapToGrid, dpr };
+  const latest = useRef({ project, selection, showGrid, gridSize, transform, snapToGrid, dpr, coarsePointer });
+  latest.current = { project, selection, showGrid, gridSize, transform, snapToGrid, dpr, coarsePointer };
   const callbacks = useRef({
     onSelect,
     onMove,
@@ -231,7 +233,8 @@ export function CanvasEditor({
       selection: latest.current.selection,
       snapEnabled: latest.current.snapToGrid,
       gridSize: latest.current.gridSize,
-      minSize: MIN_ELEMENT_SIZE
+      minSize: MIN_ELEMENT_SIZE,
+      coarsePointer: latest.current.coarsePointer
     });
 
     const interaction = new CanvasInteraction(canvas, state(), {
@@ -282,7 +285,8 @@ export function CanvasEditor({
       const current = latest.current;
       const world = screenToWorld(current.transform, screen.x, screen.y);
       const hit = hitTestProject(world, current.project, current.transform, {
-        handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null
+        handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null,
+        coarsePointer: current.coarsePointer
       });
       const element = hit.kind === "element" || hit.kind === "handle" ? findElement(current.project, hit.elementId) : undefined;
       return { screen, element: isSceneElement(element) ? element : undefined };
@@ -405,11 +409,12 @@ export function CanvasEditor({
       selection,
       snapEnabled: snapToGrid,
       gridSize,
-      minSize: MIN_ELEMENT_SIZE
+      minSize: MIN_ELEMENT_SIZE,
+      coarsePointer
     });
     render();
     // showGrid is read by render() through `latest`; it must still trigger a repaint on toggle.
-  }, [canvasWidth, canvasHeight, dpr, gridSize, project, render, scale, selection, showGrid, snapToGrid, transform]);
+  }, [canvasWidth, canvasHeight, coarsePointer, dpr, gridSize, project, render, scale, selection, showGrid, snapToGrid, transform]);
 
   /* ------------------------------------------------------- zoom anchoring */
 
@@ -420,10 +425,17 @@ export function CanvasEditor({
     if (!pending || !scroll || !canvas) return;
     pendingZoomRef.current = null;
     const rect = canvas.getBoundingClientRect();
-    const desiredLeft = pending.pointerX - pending.contentX * scale;
-    const desiredTop = pending.pointerY - pending.contentY * scale;
-    scroll.scrollLeft += desiredLeft - rect.left;
-    scroll.scrollTop += desiredTop - rect.top;
+    // ONE anchoring formula, shared with the touch pinch (`canvas/pan.ts`).
+    const next = anchorScrollFor(
+      { x: pending.pointerX, y: pending.pointerY },
+      { x: pending.contentX, y: pending.contentY },
+      scale,
+      rect.left,
+      rect.top,
+      { left: scroll.scrollLeft, top: scroll.scrollTop }
+    );
+    scroll.scrollLeft = next.left;
+    scroll.scrollTop = next.top;
   }, [scale]);
 
   useEffect(() => {
@@ -675,7 +687,8 @@ export function CanvasEditor({
       hitTest: (world) => {
         const current = latest.current;
         const target = hitTestProject(world, current.project, current.transform, {
-          handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null
+          handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null,
+          coarsePointer: current.coarsePointer
         });
         if (target.kind === "element" || target.kind === "handle") {
           return `${target.kind}:${nameOf(target.elementId)}`;
@@ -685,7 +698,8 @@ export function CanvasEditor({
       hitTarget: (world) => {
         const current = latest.current;
         const target = hitTestProject(world, current.project, current.transform, {
-          handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null
+          handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null,
+          coarsePointer: current.coarsePointer
         });
         if (target.kind === "element") return { kind: "element", name: nameOf(target.elementId) };
         if (target.kind === "handle") {

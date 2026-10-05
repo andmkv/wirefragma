@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   CANVAS_MODES,
   MAX_CANVAS_SIZE,
@@ -11,6 +11,7 @@ import { CANVAS_DEVICE_PRESETS, CANVAS_PRESET_GROUPS } from "../model/defaults";
 import { DraftNumberInput } from "./DraftNumberInput";
 import { useT } from "../i18n";
 import { ZOOM_PRESETS, formatZoom, type ZoomMode } from "../utils/zoom";
+import type { LayoutMode } from "../utils/layoutMode";
 
 interface AppToolbarProps {
   project: WireframeProject;
@@ -42,6 +43,16 @@ interface AppToolbarProps {
   onZoomFit: () => void;
   onZoomPreset: (scale: number) => void;
   onToggleLayers: () => void;
+  /** Active layout breakpoint: desktop keeps today's toolbar, phone collapses it (1.2). */
+  layout: LayoutMode;
+  /** Add / Properties drawers (overlay layouts only). */
+  addOpen?: boolean;
+  onToggleAdd?: () => void;
+  propertiesOpen?: boolean;
+  onToggleProperties?: () => void;
+  /** Signed-in projects drawer (overlay layouts only). */
+  projectsOpen?: boolean;
+  onToggleProjects?: () => void;
   /** False when Import lives in the projects panel (signed-in mode). */
   showImport?: boolean;
   /** Tooltip of the New button (signed-in mode creates a wireframe in the current project). */
@@ -50,7 +61,17 @@ interface AppToolbarProps {
   accountSlot?: ReactNode;
 }
 
-
+/**
+ * The application toolbar.
+ *
+ * `layout` decides how much of it is visible:
+ *
+ *  - `desktop` (≥ 1100 px): today's single row with every control, unchanged;
+ *  - `tablet` (768–1099 px): the same controls plus Add / Layers / Properties **drawer** buttons;
+ *  - `phone` (< 768 px): a compact bar — undo, redo, zoom / fit, Export and a "⋯" menu holding
+ *    everything else (New, Import, Copy for LLM, Grid, Snap, grid size, canvas size / preset).
+ *    Nothing becomes unreachable, and the drawer buttons stay visible because editing needs them.
+ */
 export function AppToolbar({
   project,
   canUndo,
@@ -79,187 +100,305 @@ export function AppToolbar({
   onZoomFit,
   onZoomPreset,
   onToggleLayers,
+  layout,
+  addOpen = false,
+  onToggleAdd,
+  propertiesOpen = false,
+  onToggleProperties,
+  projectsOpen = false,
+  onToggleProjects,
   showImport = true,
   newTitle,
   accountSlot
 }: AppToolbarProps) {
   const t = useT();
   const isCustom = project.canvas.mode === "custom";
+  const compact = layout === "phone";
+  const overlay = layout !== "desktop";
+  const showZoomFitButton = layout === "desktop";
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!compact) setMenuOpen(false);
+  }, [compact]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [menuOpen]);
+
+  /* ------------------------------------------------------ reusable controls */
+
+  const canvasSelect = (
+    <select
+      value={project.canvas.preset ?? project.canvas.mode}
+      aria-label={t("toolbar.canvas")}
+      onChange={(event) => {
+        const value = event.target.value;
+        if (isCanvasMode(value)) {
+          onModeChange(value);
+          return;
+        }
+        onPresetChange(value);
+      }}
+    >
+      <optgroup label={t("canvas.group.classic")}>
+        {CANVAS_MODES.filter((mode) => mode !== "custom").map((mode) => (
+          <option key={mode} value={mode}>
+            {t(`toolbar.mode.${mode}`)}
+          </option>
+        ))}
+      </optgroup>
+      {CANVAS_PRESET_GROUPS.map((group) => (
+        <optgroup key={group} label={t(`canvas.group.${group}`)}>
+          {CANVAS_DEVICE_PRESETS.filter((preset) => preset.group === group).map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              {t(`canvas.preset.${preset.id}`)} · {preset.width}×{preset.height}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+      <option value="custom">{t("toolbar.mode.custom")}</option>
+    </select>
+  );
+
+  const flipButton = (
+    <button
+      type="button"
+      className="canvas-flip"
+      onClick={onFlipCanvas}
+      title={t("toolbar.flipCanvas")}
+      aria-label={t("toolbar.flipCanvas")}
+    >
+      ⇄
+    </button>
+  );
+
+  const sizeInputs = isCustom ? (
+    <div className="size-inputs">
+      <DraftNumberInput
+        min={MIN_CANVAS_SIZE}
+        max={MAX_CANVAS_SIZE}
+        step={10}
+        value={project.canvas.width}
+        onCommit={(value) => onCanvasSizeChange(value, project.canvas.height)}
+        aria-label={t("toolbar.canvasWidth")}
+      />
+      <span className="times">×</span>
+      <DraftNumberInput
+        min={MIN_CANVAS_SIZE}
+        max={MAX_CANVAS_SIZE}
+        step={10}
+        value={project.canvas.height}
+        onCommit={(value) => onCanvasSizeChange(project.canvas.width, value)}
+        aria-label={t("toolbar.canvasHeight")}
+      />
+    </div>
+  ) : null;
+
+  const gridButtons = (
+    <>
+      <button
+        type="button"
+        className={showGrid ? "toggle-button active" : "toggle-button"}
+        onClick={onToggleGrid}
+        title={t("toolbar.gridTitle")}
+      >
+        {t("toolbar.grid")}
+      </button>
+      <button
+        type="button"
+        className={snapToGrid ? "toggle-button active" : "toggle-button"}
+        onClick={onToggleSnap}
+        title={t("toolbar.snapTitle")}
+      >
+        {t("toolbar.snap")}
+      </button>
+      <select
+        className="grid-size"
+        value={gridSize}
+        onChange={(event) => onGridSizeChange(Number(event.target.value))}
+        title={t("toolbar.gridSize")}
+        aria-label={t("toolbar.gridSize")}
+      >
+        {[4, 8, 16, 20].map((size) => (
+          <option key={size} value={size}>
+            {size}px
+          </option>
+        ))}
+      </select>
+    </>
+  );
+
+  const zoomButtons = (
+    <div className="zoom-group">
+      <button type="button" onClick={onZoomOut} title={t("toolbar.zoomOutTitle")} aria-label={t("toolbar.zoomOut")}>
+        −
+      </button>
+      <select
+        className="zoom-select"
+        value={zoomMode === "fit" ? "fit" : String(zoomScale)}
+        aria-label={t("toolbar.zoomLevel")}
+        onChange={(event) => {
+          const value = event.target.value;
+          if (value === "fit") onZoomFit();
+          else onZoomPreset(Number(value));
+        }}
+      >
+        <option value="fit">{t("toolbar.fitWith", { zoom: formatZoom(zoomScale) })}</option>
+        {ZOOM_PRESETS.map((preset) => (
+          <option key={preset} value={String(preset)}>
+            {formatZoom(preset)}
+          </option>
+        ))}
+      </select>
+      <button type="button" onClick={onZoomIn} title={t("toolbar.zoomInTitle")} aria-label={t("toolbar.zoomIn")}>
+        +
+      </button>
+      {showZoomFitButton ? (
+        <button
+          type="button"
+          className={zoomMode === "fit" ? "toggle-button active" : "toggle-button"}
+          onClick={onZoomFit}
+          title={t("toolbar.fitTitle")}
+        >
+          {t("toolbar.fit")}
+        </button>
+      ) : null}
+      <span className="zoom-readout">{formatZoom(zoomScale)}</span>
+    </div>
+  );
+
+  const drawerButton = (label: string, open: boolean, toggle: (() => void) | undefined, key: string) =>
+    toggle ? (
+      <button
+        key={key}
+        type="button"
+        data-drawer-toggle={key}
+        className={open ? "toggle-button active drawer-toggle" : "toggle-button drawer-toggle"}
+        onClick={toggle}
+        aria-expanded={open}
+        title={t(open ? "panel.hide" : "panel.show", { panel: label })}
+      >
+        {label}
+      </button>
+    ) : null;
 
   return (
-    <header className="app-toolbar">
+    <header className={`app-toolbar layout-${layout}`}>
       <div className="toolbar-brand">
         <img className="brand-mark" src="./wf_logo_w_white.png" alt="" aria-hidden="true" />
         <span className="brand-name">Wirefragma</span>
         <span className="brand-tag">{t("toolbar.tagline")}</span>
       </div>
 
-      <div className="toolbar-group">
-        <label className="field inline">
-          <span className="field-label">{t("toolbar.canvas")}</span>
-          {/*
-            One grouped list: the three classic modes stay selectable for old documents, the
-            device catalog follows, and "Custom…" stays last. Picking a preset is stored as
-            mode "custom" + a preset id, so the list shows the preset again after a reload.
-          */}
-          <select
-            value={project.canvas.preset ?? project.canvas.mode}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (isCanvasMode(value)) {
-                onModeChange(value);
-                return;
-              }
-              onPresetChange(value);
-            }}
-          >
-            <optgroup label={t("canvas.group.classic")}>
-              {CANVAS_MODES.filter((mode) => mode !== "custom").map((mode) => (
-                <option key={mode} value={mode}>
-                  {t(`toolbar.mode.${mode}`)}
-                </option>
-              ))}
-            </optgroup>
-            {CANVAS_PRESET_GROUPS.map((group) => (
-              <optgroup key={group} label={t(`canvas.group.${group}`)}>
-                {CANVAS_DEVICE_PRESETS.filter((preset) => preset.group === group).map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {t(`canvas.preset.${preset.id}`)} · {preset.width}×{preset.height}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-            <option value="custom">{t("toolbar.mode.custom")}</option>
-          </select>
-        </label>
-
-        <button
-          type="button"
-          className="canvas-flip"
-          onClick={onFlipCanvas}
-          title={t("toolbar.flipCanvas")}
-          aria-label={t("toolbar.flipCanvas")}
-        >
-          ⇄
-        </button>
-
-        {isCustom ? (
-          <div className="size-inputs">
-            <DraftNumberInput
-              min={MIN_CANVAS_SIZE}
-              max={MAX_CANVAS_SIZE}
-              step={10}
-              value={project.canvas.width}
-              onCommit={(value) => onCanvasSizeChange(value, project.canvas.height)}
-              aria-label={t("toolbar.canvasWidth")}
-            />
-            <span className="times">×</span>
-            <DraftNumberInput
-              min={MIN_CANVAS_SIZE}
-              max={MAX_CANVAS_SIZE}
-              step={10}
-              value={project.canvas.height}
-              onCommit={(value) => onCanvasSizeChange(project.canvas.width, value)}
-              aria-label={t("toolbar.canvasHeight")}
-            />
-          </div>
-        ) : null}
-
-        <button
-          type="button"
-          className={showGrid ? "toggle-button active" : "toggle-button"}
-          onClick={onToggleGrid}
-          title={t("toolbar.gridTitle")}
-        >
-          {t("toolbar.grid")}
-        </button>
-        <button
-          type="button"
-          className={snapToGrid ? "toggle-button active" : "toggle-button"}
-          onClick={onToggleSnap}
-          title={t("toolbar.snapTitle")}
-        >
-          {t("toolbar.snap")}
-        </button>
-        <select
-          className="grid-size"
-          value={gridSize}
-          onChange={(event) => onGridSizeChange(Number(event.target.value))}
-          title={t("toolbar.gridSize")}
-        >
-          {[4, 8, 16, 20].map((size) => (
-            <option key={size} value={size}>
-              {size}px
-            </option>
-          ))}
-        </select>
-
-        <div className="zoom-group">
-          <button type="button" onClick={onZoomOut} title={t("toolbar.zoomOutTitle")} aria-label={t("toolbar.zoomOut")}>
-            −
-          </button>
-          <select
-            className="zoom-select"
-            value={zoomMode === "fit" ? "fit" : String(zoomScale)}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value === "fit") onZoomFit();
-              else onZoomPreset(Number(value));
-            }}
-            title={t("toolbar.zoomLevel")}
-          >
-            <option value="fit">{t("toolbar.fitWith", { zoom: formatZoom(zoomScale) })}</option>
-            {ZOOM_PRESETS.map((preset) => (
-              <option key={preset} value={String(preset)}>
-                {formatZoom(preset)}
-              </option>
-            ))}
-          </select>
-          <button type="button" onClick={onZoomIn} title={t("toolbar.zoomInTitle")} aria-label={t("toolbar.zoomIn")}>
-            +
-          </button>
-          <button
-            type="button"
-            className={zoomMode === "fit" ? "toggle-button active" : "toggle-button"}
-            onClick={onZoomFit}
-            title={t("toolbar.fitTitle")}
-          >
-            {t("toolbar.fit")}
-          </button>
-          <span className="zoom-readout">{formatZoom(zoomScale)}</span>
+      {!compact ? (
+        <div className="toolbar-group">
+          <label className="field inline">
+            <span className="field-label">{t("toolbar.canvas")}</span>
+            {canvasSelect}
+          </label>
+          {flipButton}
+          {sizeInputs}
+          {gridButtons}
+          {zoomButtons}
         </div>
-      </div>
+      ) : (
+        <div className="toolbar-group" />
+      )}
 
       <div className="toolbar-actions">
-        <button type="button" onClick={onUndo} disabled={!canUndo} title={t("toolbar.undoTitle")}>
-          {t("toolbar.undo")}
-        </button>
-        <button type="button" onClick={onRedo} disabled={!canRedo} title={t("toolbar.redoTitle")}>
-          {t("toolbar.redo")}
-        </button>
-        <span className="divider" />
-        <button type="button" onClick={onNew} title={newTitle ?? t("toolbar.newTitle")}>
-          {t("toolbar.new")}
-        </button>
-        <button
-          type="button"
-          className={layersOpen ? "toggle-button active" : "toggle-button"}
-          onClick={onToggleLayers}
-          title={t("toolbar.layersTitle")}
-        >
-          {t("toolbar.layers")}
-        </button>
-        {showImport ? (
-          <button type="button" onClick={onImport} title={t("toolbar.importTitle")}>
-            {t("toolbar.import")}
-          </button>
+        {overlay ? (
+          <>
+            {drawerButton(t("panel.add"), addOpen, onToggleAdd, "add")}
+            {drawerButton(t("panel.layers"), layersOpen, onToggleLayers, "layers")}
+            {drawerButton(t("panel.properties"), propertiesOpen, onToggleProperties, "properties")}
+            {onToggleProjects ? drawerButton(t("panel.projects"), projectsOpen, onToggleProjects, "projects") : null}
+          </>
         ) : null}
-        <button type="button" onClick={onCopyForLlm} title={t("toolbar.copyForLlmTitle")}>
-          {t("toolbar.copyForLlm")}
+
+        <button type="button" onClick={onUndo} disabled={!canUndo} title={t("toolbar.undoTitle")} aria-label={t("toolbar.undo")}>
+          {overlay ? "↶" : t("toolbar.undo")}
         </button>
-        <button type="button" className="primary" onClick={onExport} title={t("toolbar.exportTitle")}>
-          {t("toolbar.export")}
+        <button type="button" onClick={onRedo} disabled={!canRedo} title={t("toolbar.redoTitle")} aria-label={t("toolbar.redo")}>
+          {overlay ? "↷" : t("toolbar.redo")}
         </button>
+
+        {compact ? (
+          <>
+            {zoomButtons}
+            <button type="button" className="primary" onClick={onExport} title={t("toolbar.exportTitle")}>
+              {t("toolbar.export")}
+            </button>
+            <div className="toolbar-menu" ref={menuRef}>
+              <button
+                type="button"
+                className={menuOpen ? "toggle-button active" : "toggle-button"}
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                title={t("toolbar.more")}
+                aria-label={t("toolbar.more")}
+                onClick={() => setMenuOpen((value) => !value)}
+              >
+                ⋯
+              </button>
+              {menuOpen ? (
+                <div className="toolbar-menu-panel" role="menu">
+                  <div className="toolbar-menu-section">
+                    <span className="toolbar-menu-label">{t("toolbar.canvas")}</span>
+                    {canvasSelect}
+                    {flipButton}
+                  </div>
+                  {sizeInputs ? <div className="toolbar-menu-section">{sizeInputs}</div> : null}
+                  <div className="toolbar-menu-section">{gridButtons}</div>
+                  <div className="toolbar-menu-section">
+                    <button type="button" onClick={onNew} title={newTitle ?? t("toolbar.newTitle")}>
+                      {t("toolbar.new")}
+                    </button>
+                    {showImport ? (
+                      <button type="button" onClick={onImport} title={t("toolbar.importTitle")}>
+                        {t("toolbar.import")}
+                      </button>
+                    ) : null}
+                    <button type="button" onClick={onCopyForLlm} title={t("toolbar.copyForLlmTitle")}>
+                      {t("toolbar.copyForLlm")}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="divider" />
+            <button type="button" onClick={onNew} title={newTitle ?? t("toolbar.newTitle")}>
+              {t("toolbar.new")}
+            </button>
+            {showImport ? (
+              <button type="button" onClick={onImport} title={t("toolbar.importTitle")}>
+                {t("toolbar.import")}
+              </button>
+            ) : null}
+            <button type="button" onClick={onCopyForLlm} title={t("toolbar.copyForLlmTitle")}>
+              {t("toolbar.copyForLlm")}
+            </button>
+            <button type="button" className="primary" onClick={onExport} title={t("toolbar.exportTitle")}>
+              {t("toolbar.export")}
+            </button>
+          </>
+        )}
         {accountSlot}
       </div>
     </header>

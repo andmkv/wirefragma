@@ -50,6 +50,7 @@ export const fr: Dictionary = {
   "toolbar.copyForLlmTitle": "Copier l’export Markdown pour un LLM",
   "toolbar.export": "Exporter",
   "toolbar.exportTitle": "Exporter en Markdown",
+  "toolbar.more": "Plus",
   "toolbar.signIn": "Se connecter",
   "toolbar.signInTitle": "Connectez-vous pour enregistrer vos projets dans votre compte",
 
@@ -378,6 +379,12 @@ export const fr: Dictionary = {
   "error.too_large": "Cette maquette dépasse 2 Mo et ne peut pas être enregistrée.",
   "error.conflict": "Cette maquette a été modifiée dans un autre onglet ou sur un autre appareil.",
   "error.server": "Une erreur s’est produite sur le serveur.",
+  "error.boundaryTitle": "Une erreur s’est produite dans l’éditeur",
+  "error.boundaryMessage": "Votre document est toujours là — rien n’a été perdu. Réessayez de l’afficher ou téléchargez le projet actuel en JSON.",
+  "error.boundaryContext": "Projet : {title}",
+  "error.boundaryRetry": "Réessayer",
+  "error.boundaryExport": "Exporter ce que j’ai",
+  "error.boundaryExportHint": "Télécharge le projet actuel en JSON — recollez-le dans « Importer » pour continuer.",
 
   // -------------------------------------------------------------- privacy
   "privacy.title": "Politique de confidentialité",

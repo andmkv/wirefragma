@@ -2906,3 +2906,382 @@ body.is-resizing-panel * {
 .scene-section .hint {
   margin: 0;
 }
+
+/* ====================================================================== *
+ * Responsive shell (1.2)                                                  *
+ *                                                                        *
+ * Two breakpoints, matching `src/utils/layoutMode.ts` exactly:            *
+ *   ≥ 1100 px          desktop  — today's three-column workspace          *
+ *   768 – 1099 px      tablet   — full-width canvas + overlay drawers     *
+ *   < 768 px           phone    — same drawers, compact toolbar           *
+ * ====================================================================== */
+
+/* D2: dynamic viewport height where the browser supports it (the 100vh rule stays as fallback),
+   plus notch / home-indicator padding. */
+.app {
+  height: 100dvh;
+}
+
+.app-toolbar {
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  padding-top: max(8px, env(safe-area-inset-top));
+}
+
+.workspace {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.boot-screen,
+.auth-screen {
+  min-height: 100dvh;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ------------------------------------------------------------------ drawers */
+
+.drawer-close {
+  margin-left: auto;
+  background: transparent;
+  border-color: transparent;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(17, 24, 39, 0.45);
+}
+
+.workspace-drawer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The phone "⋯" menu: the rest of the toolbar, reachable in one tap. */
+.toolbar-menu {
+  position: relative;
+}
+
+.toolbar-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+  max-width: calc(100vw - 24px);
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22);
+}
+
+.toolbar-menu-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-menu-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  width: 100%;
+}
+
+/* ------------------------------------------------------- error boundary (D6) */
+
+.error-boundary {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.error-boundary h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.error-boundary p {
+  margin: 0;
+  max-width: 560px;
+  color: var(--ink-2);
+}
+
+.error-boundary-context {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.error-boundary-detail {
+  max-width: min(680px, 100%);
+  max-height: 160px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: left;
+}
+
+/* ------------------------------------------------- 768 – 1099 px (tablet) */
+
+@media (max-width: 1099px) {
+  /* The canvas always gets the full width; the side columns become drawers over it. */
+  .workspace,
+  .workspace.with-projects {
+    position: relative;
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace > .panel,
+  .workspace > .workspace-drawer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 45;
+    max-width: 92vw;
+    background: var(--panel);
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.28);
+    visibility: hidden;
+    transition: transform 160ms ease, visibility 0s linear 160ms;
+  }
+
+  .workspace > .panel.drawer-left,
+  .workspace > .workspace-drawer.drawer-left {
+    left: 0;
+    width: min(320px, 86vw);
+    transform: translateX(-104%);
+    border-right: 1px solid var(--border);
+  }
+
+  .workspace > .panel.drawer-right {
+    right: 0;
+    width: min(340px, 88vw);
+    transform: translateX(104%);
+    border-left: 1px solid var(--border);
+  }
+
+  .workspace > .panel.open,
+  .workspace > .workspace-drawer.open {
+    transform: none;
+    visibility: visible;
+    transition: transform 160ms ease, visibility 0s;
+  }
+
+  /* Panel resize grab strips and collapse rails make no sense inside a drawer. */
+  .workspace > .panel .panel-resize,
+  .workspace > .panel .panel-toggle {
+    display: none;
+  }
+
+  .workspace-drawer > .projects-panel {
+    width: 100% !important;
+    border: 0;
+  }
+
+  /* The toolbar stays above the scrim so its drawer buttons remain clickable. */
+  .app-toolbar {
+    position: relative;
+    z-index: 41;
+    gap: 10px;
+  }
+
+  /* At tablet width the brand block would cost a whole toolbar row on its own. */
+  .brand-tag,
+  .brand-name {
+    display: none;
+  }
+
+  .zoom-readout {
+    display: none;
+  }
+
+  /* D3: touch-sized hit targets for the toolbar and the panel headers. */
+  .app-toolbar button,
+  .app-toolbar select,
+  .panel-header button,
+  .modal-footer button,
+  .scene-footer button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+
+  .app-toolbar .zoom-group button,
+  .app-toolbar .toggle-button {
+    min-width: 40px;
+  }
+}
+
+/* Coarse pointers get the same treatment at any width (D3). */
+@media (pointer: coarse) {
+  .app-toolbar button,
+  .app-toolbar select,
+  .panel-header button,
+  .modal-footer button,
+  .scene-footer button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
+
+/* ------------------------------------------------------------ < 768 px (phone) */
+
+@media (max-width: 767px) {
+  .app-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .toolbar-brand {
+    flex: 0 0 auto;
+  }
+
+  .brand-tag,
+  .brand-name {
+    display: none;
+  }
+
+  /* The desktop control group is empty on phones; the "⋯" menu holds it instead. */
+  .app-toolbar .toolbar-group:empty {
+    display: none;
+  }
+
+  .toolbar-actions {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .toolbar-actions .divider {
+    display: none;
+  }
+
+  .zoom-readout {
+    display: none;
+  }
+
+  /* D4: dialogs fit a 360×640 viewport as full-screen sheets with a scrollable body. */
+  .modal-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .modal,
+  .modal.narrow {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    border-radius: 0;
+  }
+
+  .modal.narrow {
+    height: auto;
+    margin: auto 0;
+  }
+
+  .modal-header,
+  .modal-footer {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  .panel-body,
+  .modal-body,
+  .scene-body {
+    overflow-y: auto;
+    max-width: 100%;
+  }
+
+  /* Nothing in a dialog may force a horizontal scrollbar at 360 px. */
+  .modal input,
+  .modal select,
+  .modal textarea {
+    max-width: 100%;
+  }
+
+  .emoji-picker {
+    width: calc(100vw - 16px);
+  }
+
+  .canvas-resize-right,
+  .canvas-resize-bottom {
+    right: -14px;
+    width: 28px;
+  }
+
+  .canvas-resize-corner {
+    right: -12px;
+    bottom: -12px;
+    width: 28px;
+    height: 28px;
+  }
+
+  /* The "W × H" badge must not push the frame around on a small screen. */
+  .canvas-size-badge {
+    right: 0;
+    bottom: -26px;
+  }
+}
+
+/* D5: sign-in / settings at narrow widths. The form column has a 400 px minimum, which would
+   otherwise force a horizontal scrollbar on a phone. */
+@media (max-width: 900px) {
+  .auth-screen {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .auth-hero {
+    padding: 28px 20px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .auth-hero-grid,
+  .auth-hero-sketch {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .auth-hero {
+    padding: 18px 14px;
+  }
+
+  .settings-dialog,
+  .settings-dialog .modal-body {
+    max-width: 100%;
+  }
+
+  .projects-panel {
+    max-width: 100%;
+  }
+}

@@ -50,6 +50,7 @@ export const ja: Dictionary = {
   "toolbar.copyForLlmTitle": "LLM 向けの Markdown エクスポートをコピー",
   "toolbar.export": "エクスポート",
   "toolbar.exportTitle": "Markdown をエクスポート",
+  "toolbar.more": "その他",
   "toolbar.signIn": "サインイン",
   "toolbar.signInTitle": "サインインしてプロジェクトをアカウントに保存",
 
@@ -365,6 +366,12 @@ export const ja: Dictionary = {
   "error.too_large": "このワイヤーフレームは 2 MB を超えているため保存できません。",
   "error.conflict": "このワイヤーフレームは別のタブまたは別のデバイスで変更されました。",
   "error.server": "サーバーでエラーが発生しました。",
+  "error.boundaryTitle": "エディターでエラーが発生しました",
+  "error.boundaryMessage": "ドキュメントはそのまま残っています。何も失われていません。再描画を試すか、現在のプロジェクトを JSON でダウンロードしてください。",
+  "error.boundaryContext": "プロジェクト: {title}",
+  "error.boundaryRetry": "再試行",
+  "error.boundaryExport": "今の内容を書き出す",
+  "error.boundaryExportHint": "現在のプロジェクトを JSON でダウンロードします。「インポート」に貼り付けて続けられます。",
 
   // -------------------------------------------------------------- privacy
   "privacy.title": "プライバシーポリシー",

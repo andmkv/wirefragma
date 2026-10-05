@@ -67,17 +67,30 @@ export function resizeEdgesForElement(element: WireframeElement, transform: View
 
 /** Visual size of a resize handle, in CSS pixels (never scaled with zoom). */
 export const HANDLE_SIZE_PX = 9;
-/** Grab tolerance around a handle, in CSS pixels. */
+/** Grab tolerance around a handle for a fine pointer (mouse / trackpad), in CSS pixels. */
 export const HANDLE_HIT_PX = 11;
+/**
+ * Grab tolerance around a handle for a **coarse** pointer (finger / stylus), in CSS pixels.
+ * This is the single constant the coarse-pointer rule (D3) changes: the hit test stays the same
+ * function, the same resolution order and the same zoom independence (the tolerance is converted
+ * to world units in `hitTest.ts`).
+ */
+export const HANDLE_HIT_COARSE_PX = 20;
 
 /**
  * Grab tolerance for handles, in CSS pixels, never larger than ~a third of the element's
- * smaller on-screen dimension. Handles keep their fixed 9 px appearance at any zoom, but a
- * small element must stay draggable by its body instead of being swallowed by its own handles.
+ * smaller on-screen dimension (a bit more for a finger). Handles keep their fixed 9 px
+ * appearance at any zoom, but a small element must stay draggable by its body instead of being
+ * swallowed by its own handles.
  */
-export function handleHitTolerancePx(screenWidth: number, screenHeight: number): number {
+export function handleHitTolerancePx(
+  screenWidth: number,
+  screenHeight: number,
+  coarsePointer = false
+): number {
   const smaller = Math.max(1, Math.min(screenWidth, screenHeight));
-  return Math.max(2, Math.min(HANDLE_HIT_PX, smaller * 0.35));
+  const limit = coarsePointer ? HANDLE_HIT_COARSE_PX : HANDLE_HIT_PX;
+  return Math.max(2, Math.min(limit, smaller * (coarsePointer ? 0.45 : 0.35)));
 }
 
 export interface HandleGeometry {

@@ -133,6 +133,25 @@ captcha answer from the PHP session file, so it cannot run against a real deploy
 * Real `localStorage` quota behaviour, private-mode quirks and cross-browser scrolling.
 * Email delivery (only that `mail()` / SMTP accepted the message) and the translations' wording.
 
+## Browser layout measurements (D7)
+
+`?measure=1` is a DEV-only harness (`src/dev/measureLayout.ts`, loaded from `main.tsx` only in
+development) that measures what a browser actually computed and writes it into
+`<pre id="dsh-layout-measure">`: page scroll width vs client width, the toolbar height and wrapped
+row count, the canvas viewport width and its ratio to the viewport, which side columns are
+visible, whether every drawer opens / is visible / closes again, the elements that overflow the
+viewport, and a synthetic two-finger pinch + pan (scale and scroll before/after).
+
+It is driven from a shell, with no test dependency:
+
+```bash
+npm run dev &
+node scripts/measure-layout.mjs --widths=820x900,390x700,1280x900
+```
+
+The script prints the harness JSON per width. `--browser=` (or `$CHROME_BIN`) selects the browser
+binary; the Playwright headless shell is used if one is cached.
+
 ## Related documents
 
 * [agent-guide.md](./agent-guide.md) — which checks to run before/after a change.

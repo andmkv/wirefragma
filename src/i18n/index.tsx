@@ -1,14 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { en, type MessageKey } from "./en";
-import { de } from "./locales/de";
-import { es } from "./locales/es";
-import { fr } from "./locales/fr";
-import { ja } from "./locales/ja";
-import { ru } from "./locales/ru";
-import { sr } from "./locales/sr";
-import { zh } from "./locales/zh";
 
-/** UI languages, in the order the language menus list them. EN is the default and fallback. */
+/**
+ * UI languages, in the order the language menus list them. EN is the default and fallback.
+ *
+ * Since 1.2 only English is part of the base chunk: every other dictionary is a lazy chunk
+ * (`import("./locales/xx")`) that is fetched *before* the language is applied, so the UI never
+ * flashes untranslated text. `main.tsx` preloads the stored language before the first render.
+ */
 export const LOCALES = [
   { code: "en", name: "English" },
   { code: "ru", name: "Русский" },
@@ -26,7 +25,47 @@ export type ThemePreference = "light" | "dark" | "system";
 /** A translation: every English key (plural locales may add `_few` / `_many` / `_two` forms). */
 export type Dictionary = Record<MessageKey, string> & Partial<Record<string, string>>;
 
-export const DICTIONARIES: Record<Locale, Dictionary> = { en, ru, de, fr, es, sr, ja, zh };
+/**
+ * One loader per locale, written out explicitly (no template literal) so the bundler can split
+ * one chunk per language. English is already in the base chunk.
+ */
+const LOADERS: Record<Locale, () => Promise<unknown>> = {
+  en: () => Promise.resolve({ en }),
+  ru: () => import("./locales/ru"),
+  de: () => import("./locales/de"),
+  fr: () => import("./locales/fr"),
+  es: () => import("./locales/es"),
+  sr: () => import("./locales/sr"),
+  ja: () => import("./locales/ja"),
+  zh: () => import("./locales/zh")
+};
+
+const dictionaries: Partial<Record<Locale, Dictionary>> = { en };
+
+/** Load (and cache) one dictionary. Safe to call repeatedly and concurrently. */
+export async function loadDictionary(locale: Locale): Promise<Dictionary> {
+  const cached = dictionaries[locale];
+  if (cached) return cached;
+  const module = (await LOADERS[locale]()) as Record<string, Dictionary>;
+  // The locale modules export `{ ru }`, `{ de }`, …; keep working if one ever gains a default.
+  const dictionary = module[locale] ?? (module as { default?: Dictionary }).default ?? en;
+  dictionaries[locale] = dictionary;
+  return dictionary;
+}
+
+export function isDictionaryLoaded(locale: Locale): boolean {
+  return dictionaries[locale] !== undefined;
+}
+
+/** The dictionary to read from: the requested locale, or English until (unless) it has loaded. */
+function dictionaryFor(locale: Locale): Dictionary {
+  return dictionaries[locale] ?? en;
+}
+
+/** Read accessor for the loaded dictionary (tests); English until the chunk has arrived. */
+export function getDictionary(locale: Locale): Dictionary {
+  return dictionaryFor(locale);
+}
 
 /** Keys usable with `t`: every message key, plus the base name of each plural family. */
 type PluralBase<K> = K extends `${infer Base}_other` ? Base : never;
@@ -53,7 +92,7 @@ function pluralCategory(locale: Locale, count: number): string {
 
 /** Pure translation (also usable outside React). Falls back to English, then to the key. */
 export function translate(locale: Locale, key: TranslationKey, params: TranslationParams = {}): string {
-  const dictionary = DICTIONARIES[locale] ?? en;
+  const dictionary = dictionaryFor(locale);
   const english = en as Record<string, string>;
   let template: string | undefined;
   if (typeof params.count === "number" && !(key in english)) {
@@ -115,6 +154,9 @@ function systemDark(): boolean {
 /**
  * Language + theme for the whole app. Guests keep them in localStorage; for signed-in users the
  * workspace additionally stores them with the account and applies them after sign-in.
+ *
+ * A language change waits for its dictionary chunk: until it arrives the previous language stays
+ * on screen, which is why the UI never shows a half-translated frame.
  */
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences);
@@ -141,13 +183,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, [preferences]);
 
   const applyPreferences = useCallback((patch: Partial<Preferences>) => {
+    const nextLocale = isLocale(patch.locale) ? patch.locale : null;
     setPreferences((current) => {
-      const next = {
-        locale: isLocale(patch.locale) ? patch.locale : current.locale,
-        theme: isThemePreference(patch.theme) ? patch.theme : current.theme
-      };
-      return next.locale === current.locale && next.theme === current.theme ? current : next;
+      const locale = nextLocale ?? current.locale;
+      const theme = isThemePreference(patch.theme) ? patch.theme : current.theme;
+      return locale === current.locale && theme === current.theme ? current : { locale, theme };
     });
+    // Fetch the chunk in the background. `translate` keeps using the previous language until the
+    // dictionary is registered, then this state update swaps the whole UI in one frame.
+    if (nextLocale && !isDictionaryLoaded(nextLocale)) {
+      void loadDictionary(nextLocale).then(() => setPreferences((current) => ({ ...current })));
+    }
   }, []);
 
   const value = useMemo<PreferencesContextValue>(

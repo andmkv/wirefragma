@@ -6,6 +6,7 @@ import { ConfirmDialog } from "./components/ConfirmDialog";
 import { DiagramEditor } from "./components/DiagramEditor";
 import { DrawingEditor } from "./components/DrawingEditor";
 import { ElementPalette } from "./components/ElementPalette";
+import { EditorErrorBoundary } from "./components/ErrorBoundary";
 import { ExportDialog } from "./components/ExportDialog";
 import { ImportDialog } from "./components/ImportDialog";
 import { LayersPanel } from "./components/LayersPanel";
@@ -86,9 +87,14 @@ import {
 import { projectToLlmMarkdown } from "./utils/markdownExport";
 import { projectFromText } from "./utils/markdownImport";
 import { loadProject, saveProject } from "./utils/storage";
+import { usesOverlayDrawers } from "./utils/layoutMode";
+import { useLayoutMode } from "./utils/useMediaQuery";
 import { clampZoom, zoomStep, type ZoomMode } from "./utils/zoom";
 
 type Dialog = "none" | "export" | "import";
+
+/** Overlay-layout panel drawers; at most one is open, and the state is never remembered. */
+type Drawer = "none" | "add" | "layers" | "properties" | "projects";
 
 /**
  * Signed-in mode: the document comes from (and goes back to) the account workspace instead of
@@ -157,6 +163,17 @@ export default function App({
   const [pendingNewProject, setPendingNewProject] = useState(false);
   // Remembered per browser, so opening another wireframe (a fresh editor) keeps the layout.
   const [layersOpen, setLayersOpen] = usePanelFlag("wirefragma.panel.layersOpen", true);
+  /**
+   * Responsive layout (1.2). `desktop` keeps the three-column workspace; `tablet` and `phone`
+   * give the canvas the full width and turn Add / Layers / Properties into overlay drawers.
+   */
+  const layout = useLayoutMode();
+  const overlay = usesOverlayDrawers(layout);
+  const [drawer, setDrawer] = useState<Drawer>("none");
+  const toggleDrawer = useCallback((id: Drawer) => {
+    setDrawer((current) => (current === id ? "none" : id));
+  }, []);
+  const closeDrawer = useCallback(() => setDrawer("none"), []);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("fit");
   const [manualScale, setManualScale] = useState(1);
   const [zoomView, setZoomView] = useState({ scale: 1, fit: 1 });
@@ -239,6 +256,11 @@ export default function App({
       return kept.length === current.ids.length ? current : normalizeSelectionState(project, { ids: kept, primary: current.primary });
     });
   }, [activeLayerId, project]);
+
+  // A drawer only exists in the overlay layouts; going back to desktop closes it.
+  useEffect(() => {
+    if (!overlay) setDrawer("none");
+  }, [overlay]);
 
   // Narrow windows start with the layers panel collapsed so the canvas keeps its room.
   useEffect(() => {
@@ -1012,6 +1034,11 @@ export default function App({
         return;
       }
       if (key === "Escape") {
+        // An open drawer is the most local thing Escape can dismiss.
+        if (drawer !== "none") {
+          setDrawer("none");
+          return;
+        }
         clearSelection();
         return;
       }
@@ -1036,6 +1063,7 @@ export default function App({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     clearSelection,
+    drawer,
     flash,
     focusNameField,
     gridSize,
@@ -1066,7 +1094,7 @@ export default function App({
         gridSize={gridSize}
         zoomMode={zoomMode}
         zoomScale={zoomView.scale}
-        layersOpen={layersOpen}
+        layersOpen={overlay ? drawer === "layers" : layersOpen}
         onModeChange={handleModeChange}
         onPresetChange={handlePresetChange}
         onFlipCanvas={handleFlipCanvas}
@@ -1087,10 +1115,17 @@ export default function App({
         onZoomOut={handleZoomOut}
         onZoomFit={handleZoomFit}
         onZoomPreset={applyZoom}
-        onToggleLayers={() => setLayersOpen((value) => !value)}
+        onToggleLayers={() => (overlay ? toggleDrawer("layers") : setLayersOpen((value) => !value))}
         showImport={!host}
         newTitle={host ? t("toolbar.newWireframeTitle") : undefined}
         accountSlot={host ? host.accountSlot : guestSlot}
+        layout={layout}
+        addOpen={drawer === "add"}
+        onToggleAdd={() => toggleDrawer("add")}
+        propertiesOpen={drawer === "properties"}
+        onToggleProperties={() => toggleDrawer("properties")}
+        projectsOpen={drawer === "projects"}
+        onToggleProjects={host && overlay ? () => toggleDrawer("projects") : undefined}
       />
 
       {host?.notice ? <div className="notice-banner host-notice">{host.notice}</div> : null}
@@ -1123,18 +1158,38 @@ export default function App({
         </div>
       ) : null}
 
+      <EditorErrorBoundary project={project}>
       <main
         className={[
           "workspace",
-          host ? "with-projects" : ""
+          host ? "with-projects" : "",
+          overlay ? "layout-overlay" : "layout-desktop"
         ]
           .filter(Boolean)
           .join(" ")}
       >
-        {host?.sidebar}
+        {/*
+          Signed-in projects panel: a normal workspace column on desktop, a left drawer in the
+          overlay layouts (D1).
+        */}
+        {host?.sidebar ? (
+          overlay ? (
+            <div
+              className={drawer === "projects" ? "workspace-drawer drawer drawer-left open" : "workspace-drawer drawer drawer-left"}
+              data-drawer="projects"
+            >
+              {host.sidebar}
+            </div>
+          ) : (
+            host.sidebar
+          )
+        ) : null}
         <LeftPanel
           layersOpen={layersOpen}
           onToggleLayers={() => setLayersOpen((value) => !value)}
+          overlay={overlay}
+          openDrawer={drawer}
+          onCloseDrawer={closeDrawer}
           addPanel={(compact) => (
             <ElementPalette compact={compact} onAdd={handleAdd} activeLayerName={activeLayer?.name ?? "Default"} />
           )}
@@ -1219,6 +1274,9 @@ export default function App({
           onUnnest={handleUnnestSelected}
           footer={preferencesSlot}
           onEditScene={() => selectedElement && openSceneEditor(selectedElement.id)}
+          overlay={overlay}
+          open={drawer === "properties"}
+          onClose={closeDrawer}
         />
       </main>
 
@@ -1272,6 +1330,13 @@ export default function App({
           }}
           onCancel={() => setPendingNewProject(false)}
         />
+      ) : null}
+
+      </EditorErrorBoundary>
+
+      {/* The scrim sits under the drawers and closes whatever is open (D1). */}
+      {overlay && drawer !== "none" ? (
+        <div className="drawer-scrim" onClick={closeDrawer} aria-hidden="true" />
       ) : null}
 
       {status ? <div className="toast">{status}</div> : null}

@@ -58,6 +58,7 @@ export const en = {
   "toolbar.copyForLlmTitle": "Copy the Markdown export for an LLM",
   "toolbar.export": "Export",
   "toolbar.exportTitle": "Export Markdown",
+  "toolbar.more": "More",
   "toolbar.signIn": "Sign in",
   "toolbar.signInTitle": "Sign in to save projects to your account",
 
@@ -373,6 +374,12 @@ export const en = {
   "error.too_large": "This wireframe is larger than 2 MB and cannot be saved.",
   "error.conflict": "This wireframe was changed in another tab or on another device.",
   "error.server": "Something went wrong on the server.",
+  "error.boundaryTitle": "Something went wrong in the editor",
+  "error.boundaryMessage": "Your document is still here — nothing was lost. Try rendering it again, or download the current project as JSON.",
+  "error.boundaryContext": "Project: {title}",
+  "error.boundaryRetry": "Try again",
+  "error.boundaryExport": "Export what I have",
+  "error.boundaryExportHint": "Downloads the current project as JSON — paste it into Import to continue.",
 
   // -------------------------------------------------------------- privacy
   "privacy.title": "Privacy policy",

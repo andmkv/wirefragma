@@ -71,9 +71,17 @@ export function pinchScale(
 }
 
 /**
- * Where a content point must be scrolled to so that it sits under `pointer` at `scale`.
- * `canvasLeft` / `canvasTop` are the canvas' current viewport position (from
- * `getBoundingClientRect`); the result is the desired `scrollLeft` / `scrollTop` of the viewport.
+ * Where the viewport must be scrolled so that a content point sits under `pointer` at `scale`.
+ *
+ * `content` is the point in **canvas-local** pixels at `scale` (i.e. `(pointer.x - rect.left)` at
+ * the moment the gesture grabbed it), `canvasLeft` / `canvasTop` are the canvas' current position
+ * in the viewport (from `getBoundingClientRect()`) and `scroll` is the viewport's current offset
+ * — all three read at the same instant.
+ *
+ * The correction is exact rather than iterative: the canvas must end up at
+ * `pointer - content * scale`, and moving it there is a scroll delta of
+ * `canvasPosition - desiredPosition`. This is the single anchoring formula used by the
+ * wheel / trackpad pinch **and** by the touch pinch, so the two can never drift apart.
  */
 export function anchorScrollFor(
   pointer: TouchPoint,
@@ -84,7 +92,7 @@ export function anchorScrollFor(
   scroll: ScrollPosition
 ): ScrollPosition {
   return {
-    left: scroll.left + (pointer.x - content.x * scale - canvasLeft),
-    top: scroll.top + (pointer.y - content.y * scale - canvasTop)
+    left: scroll.left + (canvasLeft - pointer.x + content.x * scale),
+    top: scroll.top + (canvasTop - pointer.y + content.y * scale)
   };
 }

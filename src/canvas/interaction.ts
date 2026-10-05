@@ -37,6 +37,8 @@ export interface InteractionState {
   snapEnabled: boolean;
   gridSize: number;
   minSize: number;
+  /** Finger / stylus pointer: the shared hit test uses a larger handle tolerance (D3). */
+  coarsePointer?: boolean;
 }
 
 export interface MoveStart {
@@ -303,7 +305,8 @@ export class CanvasInteraction {
   private hit(world: Point): HitTarget {
     const { selection } = this.state;
     return hitTestProject(world, this.state.project, this.state.transform, {
-      handleElementId: selection.ids.length === 1 ? selection.primary : null
+      handleElementId: selection.ids.length === 1 ? selection.primary : null,
+      coarsePointer: this.state.coarsePointer === true
     });
   }
 

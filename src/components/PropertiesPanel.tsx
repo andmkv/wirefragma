@@ -60,6 +60,11 @@ interface PropertiesPanelProps {
   footer?: ReactNode;
   /** Open the Canvas / Drawing popup for the selected element. */
   onEditScene: () => void;
+  /** Overlay layout (tablet / phone): the panel becomes a right-hand drawer (1.2). */
+  overlay?: boolean;
+  /** Drawer is open (overlay layouts only). */
+  open?: boolean;
+  onClose?: () => void;
 }
 
 function NumberField({
@@ -264,11 +269,24 @@ export function PropertiesPanel({
   onSendToBack,
   onUnnest,
   footer,
-  onEditScene
+  onEditScene,
+  overlay = false,
+  open = false,
+  onClose
 }: PropertiesPanelProps) {
   const t = useT();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiAnchorRef = useRef<HTMLDivElement>(null);
+  const panelClass = overlay
+    ? open
+      ? "panel properties drawer drawer-right open"
+      : "panel properties drawer drawer-right"
+    : "panel properties";
+  const closeButton = overlay ? (
+    <button type="button" className="drawer-close" onClick={onClose} aria-label={t("common.close")} title={t("common.close")}>
+      ✕
+    </button>
+  ) : null;
 
   // Close the popover whenever the panel switches to another object.
   useEffect(() => {
@@ -286,10 +304,11 @@ export function PropertiesPanel({
   if (selectedCount === 0 || !element) {
     if (selectedCount > 1) {
       return (
-        <aside className="panel properties">
+        <aside className={panelClass} data-drawer="properties">
           <div className="panel-header">
             {t("panel.properties")}
             <span className="panel-header-sub">{t("props.selection")}</span>
+            {closeButton}
           </div>
           <div className="panel-body">
             <div className="selection-count">
@@ -312,8 +331,11 @@ export function PropertiesPanel({
     }
 
     return (
-      <aside className="panel properties">
-        <div className="panel-header">{t("panel.properties")}</div>
+      <aside className={panelClass} data-drawer="properties">
+        <div className="panel-header">
+          {t("panel.properties")}
+          {closeButton}
+        </div>
         <div className="panel-body">
           <div className="empty-state">{t("props.nothingSelected")}</div>
           <label className="field">
@@ -371,10 +393,11 @@ export function PropertiesPanel({
   const itemsLabel = element.type === "table" ? t("props.rows") : t("props.items");
 
   return (
-    <aside className="panel properties">
+    <aside className={panelClass} data-drawer="properties">
       <div className="panel-header">
         {t("panel.properties")}
         <span className="panel-header-sub">{t(`type.${element.type}`)}</span>
+        {closeButton}
       </div>
       <div className="panel-body">
         <p className="hint layer-hint">

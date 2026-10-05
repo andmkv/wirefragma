@@ -231,7 +231,10 @@ Zoom lives in `CanvasEditor` + `src/utils/zoom.ts` and is **view state only**.
   `Cmd/Ctrl + wheel`.
 * `contentPointAt` / `scrollOffsetToKeepPoint` keep the point under the pointer stationary: on
   each scale change `CanvasEditor` reads the pending pointer position and adjusts `scrollLeft` /
-  `scrollTop` in `useLayoutEffect`.
+  `scrollTop` in `useLayoutEffect`, through `anchorScrollFor` (`canvas/pan.ts`) — ONE anchoring
+  formula shared with the touch pinch. The correction is a delta
+  `canvasPosition - (pointer - content * scale)`; the canvas position is re-measured on every step,
+  so a browser clamp at a content edge can never make the gesture drift.
 
 ### Panning
 
@@ -266,6 +269,31 @@ an explicit user gesture.
   elements completely outside, the editor shows a non-blocking toast with the count
   (`elementsOutsideCanvas`); nothing is removed, and the user can undo.
 * A manual size (typed or dragged) switches `canvas.mode` to `custom` and drops `canvas.preset`.
+
+## Responsive layouts and drawers (1.2)
+
+`src/utils/layoutMode.ts` holds the breakpoints as pure data (`layoutModeForWidth`) and
+`src/utils/useMediaQuery.ts` reads the *same* thresholds through `matchMedia`, so CSS and JS can
+never disagree. The `.app-toolbar` carries `layout-desktop` / `layout-tablet` / `layout-phone`.
+
+| Mode | Width | Shell |
+| --- | --- | --- |
+| `desktop` | ≥ 1100 px | the three-column workspace, unchanged |
+| `tablet` | 768–1099 px | canvas gets the full width; Add / Layers / Properties are overlay drawers |
+| `phone` | < 768 px | same drawers + a compact toolbar with a "⋯" menu (New, Import, Copy for LLM, Grid, Snap, grid size, canvas size / preset) |
+
+Drawers are the *same* panels, positioned absolutely over the workspace inside a
+`@media (max-width: 1099px)` block (`.panel.drawer-left` / `.drawer-right`, `.open`): no second
+markup tree, no duplicated state. The open drawer is transient editor state — it is never
+remembered and is closed by Escape or a click on the scrim. Selecting an element never opens a
+drawer. D2 adds `100dvh` (with the `100vh` fallback) and `env(safe-area-inset-*)` padding; D3
+raises toolbar / panel hit targets to 40 px at ≤ 1099 px or on a coarse pointer, and the canvas
+handle tolerance for a coarse pointer is the single `HANDLE_HIT_COARSE_PX` constant threaded
+through the one hit test (`hitTestProject(..., { coarsePointer })`).
+
+`?measure=1` (DEV only) runs `src/dev/measureLayout.ts`, which reports the real DOM geometry and
+exercises every drawer plus a two-finger pinch/pan; `scripts/measure-layout.mjs` drives it in a
+headless browser. See [testing.md](./testing.md).
 
 ## Canvas host (`src/components/CanvasEditor.tsx`)
 

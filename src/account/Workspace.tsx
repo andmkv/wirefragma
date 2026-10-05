@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import App from "../App";
+import { EditorErrorBoundary } from "../components/ErrorBoundary";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ImportDialog, type ImportDestination } from "../components/ImportDialog";
 import { RowMenu } from "../components/RowMenu";
@@ -672,6 +673,11 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
 
   return (
     <>
+      {/*
+        A crash inside App's own render body still has to keep the history cache (a ref on this
+        component) and offer a JSON download, so the boundary sits above <App> as well (D6).
+      */}
+      <EditorErrorBoundary project={entry?.history.present ?? null}>
       <App
         key={`${currentId}:${epoch}`}
         host={{
@@ -692,6 +698,7 @@ export function Workspace({ user: initialUser, onSignedOut }: WorkspaceProps) {
           ) : null
         }}
       />
+      </EditorErrorBoundary>
       {dialogs}
     </>
   );

@@ -55,33 +55,49 @@ describe("touch geometry", () => {
 });
 
 describe("anchorScrollFor", () => {
-  it("puts a content point back under the pointer at the given scale", () => {
-    const next = anchorScrollFor({ x: 300, y: 200 }, { x: 10, y: 5 }, 2, 20, 10, { left: 100, top: 50 });
-    // The correction is (pointer - content*scale - canvasOrigin), added to the current scroll:
-    // (300 - 20 - 20) = +260 on X and (200 - 10 - 10) = +180 on Y.
-    expect(next).toEqual({ left: 360, top: 230 });
+  /**
+   * `content` is the grabbed point in **world units** (the same units as `element.x/y`), what the
+   * callers store as `(pointer - canvasLeft) / scale` at grab time. Moving the canvas to
+   * `pointer - content * scale` is a scroll delta of `canvasLeft - (pointer - content * scale)`.
+   */
+  it("leaves the scroll alone when the content point is already anchored", () => {
+    // Canvas at client 20, scrolled to 100; a point 140 world units in, at scale 2, is 280 px wide
+    // and already sits under the pointer at client 300.
+    const next = anchorScrollFor({ x: 300, y: 200 }, { x: 140, y: 95 }, 2, 20, 10, { left: 100, top: 50 });
+    expect(next).toEqual({ left: 100, top: 50 });
   });
 
-  it("is an identity when the content point is already anchored", () => {
-    // Canvas sitting at the viewport origin, 10 content units in at scale 2 => 20 px.
-    expect(anchorScrollFor({ x: 20, y: 20 }, { x: 10, y: 10 }, 2, 0, 0, { left: 0, top: 0 })).toEqual({
-      left: 0,
-      top: 0
-    });
+  it("scrolls forward when the scale doubles, keeping the grabbed point under the pointer", () => {
+    // Canvas at 0 with scroll 0: the grabbed point is 300 world units in, so at scale 2 it is
+    // 600 px wide and the canvas has to move to 300 - 600 = -300, i.e. scroll +300.
+    const next = anchorScrollFor({ x: 300, y: 0 }, { x: 300, y: 0 }, 2, 0, 0, { left: 0, top: 0 });
+    expect(next).toEqual({ left: 300, top: 0 });
   });
 
-  it("uses exactly the same correction as the wheel/trackpad zoom anchoring", () => {
-    // Kept identical on purpose: the pinch must not introduce a second anchoring formula.
-    const pointer = { x: 400, y: 300 };
-    const content = { x: 50, y: 25 };
-    const scale = 1.5;
-    const canvasLeft = 60;
-    const canvasTop = 40;
-    const scroll = { left: 120, top: 80 };
-    const expected = {
-      left: scroll.left + (pointer.x - content.x * scale - canvasLeft),
-      top: scroll.top + (pointer.y - content.y * scale - canvasTop)
-    };
-    expect(anchorScrollFor(pointer, content, scale, canvasLeft, canvasTop, scroll)).toEqual(expected);
+  it("follows a pure pan by exactly the pointer delta", () => {
+    const first = anchorScrollFor({ x: 200, y: 100 }, { x: 100, y: 100 }, 1, 0, 0, { left: 0, top: 0 });
+    // The canvas must end up at client 100, which means scrolling to -100 (a browser clamps that
+    // to 0, which is why every step re-measures the canvas position instead of accumulating).
+    expect(first).toEqual({ left: -100, top: 0 });
+    // Dragging 30 px further right moves the canvas to client 130 -> another -30 of scroll.
+    const panned = anchorScrollFor({ x: 230, y: 100 }, { x: 100, y: 100 }, 1, 100, 0, first);
+    expect(panned.left - first.left).toBe(-30);
+  });
+
+  it("is exact over a sequence of pan steps (no accumulation drift)", () => {
+    // Container left edge at client 0, so the canvas position is always -scroll.
+    let scroll = { left: 500, top: 300 };
+    let canvasLeft = -500;
+    let canvasTop = -300;
+    const content = { x: 600, y: 400 };
+    for (let step = 1; step <= 5; step += 1) {
+      const pointer = { x: 100 + step * 20, y: 100 + step * 10 };
+      const next = anchorScrollFor(pointer, content, 1, canvasLeft, canvasTop, scroll);
+      canvasLeft -= next.left - scroll.left;
+      canvasTop -= next.top - scroll.top;
+      scroll = next;
+    }
+    // Five steps of +20/+10 px to the right move the scroll by exactly -100/-50.
+    expect(scroll).toEqual({ left: 400, top: 250 });
   });
 });

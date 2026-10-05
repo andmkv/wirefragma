@@ -50,6 +50,7 @@ export const zh: Dictionary = {
   "toolbar.copyForLlmTitle": "复制供 LLM 使用的 Markdown 导出内容",
   "toolbar.export": "导出",
   "toolbar.exportTitle": "导出 Markdown",
+  "toolbar.more": "更多",
   "toolbar.signIn": "登录",
   "toolbar.signInTitle": "登录以将项目保存到你的账户",
 
@@ -365,6 +366,12 @@ export const zh: Dictionary = {
   "error.too_large": "此线框图超过 2 MB，无法保存。",
   "error.conflict": "此线框图已在其他标签页或设备上被修改。",
   "error.server": "服务器出错了。",
+  "error.boundaryTitle": "编辑器发生错误",
+  "error.boundaryMessage": "文档仍然存在，没有丢失任何内容。请重试渲染，或将当前项目下载为 JSON。",
+  "error.boundaryContext": "项目：{title}",
+  "error.boundaryRetry": "重试",
+  "error.boundaryExport": "导出当前内容",
+  "error.boundaryExportHint": "将当前项目下载为 JSON——粘贴到“导入”中即可继续。",
 
   // -------------------------------------------------------------- privacy
   "privacy.title": "隐私政策",

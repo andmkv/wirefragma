@@ -2,6 +2,33 @@
 
 ## 1.2.0 — unreleased
 
+### Responsive editor
+- **Three layouts at 1100 px / 768 px.** Desktop is unchanged; at 768–1099 px the canvas gets the
+  whole width and Add / Layers / Properties become overlay drawers (scrim + Escape close them, the
+  state is never remembered, selecting an element never opens one); below 768 px the same drawers
+  come with a compact toolbar — undo, redo, zoom/fit, Export and a "⋯" menu holding New, Import,
+  Copy for LLM, Grid, Snap, grid size and canvas size/preset — so nothing becomes unreachable.
+  A breakpoint hook shares the thresholds with the stylesheet.
+- Measured with a headless browser at 820 / 390 / 1280 px: **no horizontal page scroll at any
+  width**, the canvas viewport is **100 % of the width** on tablet and phone (was ~174 px and
+  ~40 px), the toolbar is 2 rows at 820 px (was 3) and 1 row at 390 px, every drawer opens, is
+  visible and closes again, and a synthetic two-finger pinch + pan still pans and zooms.
+- **Touch ergonomics**: toolbar / panel hit targets are ≥ 40 px at ≤ 1099 px or with a coarse
+  pointer, and the canvas handle grab tolerance grows through the single shared hit test
+  (`coarsePointer`, one constant in `geometry.ts`) — still zoom-independent and still one geometry.
+- `100dvh` with the `100vh` fallback, `env(safe-area-inset-*)` padding and `viewport-fit=cover`;
+  dialogs stay inside a 360×640 viewport as full-screen sheets with a scrollable body; the
+  signed-in workspace, the projects panel and the sign-in screen are usable at those widths.
+- **Error boundary** around the editor: a localized message, "Try again" (the document, its undo
+  history and the autosave state survive) and "Export what I have" (the current project JSON).
+- **Lazy locale chunks**: only English ships in the base bundle; the stored language is preloaded
+  before the first render, so switching or starting a language never flashes untranslated text.
+  The base JS chunk dropped from 176 kB to 125 kB gzip.
+- Fixed the zoom/pinch anchoring arithmetic: the correction is now
+  `canvasPosition − (pointer − content × scale)`, measured against the canvas position read on
+  every step, so pinch-zoom keeps the grabbed point under the fingers and panning follows the
+  pointer exactly (previously the sign was inverted and the pan over-corrected).
+
 ### Emoji
 - **Generated full catalog** (1914 fully-qualified emoji, base glyphs only — no skin tones — with
   flags and ZWJ sequences) replacing the hand-written 336-entry list. New `Flags` category; the
