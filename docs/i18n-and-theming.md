@@ -59,3 +59,18 @@ inverted with `--logo-filter`.
 After sign-in the account's stored preferences are applied (they win over the browser's guest
 choice). The Settings dialog also edits the display name, changes the password
 (`password-change`, requires the current one) and holds **Delete account**.
+
+## Lazy dictionaries (1.3.5)
+
+Only English is part of the base chunk. Every other dictionary is a chunk of its own
+(`import("./locales/xx")`) and is fetched **before** the language is applied:
+
+* `main.tsx` preloads the stored language before the first render, so a non-English user never sees
+  a frame of English;
+* switching the language in Settings keeps the previous language on screen until the chunk has
+  arrived, then swaps the whole UI in one frame;
+* `translate()` falls back to English for a locale whose chunk has not loaded (or failed), so the
+  app stays usable even if a chunk cannot be fetched.
+
+The i18n test suite loads all eight dictionaries explicitly (`loadDictionary`) before comparing
+keys, placeholders and plural categories.

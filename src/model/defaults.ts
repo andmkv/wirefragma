@@ -9,14 +9,50 @@ import {
   type WireframeLayer,
   type WireframeProject
 } from "./project";
+import { presetMatchingSize } from "./canvasPresets";
+import type { CanvasPresetId } from "./canvasPresets";
+import { createChartData } from "./chart";
 import { createDiagramData } from "./diagram";
 import { createDrawingData } from "./drawing";
+
+/**
+ * The device preset catalog lives in `model/canvasPresets.ts` (pure data, no imports) so the
+ * model can validate preset ids without a circular dependency. It is re-exported here because
+ * this is the module the editor imports its defaults from.
+ */
+export { CANVAS_DEVICE_PRESETS, CANVAS_PRESET_GROUPS, findCanvasPreset, presetMatchingSize } from "./canvasPresets";
+export type { CanvasDevicePreset, CanvasPresetGroup, CanvasPresetId } from "./canvasPresets";
 
 export const CANVAS_PRESETS: Record<Exclude<CanvasMode, "custom">, { width: number; height: number }> = {
   desktop: { width: 1200, height: 800 },
   mobile: { width: 390, height: 844 },
   mobileLandscape: { width: 844, height: 390 }
 };
+
+/** Everything that identifies a canvas size; `flipCanvas` returns the same shape. */
+export interface CanvasSpec {
+  mode: CanvasMode;
+  width: number;
+  height: number;
+  preset?: CanvasPresetId;
+}
+
+/**
+ * Portrait ↔ landscape in one step: swap the dimensions, then re-derive what identifies the
+ * result — a device preset with exactly those dimensions (iPad ↔ iPad landscape), else one of the
+ * three classic modes (mobile ↔ mobile landscape), else a plain custom size.
+ */
+export function flipCanvas(canvas: CanvasSpec): CanvasSpec {
+  const width = canvas.height;
+  const height = canvas.width;
+  const preset = presetMatchingSize(width, height);
+  if (preset) return { mode: "custom", preset: preset.id, width, height };
+  const legacy = (Object.keys(CANVAS_PRESETS) as Exclude<CanvasMode, "custom">[]).find(
+    (mode) => CANVAS_PRESETS[mode].width === width && CANVAS_PRESETS[mode].height === height
+  );
+  if (legacy) return { mode: legacy, width, height };
+  return { mode: "custom", width, height };
+}
 
 export interface ElementDefaults {
   width: number;
@@ -61,13 +97,15 @@ export const ELEMENT_DEFAULTS: Record<ElementType, ElementDefaults> = {
   dialog: { width: 360, height: 240, label: "Dialog" },
   // Same aspect ratio as the default scene (600×400 / 480×360), so a fresh scene fills its box.
   diagram: { width: 450, height: 300, label: "" },
-  drawing: { width: 240, height: 180, label: "" }
+  drawing: { width: 240, height: 180, label: "" },
+  // Landscape enough for an axis pair plus labels; the chart title stands in for a label.
+  chart: { width: 360, height: 240, label: "" }
 };
 
 /** Palette groups shown in the left "Add" tab. */
 export const PALETTE_GROUPS: { title: string; types: ElementType[] }[] = [
   { title: "Layout", types: ["container", "toolbar", "sidebar", "bottomNav", "dialog", "divider"] },
-  { title: "Content", types: ["text", "image", "icon", "avatar", "badge", "list", "table", "tabs"] },
+  { title: "Content", types: ["text", "image", "icon", "avatar", "badge", "list", "table", "tabs", "chart"] },
   {
     title: "Controls",
     types: [
@@ -138,6 +176,7 @@ export function createElement(
   if (columns) element.columns = [...columns];
   if (type === "diagram") element.diagram = createDiagramData();
   if (type === "drawing") element.drawing = createDrawingData();
+  if (type === "chart") element.chart = createChartData();
   return element;
 }
 

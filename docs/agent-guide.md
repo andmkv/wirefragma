@@ -79,7 +79,7 @@ handling, zoom anchoring and pointer lifecycle all have to survive.
 
 Wirefragma is a *wireframe sketcher that produces an LLM-readable spec*, not a design tool:
 
-* a fixed palette of 26 generic primitives (24 UI primitives + the Canvas and Drawing scene
+* a fixed palette of 27 generic primitives (24 UI primitives + the Canvas, Drawing and Chart
   elements) is a feature, not a limitation to remove;
 * the Markdown export and its `ui-project` block are the product — canvas polish that does not
   improve the export is usually not worth it;

@@ -10,6 +10,7 @@ import {
   type WireframeProject
 } from "../model/project";
 import { CaretIcon, DuplicateIcon, EyeIcon, LockIcon, TrashIcon } from "./icons";
+import { EmojiTextField } from "./EmojiTextField";
 import { RowMenu } from "./RowMenu";
 import { useT } from "../i18n";
 
@@ -343,11 +344,12 @@ export function LayersPanel({
                 </button>
 
                 {renamingId === layer.id ? (
-                  <input
+                  <EmojiTextField
                     className="layer-rename"
                     value={draftName}
                     autoFocus
-                    onChange={(event) => setDraftName(event.target.value)}
+                    ariaLabel={t("common.rename")}
+                    onChange={setDraftName}
                     onBlur={commitRename}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") commitRename();

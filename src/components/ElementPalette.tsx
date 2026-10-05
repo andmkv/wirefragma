@@ -35,7 +35,8 @@ const GLYPH: Record<ElementType, string> = {
   bottomNav: "⊞",
   dialog: "▣",
   diagram: "◇",
-  drawing: "✎"
+  drawing: "✎",
+  chart: "▧"
 };
 
 /**

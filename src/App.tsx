@@ -2,23 +2,28 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { BUILD_ID, INPUT_DEBUG_ENABLED, VITE_MODE } from "./buildIdentity";
 import { AppToolbar } from "./components/AppToolbar";
 import { CanvasEditor } from "./components/CanvasEditor";
+import { ChartEditor } from "./components/ChartEditor";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { DiagramEditor } from "./components/DiagramEditor";
 import { DrawingEditor } from "./components/DrawingEditor";
 import { ElementPalette } from "./components/ElementPalette";
+import { EditorErrorBoundary } from "./components/ErrorBoundary";
 import { ExportDialog } from "./components/ExportDialog";
 import { ImportDialog } from "./components/ImportDialog";
 import { LayersPanel } from "./components/LayersPanel";
 import { LeftPanel } from "./components/LeftPanel";
 import { usePanelFlag } from "./components/PanelResize";
 import { useT, type TranslationKey, type TranslationParams } from "./i18n";
-import { PropertiesPanel } from "./components/PropertiesPanel";
+import { PROPERTIES_NAME_FIELD_ID, PropertiesPanel } from "./components/PropertiesPanel";
 import {
   CANVAS_PRESETS,
   ELEMENT_DEFAULTS,
   createBlankProject,
   createElement,
+  findCanvasPreset,
+  flipCanvas,
 } from "./model/defaults";
+import { elementsOutsideCanvas } from "./model/canvasSize";
 import {
   MAX_CANVAS_SIZE,
   MIN_CANVAS_SIZE,
@@ -48,14 +53,17 @@ import {
   type WireframeElement,
   type WireframeProject
 } from "./model/project";
+import { createChartData } from "./model/chart";
 import { createDiagramData } from "./model/diagram";
 import { createDrawingData } from "./model/drawing";
-import { copySelection, pasteClipboard, type WirefragmaClipboard } from "./model/clipboard";
+import { copySelection, pasteClipboard } from "./model/clipboard";
+import { clipboardStore } from "./model/clipboardStore";
 import {
   EMPTY_SELECTION,
   deletableSelection,
   movableSelection,
   normalizeSelectionState,
+  selectableElements,
   selectionEquals,
   selectionOf,
   singleSelection,
@@ -81,9 +89,14 @@ import {
 import { projectToLlmMarkdown } from "./utils/markdownExport";
 import { projectFromText } from "./utils/markdownImport";
 import { loadProject, saveProject } from "./utils/storage";
+import { usesOverlayDrawers } from "./utils/layoutMode";
+import { useLayoutMode } from "./utils/useMediaQuery";
 import { clampZoom, zoomStep, type ZoomMode } from "./utils/zoom";
 
 type Dialog = "none" | "export" | "import";
+
+/** Overlay-layout panel drawers; at most one is open, and the state is never remembered. */
+type Drawer = "none" | "add" | "layers" | "properties" | "projects";
 
 /**
  * Signed-in mode: the document comes from (and goes back to) the account workspace instead of
@@ -132,13 +145,16 @@ export default function App({
   }, [history, onHistoryChange]);
   const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
   /**
-   * Internal clipboard — core copy/paste never depends on OS clipboard permissions, and it is a
-   * ref rather than state so Cmd+C and Cmd+V stay correct even when they land in the same task
-   * (nothing in the UI renders from the clipboard).
+   * Internal clipboard — core copy/paste never depends on OS clipboard permissions.
+   *
+   * The payload lives in a module-level store (`model/clipboardStore.ts`) rather than in this
+   * component: the signed-in workspace remounts `<App key=…>` per wireframe, so a ref would be
+   * lost on every switch. It stays out of React state (nothing in the UI renders from it), and
+   * only the cascade counter is per editor — keyed by the payload's token so a fresh copy
+   * restarts the cascade exactly like the old per-App ref did.
    */
-  const clipboardRef = useRef<WirefragmaClipboard | null>(null);
-  /** How many times the current clipboard payload has been pasted (drives the cascade). */
   const pasteCounterRef = useRef(0);
+  const pasteTokenRef = useRef<string | null>(null);
   const [activeLayerId, setActiveLayerId] = useState<string | null>(boot.project.layers[0]?.id ?? null);
   const [dialog, setDialog] = useState<Dialog>("none");
   /** Layer the Export dialog is scoped to (Layers "…" → Export layer), or null for the whole project. */
@@ -149,6 +165,17 @@ export default function App({
   const [pendingNewProject, setPendingNewProject] = useState(false);
   // Remembered per browser, so opening another wireframe (a fresh editor) keeps the layout.
   const [layersOpen, setLayersOpen] = usePanelFlag("wirefragma.panel.layersOpen", true);
+  /**
+   * Responsive layout (1.3.5). `desktop` keeps the three-column workspace; `tablet` and `phone`
+   * give the canvas the full width and turn Add / Layers / Properties into overlay drawers.
+   */
+  const layout = useLayoutMode();
+  const overlay = usesOverlayDrawers(layout);
+  const [drawer, setDrawer] = useState<Drawer>("none");
+  const toggleDrawer = useCallback((id: Drawer) => {
+    setDrawer((current) => (current === id ? "none" : id));
+  }, []);
+  const closeDrawer = useCallback(() => setDrawer("none"), []);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("fit");
   const [manualScale, setManualScale] = useState(1);
   const [zoomView, setZoomView] = useState({ scale: 1, fit: 1 });
@@ -232,6 +259,11 @@ export default function App({
     });
   }, [activeLayerId, project]);
 
+  // A drawer only exists in the overlay layouts; going back to desktop closes it.
+  useEffect(() => {
+    if (!overlay) setDrawer("none");
+  }, [overlay]);
+
   // Narrow windows start with the layers panel collapsed so the canvas keeps its room.
   useEffect(() => {
     let wasNarrow = window.innerWidth < 1024;
@@ -289,12 +321,14 @@ export default function App({
       const element = createElement(type, project, { x, y, layerId: targetLayer.id });
       mutate((current) => addElement(current, element), { coalesceKey: null });
       setSelection(singleSelection(element.id));
+      // In the overlay layouts the Add drawer covers the canvas: close it so the new element shows.
+      if (overlay) setDrawer((current) => (current === "add" ? "none" : current));
 
       if (!targetLayer.visible || targetLayer.locked) {
         flash(tr(targetLayer.visible ? "toast.addedToLocked" : "toast.addedToHidden", { layer: targetLayer.name }));
       }
     },
-    [activeLayerId, flash, mutate, project, snapValue]
+    [activeLayerId, flash, mutate, overlay, project, snapValue]
   );
 
   const handleElementChange = useCallback(
@@ -432,18 +466,21 @@ export default function App({
   const handleCopy = useCallback(() => {
     const payload = copySelection(project, selection.ids);
     if (!payload) return;
-    clipboardRef.current = payload;
+    clipboardStore.set(payload);
     pasteCounterRef.current = 0;
+    pasteTokenRef.current = null;
     flash(
       tr("toast.copied", { count: payload.elements.length })
     );
   }, [flash, project, selection.ids]);
 
   const handlePaste = useCallback(() => {
-    const clipboard = clipboardRef.current;
+    const clipboard = clipboardStore.get();
     if (!clipboard || clipboard.elements.length === 0) return;
     // Each paste cascades one step further, so repeated pastes never land on top of each other.
-    const pasteIndex = pasteCounterRef.current + 1;
+    // A different payload (a new copy, or a copy made in another wireframe/tab) restarts it.
+    const pasteIndex = pasteTokenRef.current === clipboard.token ? pasteCounterRef.current + 1 : 1;
+    pasteTokenRef.current = clipboard.token;
     pasteCounterRef.current = pasteIndex;
     const result = pasteClipboard(project, clipboard, { pasteIndex, activeLayerId });
     if (result.newIds.length === 0) return;
@@ -464,6 +501,50 @@ export default function App({
       })
     );
   }, [activeLayerId, flash, mutate, project]);
+
+  /**
+   * Cmd/Ctrl+X: copy the deletable members of the selection, then delete them. Copying and
+   * deleting happen in one pass, so the whole cut is exactly one history step, and locked
+   * members are skipped (they stay in the document and outside the payload).
+   */
+  const handleCut = useCallback(() => {
+    if (selection.ids.length === 0) return;
+    const removable = deletableSelection(project, selection.ids);
+    if (removable.length === 0) {
+      flash(selection.ids.length === 1 ? tr("toast.deleteLockedOne") : tr("toast.deleteLockedAll"));
+      return;
+    }
+    const payload = copySelection(project, removable);
+    if (!payload) return;
+    clipboardStore.set(payload);
+    pasteCounterRef.current = 0;
+    pasteTokenRef.current = null;
+    mutate((current) => removeElements(current, removable), { coalesceKey: null });
+    setSelection(EMPTY_SELECTION);
+    flash(
+      removable.length < selection.ids.length
+        ? tr("toast.cutPartial", { copied: payload.elements.length, total: selection.ids.length })
+        : tr("toast.cut", { count: payload.elements.length })
+    );
+  }, [flash, mutate, project, selection.ids]);
+
+  /** Cmd/Ctrl+A: every visible, unlocked element — the same rule the marquee uses. */
+  const handleSelectAll = useCallback(() => {
+    const ids = selectableElements(project);
+    if (ids.length === 0) {
+      flash(tr("toast.selectNone"));
+      return;
+    }
+    setSelection(selectionOf(ids));
+  }, [flash, project]);
+
+  /** F2: jump to the Name field of the single selected element. */
+  const focusNameField = useCallback(() => {
+    const input = document.getElementById(PROPERTIES_NAME_FIELD_ID);
+    if (!(input instanceof HTMLInputElement)) return;
+    input.focus();
+    input.select();
+  }, []);
 
   /* --------------------------------------------------- canvas gesture commits */
 
@@ -676,12 +757,11 @@ export default function App({
   const handleProjectChange = useCallback(
     (patch: { title?: string; width?: number; height?: number }) => {
       mutate(
-        (current) => ({
-          ...current,
-          title: patch.title ?? current.title,
-          canvas: {
-            ...current.canvas,
-            mode: patch.width !== undefined || patch.height !== undefined ? "custom" : current.canvas.mode,
+        (current) => {
+          const resizing = patch.width !== undefined || patch.height !== undefined;
+          const canvas: WireframeProject["canvas"] = {
+            // A manual size is no longer the device preset it started from.
+            mode: resizing ? "custom" : current.canvas.mode,
             width:
               patch.width === undefined
                 ? current.canvas.width
@@ -690,8 +770,10 @@ export default function App({
               patch.height === undefined
                 ? current.canvas.height
                 : Math.min(MAX_CANVAS_SIZE, Math.max(MIN_CANVAS_SIZE, Math.round(patch.height)))
-          }
-        }),
+          };
+          if (!resizing && current.canvas.preset !== undefined) canvas.preset = current.canvas.preset;
+          return { ...current, title: patch.title ?? current.title, canvas };
+        },
         { coalesceKey: `project:${Object.keys(patch).join(",")}` }
       );
     },
@@ -703,9 +785,9 @@ export default function App({
       mutate(
         (current) => {
           if (mode === "custom") {
-            return current.canvas.mode === "custom"
-              ? current
-              : { ...current, canvas: { ...current.canvas, mode: "custom" } };
+            if (current.canvas.mode === "custom" && current.canvas.preset === undefined) return current;
+            // "Custom…" means exactly that: the preset identity is dropped.
+            return { ...current, canvas: { mode: "custom", width: current.canvas.width, height: current.canvas.height } };
           }
           return { ...current, canvas: { mode, ...CANVAS_PRESETS[mode] } };
         },
@@ -715,13 +797,69 @@ export default function App({
     [mutate]
   );
 
+  /** A device preset: `mode: "custom"` plus the additive `preset` id, one history step. */
+  const handlePresetChange = useCallback(
+    (presetId: string) => {
+      const preset = findCanvasPreset(presetId);
+      if (!preset) return;
+      mutate(
+        (current) => {
+          if (
+            current.canvas.preset === preset.id &&
+            current.canvas.width === preset.width &&
+            current.canvas.height === preset.height
+          ) {
+            return current;
+          }
+          return {
+            ...current,
+            canvas: { mode: "custom", preset: preset.id, width: preset.width, height: preset.height }
+          };
+        },
+        { coalesceKey: null }
+      );
+    },
+    [mutate]
+  );
+
+  const handleFlipCanvas = useCallback(() => {
+    mutate((current) => ({ ...current, canvas: flipCanvas(current.canvas) }), { coalesceKey: null });
+  }, [mutate]);
+
+  /**
+   * Canvas edge drag: transient updates while the pointer moves (the gesture opened a history
+   * transaction), so the whole drag is ONE undo step. Elements are never moved, scaled or deleted.
+   */
+  const handleCanvasResize = useCallback(
+    (width: number, height: number) => {
+      mutate(
+        (current) => {
+          const next = {
+            width: Math.min(MAX_CANVAS_SIZE, Math.max(MIN_CANVAS_SIZE, Math.round(width))),
+            height: Math.min(MAX_CANVAS_SIZE, Math.max(MIN_CANVAS_SIZE, Math.round(height)))
+          };
+          if (next.width === current.canvas.width && next.height === current.canvas.height) return current;
+          return { ...current, canvas: { mode: "custom", width: next.width, height: next.height } };
+        },
+        { transient: true }
+      );
+    },
+    [mutate]
+  );
+
+  /** Non-blocking report of elements left completely outside the canvas; nothing is deleted. */
+  const handleCanvasResizeEnd = useCallback(() => {
+    const outside = elementsOutsideCanvas(project.elements, project.canvas.width, project.canvas.height);
+    if (outside > 0) flash(tr("toast.canvasShrunk", { count: outside }));
+  }, [flash, project]);
+
   const closeDialog = useCallback(() => setDialog("none"), []);
 
   /* ------------------------------------------------ Canvas / Drawing popups */
 
   const openSceneEditor = useCallback((elementId: string) => {
     const element = findElement(project, elementId);
-    if (!element || (element.type !== "diagram" && element.type !== "drawing")) return;
+    if (!element || (element.type !== "diagram" && element.type !== "drawing" && element.type !== "chart")) return;
     if (effectiveLocked(project, element)) return;
     setSelection(singleSelection(elementId));
     setSceneEditId(elementId);
@@ -729,7 +867,10 @@ export default function App({
   const sceneElement = sceneEditId ? findElement(project, sceneEditId) : null;
   /** Done: the whole editing session becomes ONE history step. */
   const commitScene = useCallback(
-    (elementId: string, patch: Pick<WireframeElement, "diagram"> | Pick<WireframeElement, "drawing">) => {
+    (
+      elementId: string,
+      patch: Pick<WireframeElement, "diagram"> | Pick<WireframeElement, "drawing"> | Pick<WireframeElement, "chart">
+    ) => {
       mutate((current) => updateElement(current, elementId, patch), { coalesceKey: null });
       setSceneEditId(null);
     },
@@ -744,8 +885,9 @@ export default function App({
     const next = createBlankProject();
     setHistory(resetHistory(next));
     setSelection(EMPTY_SELECTION);
-    clipboardRef.current = null;
-    pasteCounterRef.current = 0;
+    // The clipboard deliberately survives New/Import: it is a cross-wireframe clipboard now and
+    // behaves like the OS clipboard (replacing a document never empties it). Pasting into a
+    // project that has no matching layer falls back to the active layer, so it stays safe.
     setActiveLayerId(next.layers[0]?.id ?? null);
     setDialog("none");
     flash(tr("toast.newProject"));
@@ -769,8 +911,7 @@ export default function App({
         const imported = projectFromText(text);
         setHistory(resetHistory(imported));
         setSelection(EMPTY_SELECTION);
-        clipboardRef.current = null;
-        pasteCounterRef.current = 0;
+        // See startBlankProject: the cross-wireframe clipboard survives an import.
         setActiveLayerId(imported.layers[0]?.id ?? null);
         flash(
           tr("toast.imported", {
@@ -875,6 +1016,24 @@ export default function App({
         handlePaste();
         return;
       }
+      if (mod && key.toLowerCase() === "x") {
+        // handleCut skips locked members itself and explains when nothing is left.
+        if (selectedIds.length === 0) return;
+        event.preventDefault();
+        handleCut();
+        return;
+      }
+      if (mod && key.toLowerCase() === "a") {
+        event.preventDefault();
+        handleSelectAll();
+        return;
+      }
+      if (key === "F2") {
+        if (selectedIds.length !== 1) return;
+        event.preventDefault();
+        focusNameField();
+        return;
+      }
       if (key === "Delete" || key === "Backspace") {
         if (selectedIds.length === 0) return;
         event.preventDefault();
@@ -882,6 +1041,11 @@ export default function App({
         return;
       }
       if (key === "Escape") {
+        // An open drawer is the most local thing Escape can dismiss.
+        if (drawer !== "none") {
+          setDrawer("none");
+          return;
+        }
         clearSelection();
         return;
       }
@@ -906,13 +1070,17 @@ export default function App({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     clearSelection,
+    drawer,
     flash,
+    focusNameField,
     gridSize,
     handleCopy,
+    handleCut,
     handleDelete,
     handleDuplicate,
     handlePaste,
     handleRedo,
+    handleSelectAll,
     handleUndo,
     handleZoomFit,
     handleZoomIn,
@@ -933,8 +1101,10 @@ export default function App({
         gridSize={gridSize}
         zoomMode={zoomMode}
         zoomScale={zoomView.scale}
-        layersOpen={layersOpen}
+        layersOpen={overlay ? drawer === "layers" : layersOpen}
         onModeChange={handleModeChange}
+        onPresetChange={handlePresetChange}
+        onFlipCanvas={handleFlipCanvas}
         onCanvasSizeChange={(width, height) => handleProjectChange({ width, height })}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -952,10 +1122,17 @@ export default function App({
         onZoomOut={handleZoomOut}
         onZoomFit={handleZoomFit}
         onZoomPreset={applyZoom}
-        onToggleLayers={() => setLayersOpen((value) => !value)}
+        onToggleLayers={() => (overlay ? toggleDrawer("layers") : setLayersOpen((value) => !value))}
         showImport={!host}
         newTitle={host ? t("toolbar.newWireframeTitle") : undefined}
         accountSlot={host ? host.accountSlot : guestSlot}
+        layout={layout}
+        addOpen={drawer === "add"}
+        onToggleAdd={() => toggleDrawer("add")}
+        propertiesOpen={drawer === "properties"}
+        onToggleProperties={() => toggleDrawer("properties")}
+        projectsOpen={drawer === "projects"}
+        onToggleProjects={host && overlay ? () => toggleDrawer("projects") : undefined}
       />
 
       {host?.notice ? <div className="notice-banner host-notice">{host.notice}</div> : null}
@@ -988,18 +1165,38 @@ export default function App({
         </div>
       ) : null}
 
+      <EditorErrorBoundary project={project}>
       <main
         className={[
           "workspace",
-          host ? "with-projects" : ""
+          host ? "with-projects" : "",
+          overlay ? "layout-overlay" : "layout-desktop"
         ]
           .filter(Boolean)
           .join(" ")}
       >
-        {host?.sidebar}
+        {/*
+          Signed-in projects panel: a normal workspace column on desktop, a left drawer in the
+          overlay layouts (D1).
+        */}
+        {host?.sidebar ? (
+          overlay ? (
+            <div
+              className={drawer === "projects" ? "workspace-drawer drawer drawer-left open" : "workspace-drawer drawer drawer-left"}
+              data-drawer="projects"
+            >
+              {host.sidebar}
+            </div>
+          ) : (
+            host.sidebar
+          )
+        ) : null}
         <LeftPanel
           layersOpen={layersOpen}
           onToggleLayers={() => setLayersOpen((value) => !value)}
+          overlay={overlay}
+          openDrawer={drawer}
+          onCloseDrawer={closeDrawer}
           addPanel={(compact) => (
             <ElementPalette compact={compact} onAdd={handleAdd} activeLayerName={activeLayer?.name ?? "Default"} />
           )}
@@ -1060,6 +1257,8 @@ export default function App({
             onScaleChange={handleScaleChange}
             onUserZoom={applyZoom}
             onEditScene={openSceneEditor}
+            onCanvasResize={handleCanvasResize}
+            onCanvasResizeEnd={handleCanvasResizeEnd}
           />
           <div className="canvas-hint">{t("canvas.hint", { grid: gridSize })}</div>
         </section>
@@ -1082,6 +1281,9 @@ export default function App({
           onUnnest={handleUnnestSelected}
           footer={preferencesSlot}
           onEditScene={() => selectedElement && openSceneEditor(selectedElement.id)}
+          overlay={overlay}
+          open={drawer === "properties"}
+          onClose={closeDrawer}
         />
       </main>
 
@@ -1100,6 +1302,15 @@ export default function App({
           name={sceneElement.name}
           initial={sceneElement.drawing ?? createDrawingData()}
           onDone={(drawing) => commitScene(sceneElement.id, { drawing })}
+          onCancel={() => setSceneEditId(null)}
+        />
+      ) : null}
+      {sceneElement?.type === "chart" ? (
+        <ChartEditor
+          key={sceneElement.id}
+          name={sceneElement.label.trim() || sceneElement.name}
+          initial={sceneElement.chart ?? createChartData()}
+          onDone={(chart) => commitScene(sceneElement.id, { chart })}
           onCancel={() => setSceneEditId(null)}
         />
       ) : null}
@@ -1135,6 +1346,13 @@ export default function App({
           }}
           onCancel={() => setPendingNewProject(false)}
         />
+      ) : null}
+
+      </EditorErrorBoundary>
+
+      {/* The scrim sits under the drawers and closes whatever is open (D1). */}
+      {overlay && drawer !== "none" ? (
+        <div className="drawer-scrim" onClick={closeDrawer} aria-hidden="true" />
       ) : null}
 
       {status ? <div className="toast">{status}</div> : null}

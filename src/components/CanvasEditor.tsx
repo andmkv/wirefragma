@@ -1,5 +1,23 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { MIN_ELEMENT_SIZE, effectiveLocked, findElement, type WireframeElement, type WireframeProject } from "../model/project";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent
+} from "react";
+import {
+  MAX_CANVAS_SIZE,
+  MIN_CANVAS_SIZE,
+  MIN_ELEMENT_SIZE,
+  effectiveLocked,
+  findElement,
+  type WireframeElement,
+  type WireframeProject
+} from "../model/project";
+import { canvasSizeFromDrag, type CanvasResizeEdge } from "../model/canvasSize";
+import { useCoarsePointer } from "../utils/useMediaQuery";
 import { hasDrawingDescription } from "../model/drawing";
 import type { SelectionState } from "../model/selection";
 import { WARNING_BADGE_PX, visibleGeometries, warningBadgeRect, type ResizeEdge } from "../canvas/geometry";
@@ -8,8 +26,16 @@ import { CanvasInteraction, type InteractionState } from "../canvas/interaction"
 import { renderScene, type PreviewOverride } from "../canvas/render";
 import { createTransform, rectContains, screenToWorld, worldRectToScreen, type Point, type Rect, type ViewTransform } from "../canvas/transform";
 import { useT } from "../i18n";
-import { fitScale, scaleForMode, zoomFromWheel, type ZoomMode } from "../utils/zoom";
+import { fitScale, scaleForMode, zoomFromWheel, MAX_ZOOM, MIN_ZOOM, type ZoomMode } from "../utils/zoom";
 import { isEditingTextInput } from "../utils/keyboard";
+import {
+  anchorScrollFor,
+  panScroll,
+  pinchScale,
+  touchCentroid,
+  touchDistance,
+  type TouchPoint
+} from "../canvas/pan";
 
 interface CanvasEditorProps {
   project: WireframeProject;
@@ -30,12 +56,23 @@ interface CanvasEditorProps {
   onScaleChange: (scale: number, fit: number) => void;
   /** The user pinch/wheel-zoomed; the editor switches to manual zoom. */
   onUserZoom: (scale: number) => void;
-  /** Open the scene popup of a Canvas / Drawing element (double-click or the hover pencil). */
+  /** Open the popup of a Canvas / Drawing / Chart element (double-click or the hover pencil). */
   onEditScene: (elementId: string) => void;
+  /** Live canvas-edge resize (world units, already snapped and clamped by the caller). */
+  onCanvasResize: (width: number, height: number) => void;
+  /** The canvas resize gesture finished: closes its history step and reports the outcome. */
+  onCanvasResizeEnd: () => void;
 }
 
 const isSceneElement = (element: WireframeElement | null | undefined): element is WireframeElement =>
-  !!element && (element.type === "diagram" || element.type === "drawing");
+  !!element && (element.type === "diagram" || element.type === "drawing" || element.type === "chart");
+
+/** Pencil tooltip: the popup each scene type opens. */
+const SCENE_EDIT_KEY: Record<string, "scene.editCanvas" | "scene.editDrawing" | "chart.edit"> = {
+  diagram: "scene.editCanvas",
+  drawing: "scene.editDrawing",
+  chart: "chart.edit"
+};
 
 /** Pencil button size and inset from the element's top-right corner, in CSS px. */
 const PENCIL_PX = 22;
@@ -73,9 +110,12 @@ export function CanvasEditor({
   onEndInteraction,
   onScaleChange,
   onUserZoom,
-  onEditScene
+  onEditScene,
+  onCanvasResize,
+  onCanvasResizeEnd
 }: CanvasEditorProps) {
   const t = useT();
+  const coarsePointer = useCoarsePointer();
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const interactionRef = useRef<CanvasInteraction | null>(null);
@@ -100,10 +140,28 @@ export function CanvasEditor({
   const transform = useMemo(() => createTransform(scale, 0, 0), [scale]);
 
   // Latest values for the imperative renderer/interaction (no re-render per pointermove).
-  const latest = useRef({ project, selection, showGrid, gridSize, transform, snapToGrid, dpr });
-  latest.current = { project, selection, showGrid, gridSize, transform, snapToGrid, dpr };
-  const callbacks = useRef({ onSelect, onMove, onResize, onBeginInteraction, onEndInteraction, onEditScene });
-  callbacks.current = { onSelect, onMove, onResize, onBeginInteraction, onEndInteraction, onEditScene };
+  const latest = useRef({ project, selection, showGrid, gridSize, transform, snapToGrid, dpr, coarsePointer });
+  latest.current = { project, selection, showGrid, gridSize, transform, snapToGrid, dpr, coarsePointer };
+  const callbacks = useRef({
+    onSelect,
+    onMove,
+    onResize,
+    onBeginInteraction,
+    onEndInteraction,
+    onEditScene,
+    onCanvasResize,
+    onCanvasResizeEnd
+  });
+  callbacks.current = {
+    onSelect,
+    onMove,
+    onResize,
+    onBeginInteraction,
+    onEndInteraction,
+    onEditScene,
+    onCanvasResize,
+    onCanvasResizeEnd
+  };
 
   /**
    * Hover state for the scene affordances, updated only when it changes (not per pointermove):
@@ -111,6 +169,19 @@ export function CanvasEditor({
    */
   const [hover, setHover] = useState<{ sceneId: string | null; badgeId: string | null }>({ sceneId: null, badgeId: null });
   const [pointerDown, setPointerDown] = useState(false);
+
+  /**
+   * Viewport panning (view-only, see `canvas/pan.ts`). `spaceHeld` is mirrored in a ref so the
+   * pointer listeners never have to be re-registered while Space is held, and `panActiveRef` lets
+   * the pan cursor win over the engine's hover cursor.
+   */
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  const [panning, setPanning] = useState(false);
+  /** Live canvas size while an edge handle is being dragged (drives the "W × H" badge). */
+  const [canvasDrag, setCanvasDrag] = useState<({ width: number; height: number } & { edge: CanvasResizeEdge }) | null>(null);
+  const spaceHeldRef = useRef(false);
+  const panActiveRef = useRef(false);
+  spaceHeldRef.current = spaceHeld;
 
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -169,7 +240,8 @@ export function CanvasEditor({
       selection: latest.current.selection,
       snapEnabled: latest.current.snapToGrid,
       gridSize: latest.current.gridSize,
-      minSize: MIN_ELEMENT_SIZE
+      minSize: MIN_ELEMENT_SIZE,
+      coarsePointer: latest.current.coarsePointer
     });
 
     const interaction = new CanvasInteraction(canvas, state(), {
@@ -186,6 +258,8 @@ export function CanvasEditor({
       },
       requestRender: render,
       setCursor: (cursor) => {
+        // The pan cursor (grab / grabbing) wins while Space is held or a pan is running.
+        if (panActiveRef.current) return;
         canvas.style.cursor = cursor;
       }
     });
@@ -218,7 +292,8 @@ export function CanvasEditor({
       const current = latest.current;
       const world = screenToWorld(current.transform, screen.x, screen.y);
       const hit = hitTestProject(world, current.project, current.transform, {
-        handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null
+        handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null,
+        coarsePointer: current.coarsePointer
       });
       const element = hit.kind === "element" || hit.kind === "handle" ? findElement(current.project, hit.elementId) : undefined;
       return { screen, element: isSceneElement(element) ? element : undefined };
@@ -271,6 +346,55 @@ export function CanvasEditor({
   const badgeElement = hover.badgeId && !pointerDown ? findElement(project, hover.badgeId) : undefined;
   const badgeRect = badgeElement ? warningBadgeRect(badgeElement, transform) : null;
 
+  /**
+   * Canvas edge resize. Only `project.canvas.width/height` change — elements are never moved,
+   * scaled or deleted, and the model is untouched by the geometry/hit-test pipeline. One drag is
+   * one history step (the same transaction pair an element gesture uses); the screen delta is
+   * divided by the zoom, and snapping follows the toolbar's Snap toggle.
+   */
+  const startCanvasResize = (event: ReactPointerEvent<HTMLDivElement>, edge: CanvasResizeEdge) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const start = { width: project.canvas.width, height: project.canvas.height };
+    const origin = { x: event.clientX, y: event.clientY };
+    const gestureScale = latest.current.transform.scale;
+    callbacks.current.onBeginInteraction();
+    setCanvasDrag({ ...start, edge });
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const next = canvasSizeFromDrag(
+        start,
+        {
+          dx: (moveEvent.clientX - origin.x) / gestureScale,
+          dy: (moveEvent.clientY - origin.y) / gestureScale
+        },
+        edge,
+        {
+          snap: latest.current.snapToGrid,
+          gridSize: latest.current.gridSize,
+          min: MIN_CANVAS_SIZE,
+          max: MAX_CANVAS_SIZE
+        }
+      );
+      setCanvasDrag({ ...next, edge });
+      callbacks.current.onCanvasResize(next.width, next.height);
+    };
+    const finish = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      setCanvasDrag(null);
+      // Closes the transaction (an unchanged size records nothing) and then reports elements
+      // that ended up completely outside the new canvas.
+      callbacks.current.onEndInteraction();
+      callbacks.current.onCanvasResizeEnd();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  };
+
   /* ---------------------------------------------- canvas size + repaint */
 
   useLayoutEffect(() => {
@@ -292,11 +416,12 @@ export function CanvasEditor({
       selection,
       snapEnabled: snapToGrid,
       gridSize,
-      minSize: MIN_ELEMENT_SIZE
+      minSize: MIN_ELEMENT_SIZE,
+      coarsePointer
     });
     render();
     // showGrid is read by render() through `latest`; it must still trigger a repaint on toggle.
-  }, [canvasWidth, canvasHeight, dpr, gridSize, project, render, scale, selection, showGrid, snapToGrid, transform]);
+  }, [canvasWidth, canvasHeight, coarsePointer, dpr, gridSize, project, render, scale, selection, showGrid, snapToGrid, transform]);
 
   /* ------------------------------------------------------- zoom anchoring */
 
@@ -307,10 +432,17 @@ export function CanvasEditor({
     if (!pending || !scroll || !canvas) return;
     pendingZoomRef.current = null;
     const rect = canvas.getBoundingClientRect();
-    const desiredLeft = pending.pointerX - pending.contentX * scale;
-    const desiredTop = pending.pointerY - pending.contentY * scale;
-    scroll.scrollLeft += desiredLeft - rect.left;
-    scroll.scrollTop += desiredTop - rect.top;
+    // ONE anchoring formula, shared with the touch pinch (`canvas/pan.ts`).
+    const next = anchorScrollFor(
+      { x: pending.pointerX, y: pending.pointerY },
+      { x: pending.contentX, y: pending.contentY },
+      scale,
+      rect.left,
+      rect.top,
+      { left: scroll.scrollLeft, top: scroll.scrollTop }
+    );
+    scroll.scrollLeft = next.left;
+    scroll.scrollTop = next.top;
   }, [scale]);
 
   useEffect(() => {
@@ -337,6 +469,203 @@ export function CanvasEditor({
     node.addEventListener("wheel", handleWheel, { passive: false });
     return () => node.removeEventListener("wheel", handleWheel);
   }, [onUserZoom, scale]);
+
+  /* ------------------------------------------------------------- panning (A1) */
+
+  /**
+   * Space is a pan modifier the user *holds*: it never reaches the engine (the pointerdown
+   * listener below stops the event in the capture phase) and it never scrolls the page.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== " " && event.code !== "Space") return;
+      if (isEditingTextInput(event.target)) return;
+      const target = event.target as HTMLElement | null;
+      // Only swallow the browser's page scroll while the user works in the canvas column;
+      // inside a panel the space bar keeps scrolling that panel.
+      if (target === document.body || target?.closest?.(".canvas-column")) {
+        event.preventDefault();
+      }
+      if (!event.repeat) setSpaceHeld(true);
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key !== " " && event.code !== "Space") return;
+      setSpaceHeld(false);
+    };
+    // A held Space must not survive the window losing focus (its keyup would never arrive).
+    const onBlur = () => setSpaceHeld(false);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const active = panning || spaceHeld;
+    panActiveRef.current = active;
+    canvas.style.cursor = active
+      ? panning
+        ? "grabbing"
+        : "grab"
+      : (interactionRef.current?.getCursor() ?? "default");
+  }, [panning, spaceHeld]);
+
+  /**
+   * Pan / pinch for the scrollable viewport. This only ever writes `scrollLeft` / `scrollTop` of
+   * `.canvas-viewport`: the document, the transform, the geometry and the hit test are untouched,
+   * no history transaction is opened and nothing is serialized.
+   *
+   *  - middle mouse button drag, and Space + left drag (the screenshot-tool gesture);
+   *  - touch: a second finger turns the gesture into a two-finger pan + pinch anchored at the
+   *    centroid. One finger keeps the engine's marquee semantics, and a second finger arriving
+   *    during a document-changing gesture is ignored so its history step is never orphaned.
+   */
+  useEffect(() => {
+    const node = scrollRef.current;
+    const canvas = canvasRef.current;
+    if (!node || !canvas) return;
+
+    /** A viewport drag: the last pointer position seen. */
+    let pan: { pointerId: number; x: number; y: number } | null = null;
+    /** Two-finger gesture: the content point that must stay under the moving centroid. */
+    let pinch: { contentX: number; contentY: number; distance: number; scale: number } | null = null;
+    const touches = new Map<number, TouchPoint>();
+
+    const startPinch = () => {
+      const points = [...touches.values()];
+      if (points.length < 2) return;
+      const rect = canvas.getBoundingClientRect();
+      const centroid = touchCentroid(points);
+      const scale = latest.current.transform.scale;
+      pinch = {
+        contentX: (centroid.x - rect.left) / scale,
+        contentY: (centroid.y - rect.top) / scale,
+        distance: touchDistance(points),
+        scale
+      };
+    };
+
+    /** Put the grabbed content point back under the pointer, at `scale`. */
+    const anchor = (centroid: TouchPoint, scale: number) => {
+      if (!pinch) return;
+      const rect = canvas.getBoundingClientRect();
+      const next = anchorScrollFor(
+        centroid,
+        { x: pinch.contentX, y: pinch.contentY },
+        scale,
+        rect.left,
+        rect.top,
+        { left: node.scrollLeft, top: node.scrollTop }
+      );
+      node.scrollLeft = next.left;
+      node.scrollTop = next.top;
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (touches.size !== 2) return;
+        const kind = interactionRef.current?.getGestureKind() ?? "none";
+        // Never hijack a document-changing gesture: its history transaction would be orphaned.
+        // A marquee only changes the selection, so it may be dropped.
+        if (kind === "move" || kind === "resize") return;
+        interactionRef.current?.cancel();
+        startPinch();
+        return;
+      }
+      const middle = event.button === 1;
+      const spaceDrag = event.button === 0 && spaceHeldRef.current;
+      if (!middle && !spaceDrag) return;
+      // Capture-phase stopPropagation keeps the canvas engine from ever seeing this pointerdown,
+      // so a pan can neither start nor cancel an element drag.
+      event.preventDefault();
+      event.stopPropagation();
+      pan = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+      setPanning(true);
+      try {
+        node.setPointerCapture(event.pointerId);
+      } catch {
+        /* synthetic events cannot be captured */
+      }
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        if (!touches.has(event.pointerId)) return;
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (!pinch) return;
+        const points = [...touches.values()];
+        const centroid = touchCentroid(points);
+        const next = pinchScale(pinch.scale, pinch.distance, touchDistance(points), MIN_ZOOM, MAX_ZOOM);
+        anchor(centroid, next);
+        if (Math.abs(next - latest.current.transform.scale) > 1e-4) {
+          // Goes through the same anchoring path as the wheel / trackpad pinch.
+          pendingZoomRef.current = {
+            pointerX: centroid.x,
+            pointerY: centroid.y,
+            contentX: pinch.contentX,
+            contentY: pinch.contentY
+          };
+          onUserZoom(next);
+        }
+        return;
+      }
+      if (!pan || pan.pointerId !== event.pointerId) return;
+      const next = panScroll(
+        { left: node.scrollLeft, top: node.scrollTop },
+        { dx: event.clientX - pan.x, dy: event.clientY - pan.y }
+      );
+      pan.x = event.clientX;
+      pan.y = event.clientY;
+      node.scrollLeft = next.left;
+      node.scrollTop = next.top;
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        touches.delete(event.pointerId);
+        if (touches.size < 2) pinch = null;
+        return;
+      }
+      if (!pan || pan.pointerId !== event.pointerId) return;
+      pan = null;
+      setPanning(false);
+      try {
+        node.releasePointerCapture(event.pointerId);
+      } catch {
+        /* the pointer was already released */
+      }
+    };
+
+    // Middle-click: no autoscroll, no paste-on-middle-click.
+    const onMouseDown = (event: MouseEvent) => {
+      if (event.button === 1) event.preventDefault();
+    };
+    const onAuxClick = (event: MouseEvent) => {
+      if (event.button === 1) event.preventDefault();
+    };
+
+    node.addEventListener("pointerdown", onPointerDown, true);
+    node.addEventListener("mousedown", onMouseDown, true);
+    node.addEventListener("auxclick", onAuxClick, true);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      node.removeEventListener("pointerdown", onPointerDown, true);
+      node.removeEventListener("mousedown", onMouseDown, true);
+      node.removeEventListener("auxclick", onAuxClick, true);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [onUserZoom]);
 
   /* ------------------------------------------------------- dev diagnostics */
 
@@ -365,7 +694,8 @@ export function CanvasEditor({
       hitTest: (world) => {
         const current = latest.current;
         const target = hitTestProject(world, current.project, current.transform, {
-          handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null
+          handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null,
+          coarsePointer: current.coarsePointer
         });
         if (target.kind === "element" || target.kind === "handle") {
           return `${target.kind}:${nameOf(target.elementId)}`;
@@ -375,7 +705,8 @@ export function CanvasEditor({
       hitTarget: (world) => {
         const current = latest.current;
         const target = hitTestProject(world, current.project, current.transform, {
-          handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null
+          handleElementId: current.selection.ids.length === 1 ? current.selection.primary : null,
+          coarsePointer: current.coarsePointer
         });
         if (target.kind === "element") return { kind: "element", name: nameOf(target.elementId) };
         if (target.kind === "handle") {
@@ -414,13 +745,44 @@ export function CanvasEditor({
         style={{ width: Math.round(canvasWidth * scale), height: Math.round(canvasHeight * scale) }}
       >
         <canvas ref={canvasRef} className="canvas-surface" />
+        {/*
+          Canvas edge handles: DOM affordances of the canvas FRAME, never elements, never part of
+          the geometry/hit-test pipeline. They sit half outside the frame so they do not cover the
+          outermost pixels of the drawing area.
+        */}
+        <div
+          className="canvas-resize-handle canvas-resize-right"
+          role="separator"
+          aria-label={t("canvas.resizeRight")}
+          title={t("canvas.resizeRight")}
+          onPointerDown={(event) => startCanvasResize(event, "right")}
+        />
+        <div
+          className="canvas-resize-handle canvas-resize-bottom"
+          role="separator"
+          aria-label={t("canvas.resizeBottom")}
+          title={t("canvas.resizeBottom")}
+          onPointerDown={(event) => startCanvasResize(event, "bottom")}
+        />
+        <div
+          className="canvas-resize-handle canvas-resize-corner"
+          role="separator"
+          aria-label={t("canvas.resizeCorner")}
+          title={t("canvas.resizeCorner")}
+          onPointerDown={(event) => startCanvasResize(event, "bottom-right")}
+        />
+        {canvasDrag ? (
+          <div className="canvas-size-badge">
+            {Math.round(canvasDrag.width)} × {Math.round(canvasDrag.height)}
+          </div>
+        ) : null}
         {pencilElement ? (
           <button
             type="button"
             className="scene-edit-button"
             style={{ left: pencilElement.left, top: pencilElement.top, width: PENCIL_PX, height: PENCIL_PX }}
-            title={t(pencilElement.element.type === "diagram" ? "scene.editCanvas" : "scene.editDrawing")}
-            aria-label={t(pencilElement.element.type === "diagram" ? "scene.editCanvas" : "scene.editDrawing")}
+            title={t(SCENE_EDIT_KEY[pencilElement.element.type] ?? "scene.editDrawing")}
+            aria-label={t(SCENE_EDIT_KEY[pencilElement.element.type] ?? "scene.editDrawing")}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => onEditScene(pencilElement.element.id)}
           >

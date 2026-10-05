@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { chartSummaryCounts, type ChartKind } from "../model/chart";
 import { createDiagramData } from "../model/diagram";
 import { createDrawingData, hasDrawingDescription } from "../model/drawing";
 import { useT } from "../i18n";
@@ -22,11 +23,15 @@ import {
 } from "../model/project";
 import { DraftNumberInput } from "./DraftNumberInput";
 import { EmojiPicker } from "./EmojiPicker";
+import { EmojiTextField } from "./EmojiTextField";
 
 interface ChangeOptions {
   transient?: boolean;
   coalesceKey?: string | null;
 }
+
+/** DOM id of the element Name input; F2 in the editor focuses it. */
+export const PROPERTIES_NAME_FIELD_ID = "props-element-name";
 
 interface PropertiesPanelProps {
   project: WireframeProject;
@@ -56,6 +61,11 @@ interface PropertiesPanelProps {
   footer?: ReactNode;
   /** Open the Canvas / Drawing popup for the selected element. */
   onEditScene: () => void;
+  /** Overlay layout (tablet / phone): the panel becomes a right-hand drawer (1.3.5). */
+  overlay?: boolean;
+  /** Drawer is open (overlay layouts only). */
+  open?: boolean;
+  onClose?: () => void;
 }
 
 function NumberField({
@@ -230,14 +240,32 @@ function SceneSection({
       <p className="hint">{summary}</p>
       <label className="field">
         <span className="field-label">{t(drawing ? "scene.description" : "scene.descriptionOptional")}</span>
-        <textarea
+        <EmojiTextField
+          multiline
           rows={3}
           value={description}
           placeholder={t(drawing ? "scene.drawingDescriptionPlaceholder" : "scene.diagramDescriptionPlaceholder")}
-          onChange={(event) => describe(event.target.value)}
+          onChange={describe}
         />
       </label>
       {drawing && !hasDrawingDescription(element.drawing) ? <p className="scene-warning">⚠ {t("scene.drawingWarning")}</p> : null}
+    </div>
+  );
+}
+
+/** Chart: open the popup and a one-line summary of the dataset (its title is edited in the popup). */
+function ChartSection({ element, locked, onEdit }: { element: WireframeElement; locked: boolean; onEdit: () => void }) {
+  const t = useT();
+  const counts = chartSummaryCounts(element.chart);
+  return (
+    <div className="scene-section">
+      <button type="button" className="primary scene-edit-open" onClick={onEdit} disabled={locked}>
+        ✎ {t("chart.edit")}
+      </button>
+      <p className="hint">
+        {t(`chart.kind.${(element.chart?.kind ?? "bar") as ChartKind}`)} ·{" "}
+        {t("chart.summary", { series: counts.series, categories: counts.categories })}
+      </p>
     </div>
   );
 }
@@ -259,11 +287,24 @@ export function PropertiesPanel({
   onSendToBack,
   onUnnest,
   footer,
-  onEditScene
+  onEditScene,
+  overlay = false,
+  open = false,
+  onClose
 }: PropertiesPanelProps) {
   const t = useT();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiAnchorRef = useRef<HTMLDivElement>(null);
+  const panelClass = overlay
+    ? open
+      ? "panel properties drawer drawer-right open"
+      : "panel properties drawer drawer-right"
+    : "panel properties";
+  const closeButton = overlay ? (
+    <button type="button" className="drawer-close" onClick={onClose} aria-label={t("common.close")} title={t("common.close")}>
+      ✕
+    </button>
+  ) : null;
 
   // Close the popover whenever the panel switches to another object.
   useEffect(() => {
@@ -281,10 +322,11 @@ export function PropertiesPanel({
   if (selectedCount === 0 || !element) {
     if (selectedCount > 1) {
       return (
-        <aside className="panel properties">
+        <aside className={panelClass} data-drawer="properties">
           <div className="panel-header">
             {t("panel.properties")}
             <span className="panel-header-sub">{t("props.selection")}</span>
+            {closeButton}
           </div>
           <div className="panel-body">
             <div className="selection-count">
@@ -307,16 +349,18 @@ export function PropertiesPanel({
     }
 
     return (
-      <aside className="panel properties">
-        <div className="panel-header">{t("panel.properties")}</div>
+      <aside className={panelClass} data-drawer="properties">
+        <div className="panel-header">
+          {t("panel.properties")}
+          {closeButton}
+        </div>
         <div className="panel-body">
           <div className="empty-state">{t("props.nothingSelected")}</div>
           <label className="field">
             <span className="field-label">{t("props.projectTitle")}</span>
-            <input
-              type="text"
+            <EmojiTextField
               value={project.title}
-              onChange={(event) => onChangeProject({ title: event.target.value })}
+              onChange={(value) => onChangeProject({ title: value })}
             />
           </label>
           <div className="field-row">
@@ -367,10 +411,11 @@ export function PropertiesPanel({
   const itemsLabel = element.type === "table" ? t("props.rows") : t("props.items");
 
   return (
-    <aside className="panel properties">
+    <aside className={panelClass} data-drawer="properties">
       <div className="panel-header">
         {t("panel.properties")}
         <span className="panel-header-sub">{t(`type.${element.type}`)}</span>
+        {closeButton}
       </div>
       <div className="panel-body">
         <p className="hint layer-hint">
@@ -393,55 +438,64 @@ export function PropertiesPanel({
 
         <label className="field">
           <span className="field-label">{t("props.name")}</span>
-          <input
-            type="text"
+          <EmojiTextField
+            id={PROPERTIES_NAME_FIELD_ID}
             value={element.name}
             placeholder="saveButton"
-            onChange={(event) =>
-              onChangeElement({ name: event.target.value }, { coalesceKey: "name" })
-            }
+            title={t("props.nameF2")}
+            onChange={(value) => onChangeElement({ name: value }, { coalesceKey: "name" })}
           />
         </label>
 
         {showLabel ? (
           <div className="field" ref={emojiAnchorRef}>
             <span className="field-label">{t("props.label")}</span>
-            <div className="label-with-picker">
-              <input
-                type="text"
+            {isSymbol ? (
+              <>
+                <div className="label-with-picker">
+                  <input
+                    type="text"
+                    value={element.label}
+                    placeholder={t("props.labelSymbolPlaceholder")}
+                    onChange={(event) =>
+                      onChangeElement({ label: event.target.value }, { coalesceKey: "label" })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="emoji-open"
+                    aria-haspopup="dialog"
+                    aria-expanded={emojiOpen}
+                    title={t("props.chooseEmoji")}
+                    onClick={() => setEmojiOpen((value) => !value)}
+                  >
+                    🙂
+                  </button>
+                </div>
+                {emojiOpen ? (
+                  <EmojiPicker
+                    value={element.label}
+                    anchorRef={emojiAnchorRef}
+                    onPick={(emoji) => onChangeElement({ label: emoji }, { coalesceKey: null })}
+                    onClose={() => setEmojiOpen(false)}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <EmojiTextField
                 value={element.label}
-                placeholder={t(isSymbol ? "props.labelSymbolPlaceholder" : "props.labelPlaceholder")}
-                onChange={(event) =>
-                  onChangeElement({ label: event.target.value }, { coalesceKey: "label" })
-                }
+                placeholder={t("props.labelPlaceholder")}
+                onChange={(value) => onChangeElement({ label: value }, { coalesceKey: "label" })}
               />
-              {isSymbol ? (
-                <button
-                  type="button"
-                  className="emoji-open"
-                  aria-haspopup="dialog"
-                  aria-expanded={emojiOpen}
-                  title={t("props.chooseEmoji")}
-                  onClick={() => setEmojiOpen((value) => !value)}
-                >
-                  🙂
-                </button>
-              ) : null}
-            </div>
-            {isSymbol && emojiOpen ? (
-              <EmojiPicker
-                value={element.label}
-                anchorRef={emojiAnchorRef}
-                onPick={(emoji) => onChangeElement({ label: emoji }, { coalesceKey: null })}
-                onClose={() => setEmojiOpen(false)}
-              />
-            ) : null}
+            )}
           </div>
         ) : null}
 
         {element.type === "diagram" || element.type === "drawing" ? (
           <SceneSection element={element} locked={locked} onEdit={onEditScene} onUpdateElement={onUpdateElement} />
         ) : null}
+
+        {element.type === "chart" ? <ChartSection element={element} locked={locked} onEdit={onEditScene} /> : null}
 
         {isSymbol ? (
           <NumberField
@@ -457,15 +511,11 @@ export function PropertiesPanel({
         {hasItems ? (
           <label className="field">
             <span className="field-label">{itemsLabel}</span>
-            <textarea
+            <EmojiTextField
+              multiline
               rows={element.type === "table" ? 5 : 4}
               value={(element.items ?? []).join("\n")}
-              onChange={(event) =>
-                onChangeElement(
-                  { items: event.target.value.split("\n") },
-                  { coalesceKey: "items" }
-                )
-              }
+              onChange={(value) => onChangeElement({ items: value.split("\n") }, { coalesceKey: "items" })}
             />
           </label>
         ) : null}
@@ -473,28 +523,23 @@ export function PropertiesPanel({
         {element.type === "table" ? (
           <label className="field">
             <span className="field-label">{t("props.columns")}</span>
-            <textarea
+            <EmojiTextField
+              multiline
               rows={3}
               value={(element.columns ?? []).join("\n")}
-              onChange={(event) =>
-                onChangeElement(
-                  { columns: event.target.value.split("\n") },
-                  { coalesceKey: "columns" }
-                )
-              }
+              onChange={(value) => onChangeElement({ columns: value.split("\n") }, { coalesceKey: "columns" })}
             />
           </label>
         ) : null}
 
         <label className="field">
           <span className="field-label">{t("props.note")}</span>
-          <textarea
+          <EmojiTextField
+            multiline
             rows={5}
             value={element.note}
             placeholder={t("props.notePlaceholder")}
-            onChange={(event) =>
-              onChangeElement({ note: event.target.value }, { coalesceKey: "note" })
-            }
+            onChange={(value) => onChangeElement({ note: value }, { coalesceKey: "note" })}
           />
         </label>
 

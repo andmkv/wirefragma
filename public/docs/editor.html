@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Using the editor — Wirefragma docs</title>
-  <meta name="description" content="The Wirefragma editor: canvas, elements, layers and nesting, properties, LLM notes, keyboard shortcuts." />
+  <meta name="description" content="The Wirefragma editor: canvas, elements and charts, layers and nesting, properties, LLM notes, keyboard shortcuts, tablets and phones." />
   <link rel="icon" href="../brand/wf_logo_square.png" />
   <link rel="stylesheet" href="docs.css" />
 </head>
@@ -28,16 +28,19 @@
 
 <h2 id="layout">The workspace</h2>
 <ul>
-  <li><b>Toolbar</b> — canvas preset (desktop 1200×800, mobile portrait 390×844, mobile landscape 844×390, custom), then icon buttons: grid, snap, zoom (−, level, +, fit), undo/redo, New, Layers, Import, Copy for LLM, and <i>Export</i>. Hover any icon for its name and shortcut.</li>
+  <li><b>Toolbar</b> — canvas size (see <a href="#canvas-size">Canvas size</a>), a ⇄ button that flips portrait and landscape, then icon buttons: grid, snap, zoom (−, level, +, fit), undo/redo, New, Layers, Import, Copy for LLM, and <i>Export</i>. Hover any icon for its name and shortcut.</li>
   <li><b>Add</b> — the element palette; new elements go into the active layer. Collapse it (panel button) to a compact two-column grid of icons.</li>
   <li><b>Layers</b> — layers and their elements as a tree: reorder by drag and drop, drop onto an element to nest, toggle visibility and lock.</li>
-  <li><b>Canvas</b> — select, drag, resize, marquee-select.</li>
+  <li><b>Canvas</b> — select, drag, resize, marquee-select. Pan with the middle mouse button, <kbd>Space</kbd> + drag, or two fingers on a touch screen.</li>
   <li><b>Properties</b> — name, label, <b>LLM note</b>, position and size, typography, symbol size, arrange controls.</li>
   <li>Signed in, a <b>Projects</b> panel appears on the left (see <a href="accounts.html">Accounts</a>).</li>
 </ul>
 
+<h3 id="small-screens">Tablets and phones</h3>
+<p>From 1100 px wide the three panels sit beside the canvas. On a tablet (768–1099 px) and on a phone the canvas gets the whole width and <i>Add</i>, <i>Layers</i>, <i>Properties</i> (and <i>Projects</i> when signed in) become <b>drawers</b>: open one from the toolbar, close it with its × button, by tapping outside it or with <kbd>Esc</kbd>. Selecting an element never opens a drawer by itself. On a phone the toolbar keeps undo, redo, zoom, <i>Export</i> and a <b>⋯</b> menu with everything else (New, Import, Copy for LLM, grid, snap and the canvas size). Pinch with two fingers to zoom and drag with two fingers to pan.</p>
+
 <h2 id="elements">Elements</h2>
-<p>26 element types. They are deliberately generic: a search field is an <i>Input</i> plus a note, a date picker is a <i>Dropdown</i> plus a note.</p>
+<p>27 element types. They are deliberately generic: a search field is an <i>Input</i> plus a note, a date picker is a <i>Dropdown</i> plus a note.</p>
 <div class="table-wrap"><table>
 <tr><th>Group</th><th>Name</th><th>type</th><th>Use</th></tr>
 <tr><td>Layout</td><td><b>Container</b></td><td><code>container</code></td><td>Box / section / card; its label is a small title on the border. Put the content inside it.</td></tr>
@@ -54,6 +57,7 @@
 <tr><td>Content</td><td><b>List</b></td><td><code>list</code></td><td>Rows, top to bottom.</td></tr>
 <tr><td>Content</td><td><b>Table</b></td><td><code>table</code></td><td>Columns plus rows written as <code>a | b | c</code>.</td></tr>
 <tr><td>Content</td><td><b>Tabs</b></td><td><code>tabs</code></td><td>Tab titles, left to right.</td></tr>
+<tr><td>Content</td><td><b>Chart</b></td><td><code>chart</code></td><td>A bar, stacked bar, line, area, pie or donut chart from a small table of numbers. Exported as a Markdown data table.</td></tr>
 <tr><td>Controls</td><td><b>Button</b></td><td><code>button</code></td><td>Push button; label is the caption.</td></tr>
 <tr><td>Controls</td><td><b>Icon Button</b></td><td><code>iconButton</code></td><td>Square icon-only button (<code>+</code>, <code>⚙️</code>, <code>🔍</code>).</td></tr>
 <tr><td>Controls</td><td><b>Input</b></td><td><code>input</code></td><td>Single-line field; label is the placeholder or value.</td></tr>
@@ -74,6 +78,16 @@
   <li><b>Drawing</b> — pen with three widths, an eraser that removes whole strokes, Undo/Redo, Clear. The export cannot read a sketch, so write an <b>LLM description</b>: without it the Drawing shows a ⚠ badge and is left out of the LLM export (it is still saved).</li>
 </ul>
 
+<h3 id="charts">Charts</h3>
+<p>Add a <b>Chart</b> and double-click it (or use the ✎ pencil or <i>Edit chart</i> in Properties). The popup shows a live preview next to the data, which you can enter two ways: a <b>Table</b> (rows are categories, columns are series; <kbd>Tab</kbd> and <kbd>Enter</kbd> move between cells) or <b>Text/CSV</b>, where you type or <b>paste</b> data copied from Excel or Google Sheets — comma, semicolon or tab separated, first row the header, first column the categories. The two views stay in sync and invalid cells are highlighted rather than dropped. Choose the kind (bar, stacked bar, line, area, pie, donut), a title, legend, values and horizontal bars, or swap rows and columns. <b>Done</b> applies everything as one undo step. A chart holds up to 24 categories and 8 series — it is a sketch of a shape and a magnitude, not a report.</p>
+
+<h2 id="canvas-size">Canvas size</h2>
+<ul>
+  <li>The canvas menu lists the classic sizes (desktop 1200×800, mobile portrait 390×844, mobile landscape 844×390) and common devices: phones (iPhone SE / 15 / 15 Pro Max, Android), tablets (iPad, iPad Pro 11″), desktops (1280×720 up to 1920×1080) and others (A4, square, 16:9, 4:3). Choose <i>Custom</i> to type any width and height from 120 to 6000.</li>
+  <li><b>⇄</b> flips portrait and landscape.</li>
+  <li>Drag the handles on the <b>right edge, bottom edge or bottom-right corner</b> of the canvas to resize it live (zoom-aware, snapped to the grid when Snap is on, one undo step). Elements are never moved or scaled; if some end up completely outside, a message tells you how many — nothing is deleted.</li>
+</ul>
+
 <h2 id="notes">LLM notes</h2>
 <p>The note is where a wireframe carries intent. Good notes say what happens on click or tap, the states (empty, loading, error, disabled), where data comes from, validation rules and emphasis (primary, destructive). One to three sentences per element is plenty. Give every element a meaningful <b>name</b> such as <code>emailInput</code> or <code>saveButton</code> — names become the headings of the export.</p>
 
@@ -88,7 +102,7 @@
 
 <h2 id="selection">Selecting and moving</h2>
 <ul>
-  <li>Click to select, <kbd>Shift</kbd>/<kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click to add or remove, drag on empty canvas for a marquee.</li>
+  <li>Click to select, <kbd>Shift</kbd>/<kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click to add or remove, drag on empty canvas for a marquee, <kbd>⌘/Ctrl</kbd> <kbd>A</kbd> to select everything visible and unlocked.</li>
   <li>A Container is grabbed by its border or its label; clicks inside its empty interior reach what is inside or behind it.</li>
   <li>Each drag or resize is exactly one undo step.</li>
 </ul>
@@ -99,7 +113,10 @@
 <tr><td><kbd>Delete</kbd> / <kbd>Backspace</kbd></td><td>delete the selection (locked elements are skipped)</td></tr>
 <tr><td><kbd>⌘/Ctrl</kbd> <kbd>Z</kbd> · <kbd>⌘/Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd> / <kbd>Ctrl</kbd> <kbd>Y</kbd></td><td>undo · redo</td></tr>
 <tr><td><kbd>⌘/Ctrl</kbd> <kbd>D</kbd></td><td>duplicate</td></tr>
-<tr><td><kbd>⌘/Ctrl</kbd> <kbd>C</kbd> / <kbd>V</kbd></td><td>copy / paste (within the editor)</td></tr>
+<tr><td><kbd>⌘/Ctrl</kbd> <kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd></td><td>copy / cut / paste — also into another wireframe, and into another tab of the same site (layers are matched by name, otherwise the active layer is used)</td></tr>
+<tr><td><kbd>⌘/Ctrl</kbd> <kbd>A</kbd></td><td>select all visible, unlocked elements</td></tr>
+<tr><td><kbd>F2</kbd></td><td>jump to the Name field of the selected element</td></tr>
+<tr><td>middle mouse drag · <kbd>Space</kbd> + drag</td><td>pan the canvas (two-finger drag on a touch screen)</td></tr>
 <tr><td>arrow keys · <kbd>Shift</kbd> + arrows</td><td>nudge by 1 · by the grid size</td></tr>
 <tr><td><kbd>⌘/Ctrl</kbd> <kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd></td><td>zoom in / out / fit</td></tr>
 <tr><td><kbd>Esc</kbd></td><td>clear the selection, cancel a gesture</td></tr>
@@ -109,7 +126,8 @@
 <h2 id="text">Text and symbols</h2>
 <ul>
   <li>Text elements: font size 8–96, bold, italic, underline, left/center/right.</li>
-  <li>Icons, images, icon buttons and avatars accept emoji; the picker has categories and search. Symbol size is independent of the element size.</li>
+  <li>Icons, images, icon buttons and avatars accept emoji; the picker covers all standard emoji and flags, has categories and a <b>Recent</b> tab, and searches in your interface language <i>and</i> English (so “кот”, “Katze” and “cat” all find 🐱). Symbol size is independent of the element size.</li>
+  <li>Every text field — names, labels, notes, list items, columns, the project title, scene text and chart labels — has a 🙂 button that inserts an emoji at the cursor.</li>
 </ul>
 
 <h2 id="languages">Languages, theme, saving</h2>

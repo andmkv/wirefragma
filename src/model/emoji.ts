@@ -1,6 +1,18 @@
 /**
- * Small curated emoji catalog for the icon/image content picker.
- * No dependency and no bundled artwork: the platform renders the glyphs.
+ * Emoji catalog for the icon/image picker and every text field.
+ *
+ * The data is **generated** (`scripts/generate-emoji.mjs` → `src/model/emoji/*.generated.ts`) and
+ * loaded **lazily**:
+ *
+ *  - `glyphs.generated.ts` (1914 fully-qualified emoji, base glyphs only, no skin tones) is one
+ *    chunk;
+ *  - `names.<language>.generated.ts` is one chunk per UI language, fetched when the picker opens.
+ *
+ * That keeps the base bundle small on shared hosting while search still works in every UI
+ * language: `loadEmojiCatalog` merges the current language with English, so an English keyword
+ * ("rocket") and a localized one ("ракета") both match.
+ *
+ * This module is pure data + pure functions: no DOM, no React, no i18n import.
  */
 
 export type EmojiCategory =
@@ -11,14 +23,8 @@ export type EmojiCategory =
   | "Activities"
   | "Travel"
   | "Objects"
-  | "Symbols";
-
-export interface EmojiEntry {
-  emoji: string;
-  name: string;
-  keywords?: string[];
-  category: EmojiCategory;
-}
+  | "Symbols"
+  | "Flags";
 
 export const EMOJI_CATEGORIES: EmojiCategory[] = [
   "Smileys",
@@ -28,373 +34,170 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
   "Activities",
   "Travel",
   "Objects",
-  "Symbols"
+  "Symbols",
+  "Flags"
 ];
 
-const RAW: [string, string, EmojiCategory, string?][] = [
-  ["😀", "grinning face", "Smileys", "smile happy"],
-  ["😃", "smiling face big eyes", "Smileys", "happy"],
-  ["😄", "grinning smiling eyes", "Smileys", "happy"],
-  ["😁", "beaming face", "Smileys"],
-  ["😆", "grinning squinting", "Smileys", "laugh"],
-  ["😅", "grinning sweat", "Smileys"],
-  ["🤣", "rolling on the floor laughing", "Smileys", "lol"],
-  ["😂", "face with tears of joy", "Smileys", "lol cry"],
-  ["🙂", "slightly smiling", "Smileys"],
-  ["🙃", "upside down face", "Smileys"],
-  ["😉", "winking face", "Smileys", "wink"],
-  ["😊", "smiling face smiling eyes", "Smileys", "blush"],
-  ["😇", "smiling face halo", "Smileys", "angel"],
-  ["🥰", "smiling face hearts", "Smileys", "love"],
-  ["😍", "heart eyes", "Smileys", "love"],
-  ["🤩", "star struck", "Smileys", "star"],
-  ["😘", "face blowing kiss", "Smileys", "kiss"],
-  ["😗", "kissing face", "Smileys"],
-  ["😋", "face savoring food", "Smileys", "yum"],
-  ["😜", "winking tongue", "Smileys"],
-  ["🤪", "zany face", "Smileys", "crazy"],
-  ["🤗", "hugging face", "Smileys", "hug"],
-  ["🤔", "thinking face", "Smileys", "think"],
-  ["🤨", "raised eyebrow", "Smileys", "skeptical"],
-  ["😐", "neutral face", "Smileys"],
-  ["😑", "expressionless", "Smileys"],
-  ["😶", "face without mouth", "Smileys", "silent"],
-  ["🙄", "face with rolling eyes", "Smileys"],
-  ["😏", "smirking face", "Smileys"],
-  ["😴", "sleeping face", "Smileys", "sleep zzz"],
-  ["😪", "sleepy face", "Smileys"],
-  ["😵", "dizzy face", "Smileys"],
-  ["🤯", "exploding head", "Smileys", "mind blown"],
-  ["🥳", "partying face", "Smileys", "party celebrate"],
-  ["😎", "smiling face sunglasses", "Smileys", "cool"],
-  ["🤓", "nerd face", "Smileys", "glasses"],
-  ["🧐", "face with monocle", "Smileys"],
-  ["😕", "confused face", "Smileys"],
-  ["😟", "worried face", "Smileys"],
-  ["🙁", "slightly frowning", "Smileys"],
-  ["😢", "crying face", "Smileys", "sad tear"],
-  ["😭", "loudly crying", "Smileys", "sad"],
-  ["😤", "face with steam", "Smileys", "angry"],
-  ["😠", "angry face", "Smileys"],
-  ["🤬", "face with symbols mouth", "Smileys", "swearing"],
-  ["😱", "face screaming in fear", "Smileys", "shock"],
-  ["😨", "fearful face", "Smileys"],
-  ["😰", "anxious face sweat", "Smileys"],
-  ["😳", "flushed face", "Smileys", "embarrassed"],
-  ["🤒", "face with thermometer", "Smileys", "sick"],
-  ["🤕", "face with head bandage", "Smileys", "hurt"],
-  ["🤢", "nauseated face", "Smileys"],
-  ["🥶", "cold face", "Smileys", "freezing"],
-  ["🥵", "hot face", "Smileys"],
-  ["😈", "smiling face with horns", "Smileys", "devil"],
-  ["👻", "ghost", "Smileys", "halloween"],
-  ["💀", "skull", "Smileys", "dead"],
-  ["👽", "alien", "Smileys", "ufo"],
-  ["🤖", "robot", "Smileys", "bot"],
-  ["💩", "pile of poo", "Smileys"],
-
-  ["👋", "waving hand", "People", "hello hi bye"],
-  ["🤚", "raised back of hand", "People"],
-  ["✋", "raised hand", "People", "stop"],
-  ["👌", "ok hand", "People", "ok"],
-  ["🤌", "pinched fingers", "People"],
-  ["✌️", "victory hand", "People", "peace"],
-  ["🤞", "crossed fingers", "People", "luck"],
-  ["🤟", "love you gesture", "People"],
-  ["🤘", "sign of the horns", "People", "rock"],
-  ["👍", "thumbs up", "People", "like ok"],
-  ["👎", "thumbs down", "People", "dislike"],
-  ["👏", "clapping hands", "People", "applause"],
-  ["🙌", "raising hands", "People", "celebrate"],
-  ["🙏", "folded hands", "People", "please thanks"],
-  ["🤝", "handshake", "People", "deal"],
-  ["💪", "flexed biceps", "People", "strong"],
-  ["🫡", "saluting face", "People", "salute"],
-  ["🫶", "heart hands", "People", "love"],
-  ["✍️", "writing hand", "People", "write"],
-  ["🧑‍💻", "technologist", "People", "developer coder"],
-  ["👩‍💻", "woman technologist", "People", "developer"],
-  ["👨‍💻", "man technologist", "People", "developer"],
-  ["🧑‍🎨", "artist", "People", "designer"],
-  ["🧑‍🏫", "teacher", "People"],
-  ["🧑‍🔬", "scientist", "People"],
-  ["👤", "bust in silhouette", "People", "user account person"],
-  ["👥", "busts in silhouette", "People", "users people"],
-  ["🕵️", "detective", "People", "search investigate"],
-  ["🦸", "superhero", "People"],
-  ["🧙", "mage", "People", "wizard"],
-
-  ["🐶", "dog face", "Animals", "puppy pet"],
-  ["🐱", "cat face", "Animals", "kitten pet"],
-  ["🐈", "cat", "Animals", "kitten"],
-  ["😺", "grinning cat", "Animals", "cat"],
-  ["😻", "heart eyes cat", "Animals", "cat love"],
-  ["🐭", "mouse face", "Animals"],
-  ["🐹", "hamster", "Animals"],
-  ["🐰", "rabbit face", "Animals", "bunny"],
-  ["🦊", "fox", "Animals"],
-  ["🐻", "bear", "Animals"],
-  ["🐼", "panda", "Animals"],
-  ["🐨", "koala", "Animals"],
-  ["🐯", "tiger face", "Animals"],
-  ["🦁", "lion", "Animals"],
-  ["🐮", "cow face", "Animals"],
-  ["🐷", "pig face", "Animals"],
-  ["🐸", "frog", "Animals"],
-  ["🐵", "monkey face", "Animals"],
-  ["🐔", "chicken", "Animals"],
-  ["🐧", "penguin", "Animals"],
-  ["🐦", "bird", "Animals"],
-  ["🦆", "duck", "Animals"],
-  ["🦉", "owl", "Animals"],
-  ["🐴", "horse face", "Animals"],
-  ["🦄", "unicorn", "Animals"],
-  ["🐝", "honeybee", "Animals", "bee"],
-  ["🦋", "butterfly", "Animals"],
-  ["🐢", "turtle", "Animals"],
-  ["🐍", "snake", "Animals"],
-  ["🐙", "octopus", "Animals"],
-  ["🦀", "crab", "Animals"],
-  ["🐟", "fish", "Animals"],
-  ["🐬", "dolphin", "Animals"],
-  ["🐳", "whale", "Animals"],
-  ["🦈", "shark", "Animals"],
-  ["🐘", "elephant", "Animals"],
-  ["🦒", "giraffe", "Animals"],
-  ["🐑", "sheep", "Animals"],
-  ["🐄", "cow", "Animals"],
-  ["🐖", "pig", "Animals"],
-  ["🦔", "hedgehog", "Animals"],
-  ["🦥", "sloth", "Animals"],
-
-  ["🍏", "green apple", "Food", "fruit"],
-  ["🍎", "red apple", "Food", "fruit"],
-  ["🍐", "pear", "Food"],
-  ["🍊", "tangerine", "Food", "orange fruit"],
-  ["🍋", "lemon", "Food"],
-  ["🍌", "banana", "Food"],
-  ["🍉", "watermelon", "Food"],
-  ["🍇", "grapes", "Food"],
-  ["🍓", "strawberry", "Food"],
-  ["🫐", "blueberries", "Food"],
-  ["🍒", "cherries", "Food"],
-  ["🥑", "avocado", "Food"],
-  ["🍅", "tomato", "Food"],
-  ["🥕", "carrot", "Food"],
-  ["🌽", "corn", "Food"],
-  ["🍞", "bread", "Food"],
-  ["🧀", "cheese", "Food"],
-  ["🍔", "hamburger", "Food", "burger"],
-  ["🍟", "french fries", "Food", "fries"],
-  ["🍕", "pizza", "Food"],
-  ["🌭", "hot dog", "Food"],
-  ["🌮", "taco", "Food"],
-  ["🍣", "sushi", "Food"],
-  ["🍜", "ramen", "Food", "noodles"],
-  ["🍩", "doughnut", "Food", "donut"],
-  ["🍪", "cookie", "Food"],
-  ["🎂", "birthday cake", "Food", "cake"],
-  ["🍫", "chocolate bar", "Food"],
-  ["☕", "hot beverage", "Food", "coffee tea"],
-  ["🍵", "teacup", "Food", "tea"],
-  ["🍺", "beer mug", "Food", "beer"],
-  ["🍷", "wine glass", "Food", "wine"],
-
-  ["⚽", "soccer ball", "Activities", "football"],
-  ["🏀", "basketball", "Activities"],
-  ["🏈", "american football", "Activities"],
-  ["⚾", "baseball", "Activities"],
-  ["🎾", "tennis", "Activities"],
-  ["🏐", "volleyball", "Activities"],
-  ["🎱", "pool 8 ball", "Activities", "billiards"],
-  ["🏓", "ping pong", "Activities"],
-  ["🏸", "badminton", "Activities"],
-  ["🥊", "boxing glove", "Activities"],
-  ["🎯", "bullseye", "Activities", "target dart"],
-  ["🎮", "video game", "Activities", "gaming controller"],
-  ["🕹️", "joystick", "Activities", "game"],
-  ["🎲", "die", "Activities", "dice random"],
-  ["🧩", "puzzle piece", "Activities", "puzzle"],
-  ["🎨", "artist palette", "Activities", "design art"],
-  ["🎬", "clapper board", "Activities", "film movie"],
-  ["🎤", "microphone", "Activities", "mic"],
-  ["🎧", "headphone", "Activities", "audio"],
-  ["🎸", "guitar", "Activities", "music"],
-  ["🎹", "musical keyboard", "Activities", "piano"],
-  ["🥁", "drum", "Activities"],
-  ["🏆", "trophy", "Activities", "win award"],
-  ["🥇", "gold medal", "Activities", "first"],
-  ["🎉", "party popper", "Activities", "celebrate"],
-  ["🎈", "balloon", "Activities"],
-  ["🎁", "wrapped gift", "Activities", "present"],
-  ["📸", "camera with flash", "Activities", "photo"],
-
-  ["🚗", "car", "Travel", "automobile"],
-  ["🚕", "taxi", "Travel"],
-  ["🚌", "bus", "Travel"],
-  ["🚑", "ambulance", "Travel"],
-  ["🚒", "fire engine", "Travel"],
-  ["🚓", "police car", "Travel"],
-  ["🚲", "bicycle", "Travel", "bike"],
-  ["🛵", "motor scooter", "Travel"],
-  ["🏍️", "motorcycle", "Travel"],
-  ["🚂", "locomotive", "Travel", "train"],
-  ["✈️", "airplane", "Travel", "flight plane"],
-  ["🚀", "rocket", "Travel", "launch startup space"],
-  ["🛸", "flying saucer", "Travel", "ufo"],
-  ["🚁", "helicopter", "Travel"],
-  ["⛵", "sailboat", "Travel", "boat"],
-  ["🚢", "ship", "Travel"],
-  ["🗺️", "world map", "Travel", "map"],
-  ["🧭", "compass", "Travel", "navigate"],
-  ["🏠", "house", "Travel", "home"],
-  ["🏢", "office building", "Travel", "work"],
-  ["🏥", "hospital", "Travel"],
-  ["🏫", "school", "Travel"],
-  ["🗽", "statue of liberty", "Travel"],
-  ["🗼", "tokyo tower", "Travel"],
-  ["🌍", "globe showing europe africa", "Travel", "world earth"],
-  ["🌙", "crescent moon", "Travel", "night"],
-  ["⭐", "star", "Travel", "favorite"],
-  ["🌟", "glowing star", "Travel", "favorite"],
-
-  ["📱", "mobile phone", "Objects", "phone iphone"],
-  ["💻", "laptop", "Objects", "computer"],
-  ["🖥️", "desktop computer", "Objects", "monitor"],
-  ["⌨️", "keyboard", "Objects"],
-  ["🖱️", "computer mouse", "Objects"],
-  ["🖨️", "printer", "Objects"],
-  ["💾", "floppy disk", "Objects", "save"],
-  ["📀", "optical disk", "Objects", "cd"],
-  ["📷", "camera", "Objects", "photo"],
-  ["📹", "video camera", "Objects"],
-  ["📞", "telephone receiver", "Objects", "call phone"],
-  ["📺", "television", "Objects", "tv"],
-  ["📻", "radio", "Objects"],
-  ["⏰", "alarm clock", "Objects", "time"],
-  ["⌚", "watch", "Objects", "time"],
-  ["🔋", "battery", "Objects", "power"],
-  ["🔌", "electric plug", "Objects"],
-  ["💡", "light bulb", "Objects", "idea"],
-  ["🔦", "flashlight", "Objects"],
-  ["🔑", "key", "Objects", "lock unlock"],
-  ["🔒", "locked", "Objects", "lock secure"],
-  ["🔓", "unlocked", "Objects"],
-  ["🔨", "hammer", "Objects", "build tool"],
-  ["🛠️", "hammer and wrench", "Objects", "tools fix"],
-  ["⚙️", "gear", "Objects", "settings preferences"],
-  ["🧰", "toolbox", "Objects", "tools"],
-  ["🧲", "magnet", "Objects"],
-  ["📦", "package", "Objects", "box shipping"],
-  ["📁", "file folder", "Objects", "folder"],
-  ["📄", "page facing up", "Objects", "document file"],
-  ["📝", "memo", "Objects", "note write"],
-  ["📊", "bar chart", "Objects", "graph analytics"],
-  ["📈", "chart increasing", "Objects", "growth"],
-  ["📉", "chart decreasing", "Objects"],
-  ["🗂️", "card index dividers", "Objects", "tabs"],
-  ["📅", "calendar", "Objects", "date schedule"],
-  ["📌", "pushpin", "Objects", "pin"],
-  ["📎", "paperclip", "Objects", "attach"],
-  ["✂️", "scissors", "Objects", "cut"],
-  ["🖊️", "pen", "Objects", "edit"],
-  ["🖌️", "paintbrush", "Objects", "paint design"],
-  ["🔍", "magnifying glass tilted left", "Objects", "search zoom"],
-  ["🔎", "magnifying glass tilted right", "Objects", "search"],
-  ["🛒", "shopping cart", "Objects", "cart ecommerce"],
-  ["🎓", "graduation cap", "Objects", "education"],
-  ["💼", "briefcase", "Objects", "work business"],
-  ["🧪", "test tube", "Objects", "science experiment"],
-  ["🧬", "dna", "Objects"],
-
-  ["❤️", "red heart", "Symbols", "love"],
-  ["🧡", "orange heart", "Symbols"],
-  ["💛", "yellow heart", "Symbols"],
-  ["💚", "green heart", "Symbols"],
-  ["💙", "blue heart", "Symbols"],
-  ["💜", "purple heart", "Symbols"],
-  ["🖤", "black heart", "Symbols"],
-  ["🤍", "white heart", "Symbols"],
-  ["💔", "broken heart", "Symbols"],
-  ["✨", "sparkles", "Symbols", "magic new"],
-  ["⚡", "high voltage", "Symbols", "flash power"],
-  ["🔥", "fire", "Symbols", "hot flame"],
-  ["💧", "droplet", "Symbols", "water"],
-  ["🌈", "rainbow", "Symbols"],
-  ["☀️", "sun", "Symbols", "sunny"],
-  ["⛅", "sun behind cloud", "Symbols", "weather"],
-  ["☁️", "cloud", "Symbols", "weather"],
-  ["🌧️", "rain", "Symbols", "weather"],
-  ["❄️", "snowflake", "Symbols", "snow cold"],
-  ["✅", "check mark button", "Symbols", "done ok"],
-  ["☑️", "check box with check", "Symbols", "done"],
-  ["✔️", "check mark", "Symbols", "done"],
-  ["❌", "cross mark", "Symbols", "error no"],
-  ["⛔", "no entry", "Symbols", "stop"],
-  ["⚠️", "warning", "Symbols", "alert caution"],
-  ["🚨", "police car light", "Symbols", "alert emergency"],
-  ["❓", "question mark", "Symbols", "help"],
-  ["❗", "exclamation mark", "Symbols", "important"],
-  ["➕", "plus", "Symbols", "add"],
-  ["➖", "minus", "Symbols", "remove"],
-  ["✖️", "multiply", "Symbols", "close"],
-  ["➗", "divide", "Symbols"],
-  ["♻️", "recycling symbol", "Symbols", "recycle"],
-  ["🔔", "bell", "Symbols", "notification alert"],
-  ["🔕", "bell with slash", "Symbols", "mute"],
-  ["🔊", "speaker high volume", "Symbols", "sound"],
-  ["🔇", "muted speaker", "Symbols", "mute"],
-  ["🔄", "counterclockwise arrows", "Symbols", "refresh reload"],
-  ["🔁", "repeat", "Symbols", "loop"],
-  ["▶️", "play button", "Symbols", "play"],
-  ["⏸️", "pause button", "Symbols", "pause"],
-  ["⏹️", "stop button", "Symbols", "stop"],
-  ["⏭️", "next track", "Symbols", "next"],
-  ["⬆️", "up arrow", "Symbols", "up"],
-  ["⬇️", "down arrow", "Symbols", "down"],
-  ["⬅️", "left arrow", "Symbols", "left"],
-  ["➡️", "right arrow", "Symbols", "right"],
-  ["🔗", "link", "Symbols", "url chain"],
-  ["🔖", "bookmark", "Symbols"],
-  ["🏷️", "label", "Symbols", "tag"],
-  ["🆕", "new button", "Symbols", "new"],
-  ["🆗", "ok button", "Symbols"],
-  ["🆘", "sos button", "Symbols", "help"],
-  ["™️", "trade mark", "Symbols"],
-  ["©️", "copyright", "Symbols"],
-  ["®️", "registered", "Symbols"],
-  ["💯", "hundred points", "Symbols", "perfect"],
-  ["🔢", "input numbers", "Symbols", "numbers"],
-  ["🔤", "input latin letters", "Symbols", "text"],
-  ["🕐", "one oclock", "Symbols", "time clock"],
-  ["📶", "antenna bars", "Symbols", "signal"],
-  ["🔐", "locked with key", "Symbols", "secure"],
-  ["🛡️", "shield", "Symbols", "security protect"],
-  ["⚖️", "balance scale", "Symbols", "legal"],
-  ["🧿", "nazar amulet", "Symbols"],
-  ["📍", "round pushpin", "Symbols", "location pin"],
-  ["🚩", "triangular flag", "Symbols", "flag"],
-  ["🏁", "chequered flag", "Symbols", "finish"]
-];
-
-export const EMOJI_CATALOG: EmojiEntry[] = RAW.map(([emoji, name, category, keywords]) => ({
-  emoji,
-  name,
-  category,
-  keywords: keywords ? keywords.split(" ") : undefined
-}));
-
-/** Search by name and keywords; an empty query returns the whole catalog. */
-export function searchEmoji(query: string): EmojiEntry[] {
-  const term = query.trim().toLowerCase();
-  if (!term) return EMOJI_CATALOG;
-  return EMOJI_CATALOG.filter((entry) => {
-    if (entry.name.includes(term)) return true;
-    if (entry.emoji === term) return true;
-    return (entry.keywords ?? []).some((keyword) => keyword.includes(term));
-  });
+export interface EmojiEntry {
+  emoji: string;
+  /** Display name in the primary language, falling back to the English name. */
+  name: string;
+  /** Every searchable keyword from the loaded languages (not folded). */
+  keywords: string[];
+  category: EmojiCategory;
+  /** Pre-folded `name + keywords` haystack used by `searchEmoji`. */
+  search: string;
 }
 
-export function emojiByCategory(category: EmojiCategory): EmojiEntry[] {
-  return EMOJI_CATALOG.filter((entry) => entry.category === category);
+/** Languages the generated names exist for; mirrors `src/i18n` `LOCALES`. */
+export const EMOJI_LANGUAGES = ["en", "ru", "de", "fr", "es", "sr", "ja", "zh"] as const;
+export type EmojiLanguage = (typeof EMOJI_LANGUAGES)[number];
+
+export function isEmojiLanguage(value: unknown): value is EmojiLanguage {
+  return typeof value === "string" && (EMOJI_LANGUAGES as readonly string[]).includes(value);
+}
+
+interface NamesModule {
+  EMOJI_NAMES: string[];
+  EMOJI_KEYWORD_EXTRAS?: Record<string, string>;
+}
+
+interface GlyphsModule {
+  EMOJI_GLYPHS: { emoji: string; category: string }[];
+}
+
+/**
+ * One loader per language, written out explicitly: a template-literal `import()` would make Vite
+ * bundle every locale into the base chunk instead of one chunk per language.
+ */
+const NAME_LOADERS: Record<EmojiLanguage, () => Promise<NamesModule>> = {
+  en: () => import("./emoji/names.en.generated"),
+  ru: () => import("./emoji/names.ru.generated"),
+  de: () => import("./emoji/names.de.generated"),
+  fr: () => import("./emoji/names.fr.generated"),
+  es: () => import("./emoji/names.es.generated"),
+  sr: () => import("./emoji/names.sr.generated"),
+  ja: () => import("./emoji/names.ja.generated"),
+  zh: () => import("./emoji/names.zh.generated")
+};
+
+let glyphsModule: Promise<GlyphsModule> | null = null;
+const namesModules = new Map<EmojiLanguage, Promise<NamesModule>>();
+
+function loadEmojiGlyphs(): Promise<GlyphsModule> {
+  glyphsModule ??= import("./emoji/glyphs.generated");
+  return glyphsModule;
+}
+
+export function loadEmojiNames(language: EmojiLanguage): Promise<NamesModule> {
+  let pending = namesModules.get(language);
+  if (!pending) {
+    pending = NAME_LOADERS[language]();
+    namesModules.set(language, pending);
+  }
+  return pending;
+}
+
+/**
+ * Case- and accent-insensitive folding used by the search: `é` → `e`, `č` → `c`, `ё` → `е`, katakana → hiragana.
+ * Emoji names in every supported language are plain words, so stripping combining marks is enough.
+ */
+export function foldEmojiText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0451/g, "\u0435")
+    // Katakana → hiragana, so typing ねこ finds ネコ (Japanese names are mostly katakana/kanji).
+    .replace(/[\u30a1-\u30f6]/g, (kana) => String.fromCharCode(kana.charCodeAt(0) - 0x60));
+}
+
+/** `"name|keyword|keyword"` → tokens, or `[]` for an empty/missing entry. */
+function splitNames(record: string | undefined): string[] {
+  if (!record) return [];
+  return record
+    .split("|")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+}
+
+function isCategory(value: string): value is EmojiCategory {
+  return (EMOJI_CATEGORIES as string[]).includes(value);
+}
+
+export interface EmojiCatalogOptions {
+  /** Primary language first; English is always merged in for search. */
+  language?: string;
+}
+
+/**
+ * Load (and cache) the catalog: glyphs + the primary language names + English names.
+ *
+ * An unknown language falls back to English only — explicitly, never silently skipped.
+ */
+export async function loadEmojiCatalog(options: EmojiCatalogOptions = {}): Promise<EmojiEntry[]> {
+  const primary: EmojiLanguage = isEmojiLanguage(options.language) ? options.language : "en";
+  const [glyphs, primaryNames, englishNames] = await Promise.all([
+    loadEmojiGlyphs(),
+    loadEmojiNames(primary),
+    loadEmojiNames("en")
+  ]);
+
+  const extras = englishNames.EMOJI_KEYWORD_EXTRAS ?? {};
+  const total = glyphs.EMOJI_GLYPHS.length;
+
+  const entries: EmojiEntry[] = [];
+  for (let index = 0; index < total; index += 1) {
+    const glyph = glyphs.EMOJI_GLYPHS[index];
+    const primaryTokens = splitNames(primaryNames.EMOJI_NAMES[index]);
+    const englishTokens = splitNames(englishNames.EMOJI_NAMES[index]);
+    const name = primaryTokens[0] ?? englishTokens[0] ?? glyph.emoji;
+
+    const keywords: string[] = [];
+    const seen = new Set<string>();
+    const add = (token: string) => {
+      const key = token.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      keywords.push(token);
+    };
+    for (const token of primaryTokens.slice(1)) add(token);
+    for (const token of englishTokens) add(token);
+    // The curated extras from the pre-1.3.5 hand-written list (rocket, cart, warning, …) are
+    // English-only conveniences layered on top of the generated keywords.
+    for (const token of (extras[glyph.emoji] ?? "").split(/\s+/)) {
+      if (token) add(token);
+    }
+
+    entries.push({
+      emoji: glyph.emoji,
+      name,
+      keywords,
+      category: isCategory(glyph.category) ? glyph.category : "Symbols",
+      search: foldEmojiText([name, ...keywords].join(" "))
+    });
+  }
+  return entries;
+}
+
+/** Drop every cached language chunk (tests). */
+export function resetEmojiCache(): void {
+  glyphsModule = null;
+  namesModules.clear();
+}
+
+/**
+ * Search name and keywords. Case- and accent-insensitive; a multi-word query must match every
+ * word (in any loaded language, and always in English). An empty query returns the whole catalog.
+ */
+export function searchEmoji(catalog: EmojiEntry[], query: string): EmojiEntry[] {
+  const terms = foldEmojiText(query.trim())
+    .split(/\s+/)
+    .filter((term) => term.length > 0);
+  if (terms.length === 0) return catalog;
+  return catalog.filter((entry) => terms.every((term) => entry.search.includes(term)));
+}
+
+export function emojiByCategory(catalog: EmojiEntry[], category: EmojiCategory): EmojiEntry[] {
+  return catalog.filter((entry) => entry.category === category);
 }

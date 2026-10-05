@@ -952,9 +952,14 @@ body.is-resizing-panel * {
   display: flex;
   overflow: auto;
   padding: 20px;
+  /* Touch is handled by the engine (marquee) and by the viewport pan/pinch gesture, so the
+     browser must not scroll or zoom this element itself. */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .canvas-frame {
+  position: relative;
   background: var(--surface);
   box-shadow: 0 8px 26px rgba(15, 23, 42, 0.13);
   outline: 1px solid var(--border);
@@ -968,6 +973,121 @@ body.is-resizing-panel * {
 .canvas-surface {
   display: block;
   touch-action: none;
+}
+
+/* ---------------------------------------------- canvas edge resize handles */
+
+/*
+  DOM affordances of the canvas FRAME (not elements): right edge, bottom edge and the
+  bottom-right corner. They are centred on the border line so they cover as little of the drawing
+  area as possible, and they are never scaled by zoom.
+*/
+.canvas-resize-handle {
+  position: absolute;
+  z-index: 2;
+  background: transparent;
+  touch-action: none;
+}
+
+.canvas-resize-handle::after {
+  content: "";
+  position: absolute;
+  border-radius: 2px;
+  background: var(--border);
+  opacity: 0.75;
+}
+
+.canvas-resize-handle:hover::after {
+  background: var(--accent, #2f6fed);
+  opacity: 1;
+}
+
+.canvas-resize-right {
+  top: 0;
+  bottom: 14px;
+  right: -7px;
+  width: 14px;
+  cursor: ew-resize;
+}
+
+.canvas-resize-right::after {
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+}
+
+.canvas-resize-bottom {
+  left: 0;
+  right: 14px;
+  bottom: -7px;
+  height: 14px;
+  cursor: ns-resize;
+}
+
+.canvas-resize-bottom::after {
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 4px;
+  transform: translate(-50%, -50%);
+}
+
+.canvas-resize-corner {
+  right: -7px;
+  bottom: -7px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+}
+
+.canvas-resize-corner::after {
+  right: 3px;
+  bottom: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px 0 2px 0;
+}
+
+/* Live size readout while an edge handle is dragged. */
+.canvas-size-badge {
+  position: absolute;
+  right: -8px;
+  bottom: -30px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--ink, #1f2429);
+  color: var(--surface, #fff);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Coarse pointers get a bigger grab area for the same affordance. */
+@media (pointer: coarse) {
+  .canvas-resize-right,
+  .canvas-resize-bottom {
+    right: -14px;
+    width: 28px;
+  }
+  .canvas-resize-bottom {
+    right: 0;
+    bottom: -14px;
+    height: 28px;
+  }
+  .canvas-resize-corner {
+    right: -12px;
+    bottom: -12px;
+    width: 28px;
+    height: 28px;
+  }
+  .canvas-flip {
+    min-width: 40px;
+    min-height: 40px;
+  }
 }
 
 .input-debug-panel {
@@ -1305,15 +1425,48 @@ body.is-resizing-panel * {
   padding: 4px 8px;
 }
 
+/*
+  The picker is anchored by JS (`position: fixed` + flip/clamp in EmojiPicker.tsx) so it always
+  stays inside the viewport, even in a narrow drawer or a small dialog.
+*/
 .emoji-picker {
-  position: relative;
-  margin-top: 6px;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: min(320px, calc(100vw - 16px));
+  max-height: min(360px, calc(100vh - 16px));
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
   padding: 8px;
-  z-index: 20;
+  z-index: 60;
+}
+
+/* Text field with the 🙂 button (C3): the button sits at the trailing edge of the field. */
+.emoji-text-field {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.emoji-text-field .emoji-field-control {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 30px;
+}
+
+.emoji-text-field textarea.emoji-field-control {
+  padding-right: 30px;
+}
+
+.emoji-text-field .emoji-open {
+  position: absolute;
+  top: 4px;
+  right: 4px;
 }
 
 .emoji-search input {
@@ -1351,8 +1504,10 @@ body.is-resizing-panel * {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 2px;
-  max-height: 176px;
+  min-height: 0;
   overflow-y: auto;
+  flex: 1 1 auto;
+  max-height: 240px;
 }
 
 .emoji-cell {
@@ -2909,6 +3064,532 @@ body.is-resizing-panel * {
   margin: 10px 0 12px;
 }
 
+/* ---------------------------------------------------------------- chart editor */
+
+.chart-preview {
+  cursor: default;
+}
+
+.chart-footer {
+  max-height: 46vh;
+  overflow: auto;
+}
+
+.chart-modes {
+  display: flex;
+  gap: 6px;
+}
+
+.chart-modes button.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-ink);
+}
+
+.chart-title-field {
+  margin: 0;
+}
+
+.chart-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+}
+
+.chart-options .field.inline {
+  margin: 0;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.chart-data-area {
+  min-width: 0;
+}
+
+.chart-table-wrap {
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.chart-table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+
+.chart-table th,
+.chart-table td {
+  position: relative;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  text-align: left;
+}
+
+.chart-table th {
+  font-weight: 600;
+}
+
+.chart-cell-category {
+  min-width: 132px;
+}
+
+.chart-cell {
+  position: relative;
+  min-width: 104px;
+}
+
+/* The category cell carries a remove button, so its field keeps room for both buttons. */
+.chart-table .chart-cell-category .emoji-field-control {
+  padding-right: 52px;
+}
+
+.chart-cell-remove {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  padding: 1px 5px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.chart-table th .chart-cell-remove {
+  top: 4px;
+}
+
+.chart-value-input {
+  width: 100%;
+  min-width: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-cell-invalid .chart-value-input {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.chart-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chart-invalid-note {
+  margin: 8px 0 0;
+  padding: 6px 9px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #8a5a00;
+  background: #fff6df;
+  border: 1px solid #f1d38a;
+}
+
+.chart-invalid-list {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .chart-invalid-note {
+  color: #f3cf7a;
+  background: #2b2413;
+  border-color: #5c4a1c;
+}
+
+.chart-text-mode .emoji-text-field textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .scene-section .hint {
   margin: 0;
+}
+
+/* ====================================================================== *
+ * Responsive shell (1.3.5)                                                *
+ *                                                                        *
+ * Two breakpoints, matching `src/utils/layoutMode.ts` exactly:            *
+ *   ≥ 1100 px          desktop  — today's three-column workspace          *
+ *   768 – 1099 px      tablet   — full-width canvas + overlay drawers     *
+ *   < 768 px           phone    — same drawers, compact toolbar           *
+ * ====================================================================== */
+
+/* D2: dynamic viewport height where the browser supports it (the 100vh rule stays as fallback),
+   plus notch / home-indicator padding. */
+.app {
+  height: 100dvh;
+}
+
+.app-toolbar {
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  padding-top: max(8px, env(safe-area-inset-top));
+}
+
+.workspace {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.boot-screen,
+.auth-screen {
+  min-height: 100dvh;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ------------------------------------------------------------------ drawers */
+
+.drawer-close {
+  margin-left: auto;
+  background: transparent;
+  border-color: transparent;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(17, 24, 39, 0.45);
+}
+
+.workspace-drawer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The phone "⋯" menu: the rest of the toolbar, reachable in one tap. */
+.toolbar-menu {
+  position: relative;
+}
+
+.toolbar-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+  max-width: calc(100vw - 24px);
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22);
+}
+
+.toolbar-menu-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-menu-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  width: 100%;
+}
+
+/* ------------------------------------------------------- error boundary (D6) */
+
+.error-boundary {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.error-boundary h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.error-boundary p {
+  margin: 0;
+  max-width: 560px;
+  color: var(--ink-2);
+}
+
+.error-boundary-context {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.error-boundary-detail {
+  max-width: min(680px, 100%);
+  max-height: 160px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: left;
+}
+
+/* ------------------------------------------------- 768 – 1099 px (tablet) */
+
+@media (max-width: 1099px) {
+  /* The canvas always gets the full width; the side columns become drawers over it. */
+  .workspace,
+  .workspace.with-projects {
+    position: relative;
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace > .panel,
+  .workspace > .workspace-drawer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 45;
+    max-width: 92vw;
+    background: var(--panel);
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.28);
+    visibility: hidden;
+    transition: transform 160ms ease, visibility 0s linear 160ms;
+  }
+
+  .workspace > .panel.drawer-left,
+  .workspace > .workspace-drawer.drawer-left {
+    left: 0;
+    width: min(320px, 86vw);
+    transform: translateX(-104%);
+    border-right: 1px solid var(--border);
+  }
+
+  .workspace > .panel.drawer-right {
+    right: 0;
+    width: min(340px, 88vw);
+    transform: translateX(104%);
+    border-left: 1px solid var(--border);
+  }
+
+  .workspace > .panel.open,
+  .workspace > .workspace-drawer.open {
+    transform: none;
+    visibility: visible;
+    transition: transform 160ms ease, visibility 0s;
+  }
+
+  /* Panel resize grab strips and collapse rails make no sense inside a drawer. */
+  .workspace > .panel .panel-resize,
+  .workspace > .panel .panel-toggle {
+    display: none;
+  }
+
+  .workspace-drawer > .projects-panel {
+    width: 100% !important;
+    border: 0;
+  }
+
+  /* The toolbar stays above the scrim so its drawer buttons remain clickable. */
+  .app-toolbar {
+    position: relative;
+    z-index: 41;
+    gap: 10px;
+  }
+
+  /* At tablet width the brand block would cost a whole toolbar row on its own. */
+  .brand-tag,
+  .brand-name {
+    display: none;
+  }
+
+  .zoom-readout {
+    display: none;
+  }
+
+  /* D3: touch-sized hit targets for the toolbar and the panel headers. */
+  .app-toolbar button,
+  .app-toolbar select,
+  .panel-header button,
+  .modal-footer button,
+  .scene-footer button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+
+  .app-toolbar .zoom-group button,
+  .app-toolbar .toggle-button {
+    min-width: 40px;
+  }
+}
+
+/* Coarse pointers get the same treatment at any width (D3). */
+@media (pointer: coarse) {
+  .app-toolbar button,
+  .app-toolbar select,
+  .panel-header button,
+  .modal-footer button,
+  .scene-footer button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
+
+/* ------------------------------------------------------------ < 768 px (phone) */
+
+@media (max-width: 767px) {
+  /* Everything stays reachable without sideways scrolling: the actions wrap onto a second row
+     when the drawer buttons, undo/redo, zoom, Export and "⋯" do not fit one (e.g. 390 px). */
+  .app-toolbar {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  /* The wordmark has no room on a phone; the toolbar actions take the full width. */
+  .toolbar-brand {
+    display: none;
+  }
+
+  .toolbar-actions {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .toolbar-actions .toolbar-menu {
+    margin-left: auto;
+  }
+
+  /* The desktop control group is empty on phones; the "⋯" menu holds it instead. */
+  .app-toolbar .toolbar-group:empty {
+    display: none;
+  }
+
+  .toolbar-actions {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .toolbar-actions .divider {
+    display: none;
+  }
+
+  .zoom-readout {
+    display: none;
+  }
+
+  /* D4: dialogs fit a 360×640 viewport as full-screen sheets with a scrollable body. */
+  .modal-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .modal,
+  .modal.narrow {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    border-radius: 0;
+  }
+
+  .modal.narrow {
+    height: auto;
+    margin: auto 0;
+  }
+
+  .modal-header,
+  .modal-footer {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  .panel-body,
+  .modal-body,
+  .scene-body {
+    overflow-y: auto;
+    max-width: 100%;
+  }
+
+  /* Nothing in a dialog may force a horizontal scrollbar at 360 px. */
+  .modal input,
+  .modal select,
+  .modal textarea {
+    max-width: 100%;
+  }
+
+  .emoji-picker {
+    width: calc(100vw - 16px);
+  }
+
+  .canvas-resize-right,
+  .canvas-resize-bottom {
+    right: -14px;
+    width: 28px;
+  }
+
+  .canvas-resize-corner {
+    right: -12px;
+    bottom: -12px;
+    width: 28px;
+    height: 28px;
+  }
+
+  /* The "W × H" badge must not push the frame around on a small screen. */
+  .canvas-size-badge {
+    right: 0;
+    bottom: -26px;
+  }
+}
+
+/* D5: sign-in / settings at narrow widths. The form column has a 400 px minimum, which would
+   otherwise force a horizontal scrollbar on a phone. */
+@media (max-width: 900px) {
+  .auth-screen {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .auth-hero {
+    padding: 28px 20px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .auth-hero-grid,
+  .auth-hero-sketch {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .auth-hero {
+    padding: 18px 14px;
+  }
+
+  .settings-dialog,
+  .settings-dialog .modal-body {
+    max-width: 100%;
+  }
+
+  .projects-panel {
+    max-width: 100%;
+  }
 }

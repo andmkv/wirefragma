@@ -209,6 +209,89 @@ describe("ascii renderer", () => {
     }
   });
 
+  it("sketches a chart as horizontal bars with values and labels", () => {
+    const output = renderAscii(
+      project([
+        {
+          id: "c",
+          type: "chart",
+          name: "sessionsChart",
+          label: "",
+          note: "",
+          x: 40,
+          y: 40,
+          width: 560,
+          height: 260,
+          zIndex: 0,
+          chart: {
+            kind: "bar",
+            title: "Sessions",
+            categories: ["Jan", "Feb"],
+            series: [{ name: "Sessions", values: [120, 60] }]
+          }
+        }
+      ])
+    );
+    expect(output).toContain("Chart: Sessions");
+    expect(output).toContain("Jan");
+    expect(output).toContain("Feb");
+    expect(output).toContain("120");
+    expect(output).toContain("█");
+  });
+
+  it("sketches a pie chart as a percentage list", () => {
+    const output = renderAscii(
+      project([
+        {
+          id: "c",
+          type: "chart",
+          name: "shareChart",
+          label: "",
+          note: "",
+          x: 40,
+          y: 40,
+          width: 560,
+          height: 260,
+          zIndex: 0,
+          chart: {
+            kind: "pie",
+            categories: ["Alpha", "Beta"],
+            series: [{ name: "Share", values: [75, 25] }]
+          }
+        }
+      ])
+    );
+    expect(output).toContain("Alpha 75%");
+    expect(output).toContain("Beta 25%");
+    // A pie has no bars: the sketch is a list, not a bar chart.
+    expect(output).not.toContain("█");
+  });
+
+  it("falls back to a plain box when a chart box is too small to sketch", () => {
+    const lines = renderAsciiLines(
+      project([
+        {
+          id: "c",
+          type: "chart",
+          name: "tinyChart",
+          label: "",
+          note: "",
+          x: 40,
+          y: 40,
+          width: 90,
+          height: 26,
+          zIndex: 0,
+          chart: { kind: "bar", categories: ["Jan", "Feb"], series: [{ name: "S", values: [1, 2] }] }
+        }
+      ])
+    );
+    const dimensions = getAsciiDimensions({ width: 1200, height: 800 });
+    expect(lines.length).toBeLessThanOrEqual(dimensions.rows);
+    for (const line of lines) expect(Array.from(line).length).toBeLessThanOrEqual(dimensions.cols);
+    // The chart still occupies its box; it never spills into the grid.
+    expect(lines.some((line) => line.includes("┌") || line.includes("─"))).toBe(true);
+  });
+
   it("draws a container border without filling its interior", () => {
     const container = renderAsciiLines(
       project([

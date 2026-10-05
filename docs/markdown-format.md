@@ -30,6 +30,7 @@ same character, so the round trip is exact.
 ```text
 Type: Mobile                   <- Desktop | Mobile | Custom
 Canvas: 390 × 844
+Device preset: iPhone 15       <- only when canvas.preset names a known device
 Elements: 3                    <- effective-visible element count
 Hidden elements omitted: 1     <- only when hidden elements/layers exist
 Layers (front to back): Controls → Content → Layout
@@ -37,6 +38,10 @@ Layers (front to back): Controls → Content → Layout
 
 `Type` is `Desktop` for `canvas.mode === "desktop"`, `Mobile` for `"mobile"`, `Mobile landscape`
 for `"mobileLandscape"`, and `Custom` for `"custom"` (`canvasModeLabel` in `markdownExport.ts`).
+`Device preset` is emitted only for a known `canvas.preset` and is advisory as well: the
+authoritative id travels in the `ui-project` block, so the round trip is lossless with or without
+the line.
+
 The line is prose only — the importer never reads it, and the authoritative mode always comes
 from `ui-project`.
 
@@ -73,6 +78,19 @@ Columns:                             <- `table` only
 Rows:
 - Anna | Owner | Active              <- cell separators normalised to " | "
 
+Chart: Bar                          <- `chart` only: the kind, in words
+
+Chart title: Monthly revenue        <- only when the chart has a title
+
+| Category | Revenue | Costs |        <- categories × series, at most 12 rows
+| --- | --- | --- |
+| Jan | 120 | 80 |
+| Feb | 180 | 110 |
+
+_… 3 more categories in the project source._   <- only when the table is truncated
+
+Chart options: horizontal bars, legend.        <- only when an option is on
+
 LLM note:
 <note verbatim>
 ```
@@ -94,8 +112,14 @@ Rules that matter:
   Drawing **without** a description is omitted from every LLM-facing section (ASCII, UI Elements,
   Spatial Summary); the Screen section then reports `Drawings without an LLM description omitted: N`.
   Its strokes still travel in `ui-project`.
+* A `chart` exports a **compact Markdown table** (categories as rows, series as columns, `—` for a
+  gap) under `Chart:` / `Chart title:`; it has no `Items:` block. The table is capped at 12 category
+  rows; the complete dataset always travels in the canonical `ui-project` block below, so the round
+  trip stays lossless.
 * Hidden elements and hidden layers never appear in the human sections; the Screen section reports
   how many were omitted.
+* A Drawing without an LLM description is omitted from every human section (`Drawings without an
+  LLM description omitted: N` in the Screen section); its strokes still travel in `ui-project`.
 
 ## `## Spatial Summary`
 
@@ -111,7 +135,7 @@ Top-level layout types (`container`, `toolbar`, `sidebar`) are described first; 
 top-level element is bucketed into thirds of the canvas and listed per region (top→bottom,
 left→right). Nested elements are **not** bucketed by screen region: each parent gets one line with
 its children in reading order — rows top to bottom, elements sharing a row joined as
-`"a", "b" side by side`. An empty canvas produces `- The screen is empty.`
+`"a", "b" side by side`. A `chart` is named with its shape, e.g. `"sessionsChart" (Chart: chart (bar, 2 series × 3 categories))`. An empty canvas produces `- The screen is empty.`
 
 ## `## Editable Project Source`
 

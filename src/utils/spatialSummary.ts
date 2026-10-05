@@ -1,3 +1,4 @@
+import { normalizeChartData } from "../model/chart";
 import {
   ELEMENT_TYPE_LABEL,
   exportedElementsInDrawOrder,
@@ -49,6 +50,21 @@ function regionPhrase(region: Region): string {
   if (region.vertical === "middle") return `${HORIZONTAL_WORD[region.horizontal]} side`;
   if (region.horizontal === "center") return `${VERTICAL_WORD[region.vertical]} portion`;
   return `${VERTICAL_WORD[region.vertical]}-${HORIZONTAL_WORD[region.horizontal]} area`;
+}
+
+/** `chart (bar, 2 series × 3 categories)` — the shape of a chart in five words. */
+function chartNote(element: WireframeElement): string {
+  const data = normalizeChartData(element.chart);
+  const series = data.series.length === 1 ? "1 series" : `${data.series.length} series`;
+  const categories = data.categories.length === 1 ? "1 category" : `${data.categories.length} categories`;
+  return `chart (${data.kind}, ${series} × ${categories})`;
+}
+
+/** How one element is named in a region sentence. */
+function describeEntry(element: WireframeElement): string {
+  const label = ELEMENT_TYPE_LABEL[element.type];
+  if (element.type === "chart") return `"${element.name}" (${label}: ${chartNote(element)})`;
+  return `"${element.name}" (${label})`;
 }
 
 function isFullWidth(element: WireframeElement, canvas: { width: number }): boolean {
@@ -147,9 +163,7 @@ export function buildSpatialSummary(project: WireframeProject): string[] {
   for (const region of order) {
     const bucket = buckets.get(`${region.vertical}:${region.horizontal}`);
     if (!bucket) continue;
-    const names = bucket.entries
-      .map((element) => `"${element.name}" (${ELEMENT_TYPE_LABEL[element.type]})`)
-      .join(", ");
+    const names = bucket.entries.map(describeEntry).join(", ");
     lines.push(`- The ${regionPhrase(region)} contains: ${names}.`);
   }
 

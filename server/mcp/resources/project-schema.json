@@ -118,7 +118,8 @@
               "bottomNav",
               "dialog",
               "diagram",
-              "drawing"
+              "drawing",
+              "chart"
             ]
           },
           "name": {
@@ -395,6 +396,88 @@
                     "width": {
                       "type": "number"
                     }
+                  }
+                }
+              }
+            }
+          },
+          "chart": {
+            "type": "object",
+            "description": "`chart` elements only: the dataset drawn inside the element's bounds.",
+            "required": [
+              "kind",
+              "categories",
+              "series"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "bar",
+                  "stackedBar",
+                  "line",
+                  "area",
+                  "pie",
+                  "donut"
+                ],
+                "default": "bar"
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "categories": {
+                "type": "array",
+                "maxItems": 24,
+                "description": "Category labels, left to right (one slice per category for pie/donut).",
+                "items": {
+                  "type": "string",
+                  "maxLength": 40
+                }
+              },
+              "series": {
+                "type": "array",
+                "maxItems": 8,
+                "description": "One entry per series. `values` is aligned with `categories`; `null` is a gap.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "values"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "values": {
+                      "type": "array",
+                      "description": "Numbers as JSON numbers or numeric strings; `null` is a gap.",
+                      "maxItems": 24,
+                      "items": {
+                        "type": [
+                          "number",
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "options": {
+                "type": "object",
+                "properties": {
+                  "legend": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "showValues": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "horizontal": {
+                    "type": "boolean",
+                    "default": false
                   }
                 }
               }

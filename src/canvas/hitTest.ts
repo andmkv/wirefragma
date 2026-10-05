@@ -34,6 +34,8 @@ export interface HitOptions {
   selectedId?: string | null;
   /** Elements that must not be hit (locked by their own flag or by their layer). */
   isSelectable?: (elementId: string) => boolean;
+  /** Finger/stylus pointer: handle grab tolerance grows (D3). Still one tolerance, one hit test. */
+  coarsePointer?: boolean;
 }
 
 export function hitTestGeometries(
@@ -52,7 +54,8 @@ export function hitTestGeometries(
         transform,
         handleHitTolerancePx(
           selected.bounds.width * transform.scale,
-          selected.bounds.height * transform.scale
+          selected.bounds.height * transform.scale,
+          options.coarsePointer === true
         )
       );
       let best: { edge: ResizeEdge; distance: number } | null = null;

@@ -46,11 +46,22 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
   can Tab to a Layers element row, select it with Enter/Space, expand/collapse nested rows with
   the arrow keys and nudge the selection with the arrow keys (reordering is still drag-only) — but the drawing itself is
   invisible to assistive technology.
-* **English only.** All UI strings, Markdown sections and messages are hard-coded English.
-* **Narrow windows** collapse the Layers column; there is no other responsive behaviour. The
-  Projects, Add and Layers panels can be resized from their right edge (double-click resets; the
-  widths are remembered per browser in `wirefragma.panel.*`), and Projects / Layers collapse to
-  identical rails.
+* **The Markdown export is English only.** The editor UI is localized (8 languages), but every
+  export section, the schema text and the LLM-facing messages are English by design.
+* **Responsive layouts are a three-step shell, not a mobile editor.** At ≥ 1100 px the three side
+  panels sit next to the canvas (the Projects, Add and Layers panels resize from their right edge,
+  double-click resets, widths are remembered in `wirefragma.panel.*`, Projects / Layers collapse to
+  identical rails). At 768–1099 px and below, Add / Layers / Properties (and Projects when signed
+  in) become overlay drawers and the phone toolbar folds secondary actions into a "⋯" menu. Editing
+  stays possible on a phone, but precise work (handles on small elements, many-row tables) is still
+  easier with a mouse. Touch support was verified with synthetic pointer events and a headless
+  browser, not on hardware.
+* **Charts are wireframe-sized.** A Chart holds at most 24 categories × 8 series (names ≤ 40
+  characters); it is a shape-and-magnitude sketch, not a reporting tool, which also keeps documents
+  small on shared hosting (2 MB limit unchanged).
+* **Emoji search needs a language chunk.** The first time the picker opens it loads the glyph chunk
+  and the names chunk of the current UI language (plus English); on a very slow connection the grid
+  shows an empty state until they arrive. No skin-tone variants are offered.
 
 ## Data and persistence
 
@@ -79,8 +90,10 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
 
 ## Clipboard
 
-* Object copy/paste uses an **internal** clipboard. Elements cannot be pasted between browser tabs,
-  between origins or into another application.
+* Object copy/paste uses an **internal** clipboard. Since 1.3.5 the payload survives switching
+  wireframes and is mirrored into `localStorage`, so it can also be pasted in another tab of the
+  **same origin** — but not between origins, in another browser profile, or into another
+  application. A payload larger than 64 K stays in memory and is not shared across tabs.
 * Only plain text goes to the OS clipboard (the Markdown export, "Copy for LLM"). The OS clipboard
   path can be unavailable over `file://` or without permission, which is exactly why object
   copy/paste never depends on it.

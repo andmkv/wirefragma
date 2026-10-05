@@ -155,6 +155,41 @@ null` into the hit test, so a multi-selection never shows or grabs handles.
 Handle geometry, screen-pixel sizing and the Container corner-only rule are documented in
 [canvas-engine.md](./canvas-engine.md#resize-handles).
 
+## Responsive layouts (1.3.5)
+
+Below 1100 px the workspace switches to overlay drawers (see
+[canvas-engine.md](./canvas-engine.md#responsive-layouts-and-drawers-12)): the same panels slide in
+over a full-width canvas, the toolbar buttons toggle them, Escape or a scrim click closes them and
+selecting an element never opens one. Touch targets are ≥ 40 px at those widths and for coarse
+pointers, and the canvas handle grab tolerance grows through the shared hit test
+(`coarsePointer`), never through a second one.
+
+## Viewport panning (view-only, 1.3.5)
+
+Panning moves the scrollable viewport, never the document. It is implemented in
+`src/canvas/pan.ts` (pure maths: `panScroll`, `pinchScale`, `touchCentroid`, `touchDistance`,
+`anchorScrollFor`) and wired up in `CanvasEditor`.
+
+| Input | Behaviour |
+| --- | --- |
+| middle mouse button drag | pans; the browser's autoscroll / middle-click paste is suppressed |
+| `Space` + left drag | pans (cursor `grab`, then `grabbing`); `Space` is ignored while editing text |
+| one-finger touch drag | **no** pan — it keeps the marquee semantic |
+| two-finger touch drag | pans, anchored at the centroid |
+| two-finger pinch | zooms through the same anchoring path as the wheel / trackpad pinch |
+
+Rules that keep this safe:
+
+* pan writes **only** `scrollLeft` / `scrollTop` of `.canvas-viewport`; no history entry is
+  created, nothing is serialized, and `geometry.ts` / `hitTest.ts` / `transform.ts` are untouched;
+* the pointerdown listener runs in the **capture** phase on the viewport and calls
+  `stopPropagation()`, so the engine never sees a pan pointerdown: a pan can neither start nor
+  cancel an element drag, and no history transaction is left open;
+* the two-finger gesture only starts when the running engine gesture is `none` or `marquee`
+  (a marquee may be cancelled — it changes selection only). A second finger arriving during a
+  `move` or `resize` is ignored so that gesture's transaction is never orphaned;
+* `Space` and middle-drag are separate from `Escape`/`Delete`: they only affect the viewport.
+
 ## Which gestures change the document?
 
 | Gesture | Document mutation | History |
@@ -163,6 +198,8 @@ Handle geometry, screen-pixel sizing and the Container corner-only rule are docu
 | marquee | no — selection only | no entry |
 | drag (move) | yes, one `mutate()` with every moved element | one entry per gesture |
 | resize | yes, one `mutate()` | one entry per gesture |
+| viewport pan / pinch (middle drag, Space+drag, two fingers) | no — scroll offset only | no entry |
+| canvas edge resize (right / bottom / corner handles) | yes, live `canvas.width/height` | one entry per drag |
 | arrow-key nudge | yes, one `mutate()` per key press | coalesced by key/shortcut |
 | Properties field edits | yes, one `mutate()` per commit | coalesced per field |
 | delete / duplicate / paste | yes, one `mutate()` | one entry each |
@@ -205,6 +242,10 @@ Handled in `src/App.tsx` on `window`, and skipped entirely when
 | `Cmd/Ctrl + Z` / `Cmd/Ctrl + Shift + Z` / `Ctrl + Y` | undo / redo |
 | `Cmd/Ctrl + D` | duplicate the selection |
 | `Cmd/Ctrl + C` / `Cmd/Ctrl + V` | copy / paste through the internal clipboard |
+| `Cmd/Ctrl + X` | cut: copy the deletable members, then delete them — one undo step |
+| `Cmd/Ctrl + A` | select every visible, unlocked element (the marquee rule) |
+| `F2` | focus the Name field in Properties (single selection) |
+| `Space` (held) | pan modifier for the canvas viewport |
 | arrow keys | nudge every movable selected element by 1 unit |
 | `Shift` + arrows | nudge by the current grid size |
 | `Cmd/Ctrl + +` / `-` / `0` | zoom in / out / fit |

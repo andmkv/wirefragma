@@ -16,6 +16,7 @@ import {
   type DiagramObjectType,
   type DiagramPoint
 } from "../model/diagram";
+import { EmojiTextField } from "./EmojiTextField";
 import { SceneModal, prepareStageContext, useSceneHistory, useStageFit } from "./SceneEditorShell";
 
 type Tool = "select" | DiagramObjectType;
@@ -235,11 +236,14 @@ export function DiagramEditor({ name, initial, onDone, onCancel }: DiagramEditor
               {selected.type !== "text" ? <span className="scene-selection-type">{t(`scene.tool.${selected.type}`)}</span> : null}
               <label className="field">
                 <span className="field-label">{selected.type === "text" ? t("scene.text") : t("scene.label")}</span>
-                {selected.type === "text" ? (
-                  <textarea ref={labelRef} rows={2} value={selected.label ?? ""} onChange={(event) => setLabel(event.target.value)} />
-                ) : (
-                  <input ref={labelRef} value={selected.label ?? ""} onChange={(event) => setLabel(event.target.value)} />
-                )}
+                <EmojiTextField
+                  multiline={selected.type === "text"}
+                  rows={2}
+                  inputRef={labelRef}
+                  ariaLabel={selected.type === "text" ? t("scene.text") : t("scene.label")}
+                  value={selected.label ?? ""}
+                  onChange={setLabel}
+                />
               </label>
               <button type="button" onClick={() => history.push(reorderDiagramObject(data, selected.id, 1))} title={t("scene.forward")}>
                 ↑ {t("scene.forward")}
@@ -254,12 +258,13 @@ export function DiagramEditor({ name, initial, onDone, onCancel }: DiagramEditor
           ) : null}
           <label className="field">
             <span className="field-label">{t("scene.descriptionOptional")}</span>
-            <textarea
+            <EmojiTextField
+              multiline
               rows={2}
               value={data.description ?? ""}
               placeholder={t("scene.diagramDescriptionPlaceholder")}
-              onChange={(event) =>
-                history.push({ ...data, description: event.target.value === "" ? undefined : event.target.value }, "description")
+              onChange={(value) =>
+                history.push({ ...data, description: value === "" ? undefined : value }, "description")
               }
             />
           </label>

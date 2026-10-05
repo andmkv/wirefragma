@@ -65,6 +65,7 @@ Element = {
   contentSize?: number;             // `icon` / `image` symbol size
   diagram?: Diagram;                // `diagram` (Canvas) only, see below
   drawing?: Drawing;                // `drawing` only, see below
+  chart?: Chart;                    // `chart` only, see below
 }
 ```
 
@@ -98,6 +99,7 @@ Element = {
 | `dialog` | Dialog | 360×240 | Modal window. `label` is its title; put its content inside it with `parentId`. |
 | `diagram` | Canvas | 450×300 | "Canvas": a small structured diagram (flow, schema, map). `label` is its title; the shapes go in `diagram` (see below), never as separate elements. |
 | `drawing` | Drawing | 240×180 | Freehand sketch. The strokes go in `drawing.strokes`; `drawing.description` says what it shows — without a description the sketch is left out of the LLM export. |
+| `chart` | Chart | 360×240 | Data chart. The numbers go in `chart` (see below), never in `items`/`columns`; `chart.title` is drawn above the plot. |
 
 ## Layers, stacking and nesting
 
@@ -117,6 +119,27 @@ Element = {
 - `contentSize` applies to `icon` and `image` (default 24 for icons, 48 for images; range 8–256).
 - Emoji are welcome as icon/iconButton/avatar/image labels (`🔍`, `⚙️`, `🛒`).
 - Omit `items`/`columns` for types that do not use them.
+
+## Chart
+
+A Chart draws a tiny dataset inside the element: at most 24 categories, 8 series,
+labels of 40 characters and values clamped to ±1e12 — keep it to a handful of rows so the document stays small.
+
+```ts
+Chart = {
+  kind: "bar" | "stackedBar" | "line" | "area" | "pie" | "donut";
+  title?: string;                    // drawn above the plot
+  categories: string[];              // category labels, left to right
+  series: { name: string; values: (number | null)[] }[];   // values aligned with categories
+  options?: { legend?: boolean; showValues?: boolean; horizontal?: boolean }
+}
+```
+
+- `null` (or an empty cell) is a GAP: a missing bar, a break in the line, no slice.
+- `pie` and `donut` use the FIRST series only.
+- `horizontal` turns the bar kinds sideways; `legend` shows the series names; `showValues` writes
+  every number next to its mark.
+- A chart is data, not decoration: say what the numbers are and where they come from in `note`.
 
 ## Canvas (`diagram`) and Drawing
 
@@ -292,6 +315,48 @@ recomputed. An unknown `type`, a missing canvas size or a non-array `elements` m
       "visible": true,
       "locked": false,
       "zIndex": 5
+    },
+    {
+      "id": "el_chart",
+      "type": "chart",
+      "name": "sessionsChart",
+      "label": "",
+      "note": "Weekly sign-in sessions for the last four weeks. Hovering a bar shows the exact number.",
+      "x": 24,
+      "y": 520,
+      "width": 342,
+      "height": 220,
+      "layerId": "layer_page",
+      "visible": true,
+      "locked": false,
+      "zIndex": 1,
+      "chart": {
+        "kind": "bar",
+        "title": "Monthly revenue",
+        "categories": [
+          "Jan",
+          "Feb",
+          "Mar"
+        ],
+        "series": [
+          {
+            "name": "Revenue",
+            "values": [
+              120,
+              180,
+              150
+            ]
+          },
+          {
+            "name": "Costs",
+            "values": [
+              80,
+              110,
+              95
+            ]
+          }
+        ]
+      }
     }
   ]
 }
@@ -422,7 +487,8 @@ For tools that support structured output:
               "bottomNav",
               "dialog",
               "diagram",
-              "drawing"
+              "drawing",
+              "chart"
             ]
           },
           "name": {
@@ -699,6 +765,88 @@ For tools that support structured output:
                     "width": {
                       "type": "number"
                     }
+                  }
+                }
+              }
+            }
+          },
+          "chart": {
+            "type": "object",
+            "description": "`chart` elements only: the dataset drawn inside the element's bounds.",
+            "required": [
+              "kind",
+              "categories",
+              "series"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "bar",
+                  "stackedBar",
+                  "line",
+                  "area",
+                  "pie",
+                  "donut"
+                ],
+                "default": "bar"
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "categories": {
+                "type": "array",
+                "maxItems": 24,
+                "description": "Category labels, left to right (one slice per category for pie/donut).",
+                "items": {
+                  "type": "string",
+                  "maxLength": 40
+                }
+              },
+              "series": {
+                "type": "array",
+                "maxItems": 8,
+                "description": "One entry per series. `values` is aligned with `categories`; `null` is a gap.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "values"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "values": {
+                      "type": "array",
+                      "description": "Numbers as JSON numbers or numeric strings; `null` is a gap.",
+                      "maxItems": 24,
+                      "items": {
+                        "type": [
+                          "number",
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "options": {
+                "type": "object",
+                "properties": {
+                  "legend": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "showValues": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "horizontal": {
+                    "type": "boolean",
+                    "default": false
                   }
                 }
               }

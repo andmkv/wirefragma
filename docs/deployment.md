@@ -19,8 +19,11 @@ Output: `dist/`
 
 ```text
 dist/index.html
-dist/assets/index-<hash>.css      (~14 kB, ~4 kB gzip)
-dist/assets/index-<hash>.js       (~252 kB, ~81 kB gzip)
+dist/assets/index-<hash>.css      (~46 kB, ~10 kB gzip)
+dist/assets/index-<hash>.js       (~430 kB, ~135 kB gzip — the only script a first visit needs)
+dist/assets/<locale>-<hash>.js    (UI dictionary per language, ~18–30 kB, fetched on demand)
+dist/assets/glyphs.generated-<hash>.js, names.<locale>.generated-<hash>.js
+                                  (emoji picker data, fetched when the picker first opens)
 dist/wf_logo_w_white.png          (copied verbatim from public/)
 dist/brand/                       (sign-in logos, from public/brand/)
 dist/api/                         (optional PHP accounts backend, copied from server/api/)
@@ -40,6 +43,12 @@ define: { __WIREFRAGMA_BUILD_ID__, __WIREFRAGMA_BUILD_TIME__ }
 
 Relative paths mean the same `dist/` can be served from a domain root, a sub-directory or a static
 file host without configuration.
+
+Since 1.3.5 the build contains ~18 files in `dist/assets/` (about 1.7 MB in total on disk). A visitor
+downloads the main script and only the language chunks they use; upload the **whole** `assets/`
+folder or a language / the emoji picker will fail to load. The hashed file names make the chunks
+safe to cache for a long time (`Cache-Control: public, max-age=31536000, immutable` on
+`assets/*`); keep `index.html` uncached so a new release is picked up.
 
 ## Runtime characteristics
 
