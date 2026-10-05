@@ -19,7 +19,9 @@ LLM note, and exports Markdown containing:
 That Markdown can be pasted back into the editor to reconstruct the editable project losslessly.
 The editor itself needs no backend and makes no AI calls. An **optional** PHP + MySQL backend
 adds accounts and a projects panel (see [accounts.md](./accounts.md)); without it the app runs as
-a purely static, guest-only editor.
+a purely static, guest-only editor. Signed-in projects can also be read and edited by external
+coding agents through a **remote MCP endpoint** (see [mcp.md](./mcp.md)) — the agent is the LLM;
+Wirefragma still never calls one.
 
 Product philosophy: *simple wireframing plus an LLM-readable export*, explicitly **not** a Figma
 clone. See [agent-guide.md](./agent-guide.md) before adding features.
@@ -36,7 +38,8 @@ clone. See [agent-guide.md](./agent-guide.md) before adding features.
 | Persistence | guests: `localStorage` (one autosaved slot); signed in: optional PHP + MySQL API; plus `.md` / `.json` downloads |
 | i18n / themes | own typed dictionaries (8 languages), CSS-token light/dark themes |
 | Emoji data | generated (dev-only `scripts/generate-emoji.mjs`), lazy chunk per language |
-| Server (optional) | plain PHP 7.4+ with PDO MySQL, no Composer (`server/`) |
+| Server (optional) | plain PHP 7.4+ with PDO MySQL, no Composer (`server/api`) |
+| MCP endpoint (optional) | PHP 8.1+, official `mcp/sdk` via Composer, isolated in `server/mcp` |
 
 No Konva, no react-konva, no Fabric, no state-management library, no CSS framework, no i18n
 library, and no backend requirement.
@@ -58,8 +61,13 @@ src/utils/            markdown export/import, ASCII renderer, spatial summary, h
 scripts/              dev-only generators (committed emoji data); never bundled
 src/dev/selfTest.ts   development-only browser harness (?selftest=N), excluded from prod
 src/Root.tsx          start-up: backend probe, sign-in / guest / signed-in workspace
-src/account/          sign-in screen, captcha, privacy policy, projects panel, workspace, API client
-server/               optional PHP accounts API (server/api), MySQL schema, API smoke test
+src/account/          sign-in screen, captcha, privacy policy, projects panel, workspace, API client,
+                      MCP token settings, remote-change polling rules
+server/api/           optional PHP accounts API; lib/projects.php = the shared persistence layer
+server/mcp/           optional remote MCP endpoint (Composer); resources/ generated from src/
+server/tests/         API and MCP smoke tests (local server only)
+scripts/              MCP resource generator, deploy packaging
+public/docs/          the public documentation site (served at /docs/)
 ```
 
 Rough size for orientation (non-test source, ~17k lines; tests add ~4.6k): `i18n` ~3.9k (mostly
@@ -110,7 +118,8 @@ testing, rendering and pointer gestures; the two meet through a very small callb
 | [testing.md](./testing.md) | test strategy, commands, the browser self-test harness |
 | [deployment.md](./deployment.md) | static build, hosting, storage behaviour per origin, Namecheap deployment with accounts |
 | [i18n-and-theming.md](./i18n-and-theming.md) | UI languages, translations, dark theme, where preferences are stored |
-| [accounts.md](./accounts.md) | the optional accounts backend, sign-in, projects panel, autosave, API and security |
+| [accounts.md](./accounts.md) | the optional accounts backend, sign-in, projects panel, autosave, polling, API and security |
+| [mcp.md](./mcp.md) | the remote MCP server: tokens, scopes, tools, resources, conflicts, deployment, security |
 | [agent-guide.md](./agent-guide.md) | the invariants and rules a coding agent must not break |
 | [known-limitations.md](./known-limitations.md) | what Wirefragma deliberately does not do |
 
@@ -153,6 +162,8 @@ npm run dev                                  # Vite dev server; ?selftest=10 run
 npm test                                     # all unit tests (Vitest, node environment)
 npx vitest run src/canvas/hitTest.test.ts    # one focused file
 npm run build                                # tsc --noEmit + vite build -> dist/
+npm run build:deploy                         # + MCP endpoint (Composer) -> dist/mcp
+npm run mcp:resources                        # regenerate server/mcp/resources from the TS model
 npm run preview                              # serve the built app
 ```
 

@@ -19,8 +19,9 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
 | Multi-page / multi-artboard | one canvas per project, one project per storage slot |
 | Real assets | Image/Icon content is a **text/emoji label**, not an uploaded file; there is no asset pipeline, no SVG/PNG embedding |
 | Rich text | no font-family picker, no colours, no per-span styling, no text boxes with wrapping/line breaks in the model |
-| Collaboration / sync | accounts and server storage are optional ([accounts.md](./accounts.md)); no realtime co-editing, no sharing, no comments; concurrent edits of one wireframe resolve by choosing a version |
-| AI features | none; the "LLM" part of the product is the export format |
+| Collaboration / sync | accounts and server storage are optional ([accounts.md](./accounts.md)); no realtime co-editing, no sharing, no comments; concurrent edits of one wireframe resolve by choosing a version; changes made elsewhere (another device, an MCP agent) arrive by polling within ~5 s |
+| AI features | none; the "LLM" part of the product is the export format and the MCP endpoint for **external** agents ([mcp.md](./mcp.md)) — Wirefragma itself never calls a model |
+| Scene editing | the Canvas and Drawing popups are deliberately small: no layers, fills, colours, grouping or snapping inside a scene; a Drawing's eraser removes whole strokes |
 
 ## Editor behaviour
 
@@ -65,6 +66,16 @@ Wirefragma is a wireframe sketcher that produces an LLM-readable spec — not a 
   `reindexLayers` recomputes it from array order.
 * **`name` uniqueness is not enforced** by the model. Generated names are unique, but a
   hand-written import can contain duplicates (the Markdown will show both).
+
+## MCP
+
+* Personal bearer tokens only — no OAuth yet, so hosted connectors that require an OAuth flow
+  cannot connect (see [mcp.md](./mcp.md#future-oauth)).
+* Whole-document writes: an agent replaces the complete document (no patch operations); the
+  revision check prevents lost updates but does not merge.
+* No server-side Markdown/ASCII rendering; agents get the canonical JSON plus the schema.
+* Guest (`localStorage`) projects are invisible to MCP.
+* Resources have no subscriptions; the browser polls, agents re-read.
 
 ## Clipboard
 

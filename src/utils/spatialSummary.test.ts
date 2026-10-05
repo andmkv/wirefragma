@@ -31,4 +31,15 @@ describe("spatial summary", () => {
     project.elements = [];
     expect(buildSpatialSummary(project)).toEqual(["- The screen is empty."]);
   });
+
+  it("describes nested elements inside their parent, in reading order", () => {
+    const project = createSampleProject();
+    const toolbar = project.elements.find((element) => element.name === "topToolbar")!;
+    project.elements = project.elements.map((element) =>
+      element.name === "saveButton" || element.name === "cancelButton" ? { ...element, parentId: toolbar.id, layerId: toolbar.layerId, y: 12 } : element
+    );
+    const summary = buildSpatialSummary(project).join("\n");
+    expect(summary).toContain('- Inside "topToolbar" (Toolbar), top to bottom: "cancelButton" (Button), "saveButton" (Button) side by side.');
+    expect(summary).not.toMatch(/contains:[^\n]*saveButton/);
+  });
 });

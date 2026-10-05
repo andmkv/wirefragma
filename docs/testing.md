@@ -33,7 +33,7 @@ There is **no jsdom, no happy-dom and no browser test runner**. That shapes the 
 Manual, human-verified checks (visual quality, real emoji rendering, an actual trackpad pinch) are
 not automated and must not be claimed as automated.
 
-## Test inventory (39 files, 451 cases)
+## Test inventory (43 files, 487 cases)
 
 | File | Cases | Covers |
 | --- | --- | --- |
@@ -67,16 +67,19 @@ not automated and must not be claimed as automated.
 | `src/utils/chartText.test.ts` | 19 | Table ⇄ Text/CSV parsing and serialization (delimiters, quoting, limits) |
 | `src/utils/emojiInsert.test.ts` | 9 | insert-at-caret / replace-selection, including multi-codepoint emoji |
 | `src/utils/asciiRenderer.test.ts` | 10 | determinism, grid containment, per-type glyphs, wide/narrow grids |
-| `src/utils/spatialSummary.test.ts` | 3 | deterministic prose, hidden elements ignored, empty canvas |
-| `src/utils/markdownRoundTrip.test.ts` | 32 | the full export/import contract, v1 import, all element types, invalid input, the `## Screen` mode label |
+| `src/utils/spatialSummary.test.ts` | 4 | deterministic prose, hidden elements ignored, empty canvas, nested elements in reading order |
+| `src/utils/markdownRoundTrip.test.ts` | 34 | the full export/import contract, v1 import, all element types, invalid input, the `## Screen` mode label, compact element sections, one-element-per-line `ui-project` |
 | `src/utils/markdownSemantics.test.ts` | 8 | `Typography:` / `Content size:` output and the emoji round trip |
 | `src/model/hierarchy.test.ts` | 19 | nesting: canonical tree order, repair of bad links, inheritance, nest/unnest/move, subtree delete/duplicate/copy, multi-row drops, round trip |
 | `src/model/layerExport.test.ts` | 5 | layer-scoped export: filtering, crop, minimum canvas, immutability, re-import |
 | `src/canvas/pointerGuard.test.ts` | 2 | one pointer per gesture (no orphaned transaction), parents drag their children |
 | `src/utils/auditRegressions.test.ts` | 5 | backticks in notes round-trip, undo inert mid-gesture, unreadable-storage backup, font-size clamp, DPR cap |
 | `src/utils/schemaExport.test.ts` | 6 | WIREFRAGMA schema covers every type, its example imports unchanged, lenient LLM-answer import |
-| `src/i18n/i18n.test.ts` | 26 | every locale has every key, keeps placeholders and covers its plural categories; `translate` fallback |
+| `src/i18n/i18n.test.ts` | 34 | every locale has every key, keeps placeholders, covers its plural categories and stays within the English length; `translate` fallback |
 | `src/account/projectsPanel.test.ts` | 2 | compact relative ages for the projects panel |
+| `src/account/remoteSync.test.ts` | 13 | noticing changes made elsewhere: clean reload, dirty → conflict path, no action mid-save, evict/removed, loading a server revision is clean (no save loop), poll back-off |
+| `src/utils/projectBundle.test.ts` | 5 | `.wfproj` round trips, title handling, rejects (never half-imported), file names |
+| `src/utils/mcpResources.test.ts` | 5 | the committed `server/mcp/resources/*` equal the TypeScript generator output; the MCP schema variant covers every type and the tool workflow |
 
 ## House rules for writing tests
 
@@ -132,7 +135,32 @@ profile if you care about the project currently stored there (see
 with the `log` mail transport: registration with captcha, email confirmation, sessions and CSRF,
 optimistic-concurrency saves, settings, password change and reset, account deletion. It reads the
 captcha answer from the PHP session file, so it cannot run against a real deployment. Run
-`php -l` on `server/api/**/*.php` after editing PHP.
+`php -l` on `server/api/**/*.php` and `server/mcp/{index.php,src/*.php}` after editing PHP.
+
+`server/tests/mcp-smoke.sh` (≈90 checks, needs `npm run mcp:install`) covers MCP end to end against
+the same kind of local server, with two throwaway users:
+
+* tokens: CSRF + password required, raw token returned once, only the SHA-256 in the database,
+  listing never leaks secret or hash, revoke → 401 immediately, expired → 401, account deletion
+  cascades;
+* transport: 401 + `WWW-Authenticate` without a token, foreign `Host`/`Origin` → 403, no CORS
+  header, oversized body → 413, handshake-era sessions and the stateless `2026-07-28` era;
+* tools and resources: every tool listed, no `force` anywhere, reads, all writes, the other user's
+  ids answer `not_found`, scope enforcement (read-only / write / delete), delete confirmations and
+  project cascade, a session id reused with another token acts as that token's user;
+* documents: schema validation (`bad_document`), lossless unknown fields (`{}`, `{"0":…}`, `1.0`),
+  title synchronisation, conflict returns the current copy and never overwrites, browser and MCP
+  share one revision counter.
+
+```bash
+mysql -u USER -p TEST_DB < server/schema.sql     # a throwaway local database, never production
+npm run mcp:install && npm run dev:api
+server/tests/api-smoke.sh && server/tests/mcp-smoke.sh
+```
+
+Both scripts accept `API=` / `BASE=` for another local port and edit only the configured local
+database. The MCP Inspector (`npx @modelcontextprotocol/inspector --cli …`, see
+[mcp.md](./mcp.md#connecting-a-client)) is useful for manual checks.
 
 ## What is not verified automatically
 
@@ -143,6 +171,10 @@ captcha answer from the PHP session file, so it cannot run against a real deploy
   drives *synthetic* touch pointers in a headless browser, but the hardware is not).
 * Real `localStorage` quota behaviour, private-mode quirks and cross-browser scrolling.
 * Email delivery (only that `mail()` / SMTP accepted the message) and the translations' wording.
+* The polling wiring inside `Workspace.tsx` (timers, focus/visibility events) — its rules are
+  unit-tested in `remoteSync.test.ts`, the wiring was verified manually in a browser.
+* The `.htaccess` protection of `mcp/` — PHP's built-in server ignores `.htaccess`; check the
+  403s after deploying (see [deployment.md](./deployment.md#mcp-endpoint)).
 
 ## Browser layout measurements (D7)
 

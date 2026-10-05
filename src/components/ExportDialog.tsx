@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { markdownFilename, projectToJson, projectToLlmMarkdown, projectToMarkdown } from "../utils/markdownExport";
 import { copyText, downloadText } from "../utils/clipboard";
+import { bundleFilename, bundleToText, createBundle } from "../utils/projectBundle";
 import { findLayer, type WireframeProject } from "../model/project";
 import { projectForLayer } from "../model/layerExport";
 import { wirefragmaSchemaMarkdown } from "../utils/schemaExport";
@@ -117,6 +118,18 @@ export function ExportDialog({ project, layerId = null, onClose }: ExportDialogP
         <div className="modal-footer">
           <span className="status">{status}</span>
           <div className="modal-actions">
+            {tab === "json" ? (
+              // The same document as a one-wireframe project file (whole projects: Projects panel → … → Export project).
+              <button
+                type="button"
+                onClick={() => {
+                  downloadText(bundleFilename(scoped.title), bundleToText(createBundle(scoped.title, [{ title: scoped.title, data: scoped }])), "application/json");
+                  flash(t("export.downloadStarted"));
+                }}
+              >
+                {t("export.downloadProject")}
+              </button>
+            ) : null}
             <button type="button" onClick={handleDownload}>
               {t("export.download", { ext: tab === "json" ? ".json" : ".md" })}
             </button>

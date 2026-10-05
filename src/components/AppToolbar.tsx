@@ -9,6 +9,18 @@ import {
 } from "../model/project";
 import { CANVAS_DEVICE_PRESETS, CANVAS_PRESET_GROUPS } from "../model/defaults";
 import { DraftNumberInput } from "./DraftNumberInput";
+import {
+  CopyLlmIcon,
+  ExportIcon,
+  FitIcon,
+  GridIcon,
+  ImportFileIcon,
+  LayersIcon,
+  MagnetIcon,
+  NewFileIcon,
+  RedoIcon,
+  UndoIcon
+} from "./icons";
 import { useT } from "../i18n";
 import { ZOOM_PRESETS, formatZoom, type ZoomMode } from "../utils/zoom";
 import type { LayoutMode } from "../utils/layoutMode";
@@ -208,24 +220,38 @@ export function AppToolbar({
     </div>
   ) : null;
 
+  // Icon buttons: the label lives in the tooltip and the accessible name, so the toolbar stays on
+  // one row on laptop screens in every language.
+  const iconButton = (
+    label: string,
+    title: string,
+    icon: ReactNode,
+    onClick: () => void,
+    options: { active?: boolean; disabled?: boolean; className?: string } = {}
+  ) => (
+    <button
+      type="button"
+      className={[
+        "icon-tool",
+        options.active === undefined ? "" : options.active ? "toggle-button active" : "toggle-button",
+        options.className ?? ""
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      onClick={onClick}
+      disabled={options.disabled}
+      title={title}
+      aria-label={label}
+      aria-pressed={options.active}
+    >
+      {icon}
+    </button>
+  );
+
   const gridButtons = (
     <>
-      <button
-        type="button"
-        className={showGrid ? "toggle-button active" : "toggle-button"}
-        onClick={onToggleGrid}
-        title={t("toolbar.gridTitle")}
-      >
-        {t("toolbar.grid")}
-      </button>
-      <button
-        type="button"
-        className={snapToGrid ? "toggle-button active" : "toggle-button"}
-        onClick={onToggleSnap}
-        title={t("toolbar.snapTitle")}
-      >
-        {t("toolbar.snap")}
-      </button>
+      {iconButton(t("toolbar.grid"), t("toolbar.gridTitle"), <GridIcon />, onToggleGrid, { active: showGrid })}
+      {iconButton(t("toolbar.snap"), t("toolbar.snapTitle"), <MagnetIcon />, onToggleSnap, { active: snapToGrid })}
       <select
         className="grid-size"
         value={gridSize}
@@ -244,12 +270,13 @@ export function AppToolbar({
 
   const zoomButtons = (
     <div className="zoom-group">
-      <button type="button" onClick={onZoomOut} title={t("toolbar.zoomOutTitle")} aria-label={t("toolbar.zoomOut")}>
+      <button type="button" className="icon-tool" onClick={onZoomOut} title={t("toolbar.zoomOutTitle")} aria-label={t("toolbar.zoomOut")}>
         −
       </button>
       <select
         className="zoom-select"
         value={zoomMode === "fit" ? "fit" : String(zoomScale)}
+        title={t("toolbar.zoomLevel")}
         aria-label={t("toolbar.zoomLevel")}
         onChange={(event) => {
           const value = event.target.value;
@@ -264,20 +291,12 @@ export function AppToolbar({
           </option>
         ))}
       </select>
-      <button type="button" onClick={onZoomIn} title={t("toolbar.zoomInTitle")} aria-label={t("toolbar.zoomIn")}>
+      <button type="button" className="icon-tool" onClick={onZoomIn} title={t("toolbar.zoomInTitle")} aria-label={t("toolbar.zoomIn")}>
         +
       </button>
-      {showZoomFitButton ? (
-        <button
-          type="button"
-          className={zoomMode === "fit" ? "toggle-button active" : "toggle-button"}
-          onClick={onZoomFit}
-          title={t("toolbar.fitTitle")}
-        >
-          {t("toolbar.fit")}
-        </button>
-      ) : null}
-      <span className="zoom-readout">{formatZoom(zoomScale)}</span>
+      {showZoomFitButton
+        ? iconButton(t("toolbar.fit"), t("toolbar.fitTitle"), <FitIcon />, onZoomFit, { active: zoomMode === "fit" })
+        : null}
     </div>
   );
 
@@ -296,6 +315,13 @@ export function AppToolbar({
       </button>
     ) : null;
 
+  const exportButton = (
+    <button type="button" className="primary export-button" onClick={onExport} title={t("toolbar.exportTitle")}>
+      <ExportIcon />
+      <span>{t("toolbar.export")}</span>
+    </button>
+  );
+
   return (
     <header className={`app-toolbar layout-${layout}`}>
       <div className="toolbar-brand">
@@ -312,7 +338,9 @@ export function AppToolbar({
           </label>
           {flipButton}
           {sizeInputs}
+          <span className="divider" />
           {gridButtons}
+          <span className="divider" />
           {zoomButtons}
         </div>
       ) : (
@@ -329,19 +357,13 @@ export function AppToolbar({
           </>
         ) : null}
 
-        <button type="button" onClick={onUndo} disabled={!canUndo} title={t("toolbar.undoTitle")} aria-label={t("toolbar.undo")}>
-          {overlay ? "↶" : t("toolbar.undo")}
-        </button>
-        <button type="button" onClick={onRedo} disabled={!canRedo} title={t("toolbar.redoTitle")} aria-label={t("toolbar.redo")}>
-          {overlay ? "↷" : t("toolbar.redo")}
-        </button>
+        {iconButton(t("toolbar.undo"), t("toolbar.undoTitle"), <UndoIcon />, onUndo, { disabled: !canUndo })}
+        {iconButton(t("toolbar.redo"), t("toolbar.redoTitle"), <RedoIcon />, onRedo, { disabled: !canRedo })}
 
         {compact ? (
           <>
             {zoomButtons}
-            <button type="button" className="primary" onClick={onExport} title={t("toolbar.exportTitle")}>
-              {t("toolbar.export")}
-            </button>
+            {exportButton}
             <div className="toolbar-menu" ref={menuRef}>
               <button
                 type="button"
@@ -383,20 +405,13 @@ export function AppToolbar({
         ) : (
           <>
             <span className="divider" />
-            <button type="button" onClick={onNew} title={newTitle ?? t("toolbar.newTitle")}>
-              {t("toolbar.new")}
-            </button>
-            {showImport ? (
-              <button type="button" onClick={onImport} title={t("toolbar.importTitle")}>
-                {t("toolbar.import")}
-              </button>
-            ) : null}
-            <button type="button" onClick={onCopyForLlm} title={t("toolbar.copyForLlmTitle")}>
-              {t("toolbar.copyForLlm")}
-            </button>
-            <button type="button" className="primary" onClick={onExport} title={t("toolbar.exportTitle")}>
-              {t("toolbar.export")}
-            </button>
+            {iconButton(t("toolbar.new"), newTitle ?? t("toolbar.newTitle"), <NewFileIcon />, onNew)}
+            {overlay
+              ? null
+              : iconButton(t("toolbar.layers"), t("toolbar.layersTitle"), <LayersIcon />, onToggleLayers, { active: layersOpen })}
+            {showImport ? iconButton(t("toolbar.import"), t("toolbar.importTitle"), <ImportFileIcon />, onImport) : null}
+            {iconButton(t("toolbar.copyForLlm"), t("toolbar.copyForLlmTitle"), <CopyLlmIcon />, onCopyForLlm)}
+            {exportButton}
           </>
         )}
         {accountSlot}

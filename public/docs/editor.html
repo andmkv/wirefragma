@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Using the editor — Wirefragma docs</title>
+  <meta name="description" content="The Wirefragma editor: canvas, elements, layers and nesting, properties, LLM notes, keyboard shortcuts." />
+  <link rel="icon" href="../brand/wf_logo_square.png" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button type="button" class="menu-toggle" aria-label="Toggle navigation">Menu</button>
+    <a class="brand" href="index.html"><img src="../brand/wf_logo_square.png" alt="" /> Wirefragma <small>Docs</small></a>
+    <span class="spacer"></span>
+    <a class="gh" href="https://github.com/andmkv/wirefragma">GitHub</a>
+    <a class="open-app" href="../">Open the app</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" data-nav aria-label="Documentation">
+      <a href="index.html">Overview</a>
+    </nav>
+    <main>
+      <article>
+<p class="eyebrow">Getting started</p>
+<h1>Using the editor</h1>
+<p class="lead">One screen per wireframe, a fixed palette of generic primitives, layers, nesting and a note on every element.</p>
+
+<h2 id="layout">The workspace</h2>
+<ul>
+  <li><b>Toolbar</b> — canvas preset (desktop 1200×800, mobile portrait 390×844, mobile landscape 844×390, custom), then icon buttons: grid, snap, zoom (−, level, +, fit), undo/redo, New, Layers, Import, Copy for LLM, and <i>Export</i>. Hover any icon for its name and shortcut.</li>
+  <li><b>Add</b> — the element palette; new elements go into the active layer. Collapse it (panel button) to a compact two-column grid of icons.</li>
+  <li><b>Layers</b> — layers and their elements as a tree: reorder by drag and drop, drop onto an element to nest, toggle visibility and lock.</li>
+  <li><b>Canvas</b> — select, drag, resize, marquee-select.</li>
+  <li><b>Properties</b> — name, label, <b>LLM note</b>, position and size, typography, symbol size, arrange controls.</li>
+  <li>Signed in, a <b>Projects</b> panel appears on the left (see <a href="accounts.html">Accounts</a>).</li>
+</ul>
+
+<h2 id="elements">Elements</h2>
+<p>26 element types. They are deliberately generic: a search field is an <i>Input</i> plus a note, a date picker is a <i>Dropdown</i> plus a note.</p>
+<div class="table-wrap"><table>
+<tr><th>Group</th><th>Name</th><th>type</th><th>Use</th></tr>
+<tr><td>Layout</td><td><b>Container</b></td><td><code>container</code></td><td>Box / section / card; its label is a small title on the border. Put the content inside it.</td></tr>
+<tr><td>Layout</td><td><b>Toolbar</b></td><td><code>toolbar</code></td><td>Top app bar; label is the title, its buttons go inside.</td></tr>
+<tr><td>Layout</td><td><b>Sidebar</b></td><td><code>sidebar</code></td><td>Side navigation; items are the entries.</td></tr>
+<tr><td>Layout</td><td><b>Bottom Navigation</b></td><td><code>bottomNav</code></td><td>Mobile tab bar; items are the destinations.</td></tr>
+<tr><td>Layout</td><td><b>Dialog</b></td><td><code>dialog</code></td><td>Modal window; label is the title, content goes inside.</td></tr>
+<tr><td>Layout</td><td><b>Divider</b></td><td><code>divider</code></td><td>Horizontal separator.</td></tr>
+<tr><td>Content</td><td><b>Text</b></td><td><code>text</code></td><td>Heading, paragraph or caption, with size / bold / italic / underline / alignment.</td></tr>
+<tr><td>Content</td><td><b>Image</b></td><td><code>image</code></td><td>Picture placeholder, or an emoji drawn at its content size.</td></tr>
+<tr><td>Content</td><td><b>Icon</b></td><td><code>icon</code></td><td>One emoji or symbol.</td></tr>
+<tr><td>Content</td><td><b>Avatar</b></td><td><code>avatar</code></td><td>Round user picture: initials or an emoji.</td></tr>
+<tr><td>Content</td><td><b>Badge / Chip</b></td><td><code>badge</code></td><td>Tag or status pill.</td></tr>
+<tr><td>Content</td><td><b>List</b></td><td><code>list</code></td><td>Rows, top to bottom.</td></tr>
+<tr><td>Content</td><td><b>Table</b></td><td><code>table</code></td><td>Columns plus rows written as <code>a | b | c</code>.</td></tr>
+<tr><td>Content</td><td><b>Tabs</b></td><td><code>tabs</code></td><td>Tab titles, left to right.</td></tr>
+<tr><td>Controls</td><td><b>Button</b></td><td><code>button</code></td><td>Push button; label is the caption.</td></tr>
+<tr><td>Controls</td><td><b>Icon Button</b></td><td><code>iconButton</code></td><td>Square icon-only button (<code>+</code>, <code>⚙️</code>, <code>🔍</code>).</td></tr>
+<tr><td>Controls</td><td><b>Input</b></td><td><code>input</code></td><td>Single-line field; label is the placeholder or value.</td></tr>
+<tr><td>Controls</td><td><b>Textarea</b></td><td><code>textarea</code></td><td>Multi-line field.</td></tr>
+<tr><td>Controls</td><td><b>Dropdown</b></td><td><code>dropdown</code></td><td>Select / combo box.</td></tr>
+<tr><td>Controls</td><td><b>Checkbox</b></td><td><code>checkbox</code></td><td>Checkbox with caption.</td></tr>
+<tr><td>Controls</td><td><b>Radio</b></td><td><code>radio</code></td><td>One radio option per element.</td></tr>
+<tr><td>Controls</td><td><b>Toggle</b></td><td><code>toggle</code></td><td>On/off switch with caption.</td></tr>
+<tr><td>Controls</td><td><b>Slider</b></td><td><code>slider</code></td><td>Range slider.</td></tr>
+<tr><td>Controls</td><td><b>Progress</b></td><td><code>progress</code></td><td>Progress bar; describe the value in the note.</td></tr>
+<tr><td>Custom</td><td><b>Canvas</b></td><td><code>diagram</code></td><td>A small structured diagram: rectangles, ellipses, text, lines, arrows and curves in their own coordinate space. Exported as an ASCII sketch, a primitive list and relationships.</td></tr>
+<tr><td>Custom</td><td><b>Drawing</b></td><td><code>drawing</code></td><td>A freehand sketch plus a written description; only the description goes into the LLM export.</td></tr>
+</table></div>
+<h3 id="canvas-drawing">Canvas and Drawing</h3>
+<p>Double-click a Canvas or Drawing, click the ✎ pencil that appears when you hover it, or use <i>Edit canvas / Edit drawing</i> in Properties. The popup edits a draft: <b>Done</b> applies everything as one undo step, <b>×</b> or <kbd>Esc</kbd> discards it.</p>
+<ul>
+  <li><b>Canvas</b> — tools Select, Line, Arrow, Rectangle, Ellipse, Bezier and Text. Drag to draw, drag a shape to move it, drag its handles to reshape. Give shapes <b>labels</b> — they turn the diagram into a readable spec (“an arrow connects <i>Login</i> to <i>User</i>”). Bring forward / Send backward change the order; <kbd>Delete</kbd> removes the selected shape. An LLM description is optional.</li>
+  <li><b>Drawing</b> — pen with three widths, an eraser that removes whole strokes, Undo/Redo, Clear. The export cannot read a sketch, so write an <b>LLM description</b>: without it the Drawing shows a ⚠ badge and is left out of the LLM export (it is still saved).</li>
+</ul>
+
+<h2 id="notes">LLM notes</h2>
+<p>The note is where a wireframe carries intent. Good notes say what happens on click or tap, the states (empty, loading, error, disabled), where data comes from, validation rules and emphasis (primary, destructive). One to three sentences per element is plenty. Give every element a meaningful <b>name</b> such as <code>emailInput</code> or <code>saveButton</code> — names become the headings of the export.</p>
+
+<h2 id="layers">Layers, order and nesting</h2>
+<ul>
+  <li>The top of the Layers list is drawn in front and receives clicks first.</li>
+  <li>Use layers for big independent planes: page content, a modal, a popover.</li>
+  <li><b>Nesting:</b> drop an element onto another in the Layers tree to put it inside. Children draw in front of their parent and move, hide, lock, copy and delete with it.</li>
+  <li>Hidden elements and layers are not drawn and are left out of the human-readable export (they stay in the project JSON). Locked elements cannot be selected on the canvas.</li>
+  <li>The <b>…</b> menu of a layer offers <i>Export layer…</i> — handy for explaining one form.</li>
+</ul>
+
+<h2 id="selection">Selecting and moving</h2>
+<ul>
+  <li>Click to select, <kbd>Shift</kbd>/<kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click to add or remove, drag on empty canvas for a marquee.</li>
+  <li>A Container is grabbed by its border or its label; clicks inside its empty interior reach what is inside or behind it.</li>
+  <li>Each drag or resize is exactly one undo step.</li>
+</ul>
+
+<h2 id="shortcuts">Keyboard shortcuts</h2>
+<div class="table-wrap"><table>
+<tr><th>Keys</th><th>Action</th></tr>
+<tr><td><kbd>Delete</kbd> / <kbd>Backspace</kbd></td><td>delete the selection (locked elements are skipped)</td></tr>
+<tr><td><kbd>⌘/Ctrl</kbd> <kbd>Z</kbd> · <kbd>⌘/Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd> / <kbd>Ctrl</kbd> <kbd>Y</kbd></td><td>undo · redo</td></tr>
+<tr><td><kbd>⌘/Ctrl</kbd> <kbd>D</kbd></td><td>duplicate</td></tr>
+<tr><td><kbd>⌘/Ctrl</kbd> <kbd>C</kbd> / <kbd>V</kbd></td><td>copy / paste (within the editor)</td></tr>
+<tr><td>arrow keys · <kbd>Shift</kbd> + arrows</td><td>nudge by 1 · by the grid size</td></tr>
+<tr><td><kbd>⌘/Ctrl</kbd> <kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd></td><td>zoom in / out / fit</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>clear the selection, cancel a gesture</td></tr>
+</table></div>
+<p>Shortcuts are ignored while you type in a text field.</p>
+
+<h2 id="text">Text and symbols</h2>
+<ul>
+  <li>Text elements: font size 8–96, bold, italic, underline, left/center/right.</li>
+  <li>Icons, images, icon buttons and avatars accept emoji; the picker has categories and search. Symbol size is independent of the element size.</li>
+</ul>
+
+<h2 id="languages">Languages, theme, saving</h2>
+<p>The interface speaks English, Russian, German, French, Spanish, Serbian, Japanese and Simplified Chinese, in a light, dark or system theme. The export always stays English. As a guest your project autosaves in this browser only — export anything you want to keep; signed in, every wireframe saves to your account.</p>
+      </article>
+      <footer class="site">Wirefragma is open source (MIT). Found a mistake in these pages? <a href="https://github.com/andmkv/wirefragma/issues">Open an issue</a>.</footer>
+    </main>
+    <aside class="toc" data-toc></aside>
+  </div>
+  <script src="docs.js"></script>
+</body>
+</html>

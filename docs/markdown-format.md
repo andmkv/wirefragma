@@ -47,39 +47,36 @@ from `ui-project`.
 
 ## `## UI Elements`
 
-One section per **visible** element, in draw order (back to front). The exact field order:
+One section per **visible** element, in draw order (back to front). Each section is a compact field
+list followed by optional blocks — no blank lines between fields, nothing repeated from the label:
 
 ```text
-### `<name>`            <- backticks stripped from the name itself (`fenceSafe`)
+### `<name>`                         <- backticks stripped from the name itself (`fenceSafe`)
 
-Type: <ELEMENT_TYPE_LABEL>          <- always
+- Type: <ELEMENT_TYPE_LABEL>         <- always first
+- Label: <label>                     <- only when non-empty (newlines collapsed); never for a Drawing
+- Bounds: x=<..>, y=<..>, width=<..>, height=<..>   <- rounded integers
+- Inside: `<parent name>`            <- only for a nested element
+- Layer: <layer name>                <- only when the screen has more than one layer
+- Typography:                        <- only for `text` with non-default typography
+  - Size: 24
+  - Weight: Bold
+  - Style: Italic
+  - Style: Underlined
+  - Alignment: Center
+- Content size: 48px                 <- only for `icon`/`image` when != type default
+- Canvas size: 600 × 400             <- only for a Canvas
 
-Layer: <layer name>                 <- always
+Items:                               <- tabs / list / sidebar / bottomNav entries
+- <entry>
+Text lines:                          <- only for a multi-line Text element
+- <line>
 
-Inside: `<parent name>`             <- only for a nested element (it has a `parentId`)
-
-Label: <label>                      <- only when label.trim() is non-empty, newlines collapsed
-
-Bounds: x=<..>, y=<..>, width=<..>, height=<..>   <- rounded integers
-
-Typography:                         <- only for `text` with non-default typography
-- Size: 24
-- Weight: Bold
-- Style: Italic
-- Style: Underlined
-- Alignment: Center
-
-Content size: 48px                  <- only for `icon`/`image` when != type default
-
-Visible content:
-
-- <one bullet per label/items entry>            <- omitted for `table`/`chart`, and when empty
-
-Columns:                            <- `table` only
+Columns:                             <- `table` only
 - Name
 
 Rows:
-- Anna | Owner | Active             <- cell separators normalised to " | "
+- Anna | Owner | Active              <- cell separators normalised to " | "
 
 Chart: Bar                          <- `chart` only: the kind, in words
 
@@ -95,21 +92,30 @@ _… 3 more categories in the project source._   <- only when the table is trunc
 Chart options: horizontal bars, legend.        <- only when an option is on
 
 LLM note:
-
 <note verbatim>
 ```
 
 Rules that matter:
 
 * `fenceSafe` replaces backticks with `'` inside names, so a name can never break a fence.
+* A single label is **not** repeated as content (it used to be a `Visible content:` block); only
+  list-like entries and multi-line text get a block.
 * `Typography:` lists **only** the attributes that differ from the defaults; a default-styled Text
-  element has no `Typography:` block at all.
+  element has no `Typography:` field at all.
 * `Content size:` appears only when it differs from the type default (24 for icon, 48 for image).
-* `Visible content:` is skipped for `table` (its columns/rows replace it), for `chart` (its data
-  table replaces it) and for elements with no label/items.
+* A **Canvas** (`diagram`) adds, after the fields: `LLM description:` (only when set), then either
+  `Canvas contents: _empty_`, or `Canvas sketch:` (a ```` ```text ```` ASCII rendering of the scene),
+  `Canvas contents:` (one line per shape: type, id, "label", exact scene geometry) and
+  `Relationships:` (deterministic connections and positions between labelled shapes, when there are
+  any). The main ASCII wireframe also nests a small rendering of the scene inside the element's box.
+* A **Drawing** carries only its LLM description (the sketch itself is not represented in text). A
+  Drawing **without** a description is omitted from every LLM-facing section (ASCII, UI Elements,
+  Spatial Summary); the Screen section then reports `Drawings without an LLM description omitted: N`.
+  Its strokes still travel in `ui-project`.
 * A `chart` exports a **compact Markdown table** (categories as rows, series as columns, `—` for a
-  gap) instead of bullets. The table is capped at 12 category rows; the complete dataset always
-  travels in the canonical `ui-project` block below, so the round trip stays lossless.
+  gap) under `Chart:` / `Chart title:`; it has no `Items:` block. The table is capped at 12 category
+  rows; the complete dataset always travels in the canonical `ui-project` block below, so the round
+  trip stays lossless.
 * Hidden elements and hidden layers never appear in the human sections; the Screen section reports
   how many were omitted.
 * A Drawing without an LLM description is omitted from every human section (`Drawings without an
@@ -117,55 +123,50 @@ Rules that matter:
 
 ## `## Spatial Summary`
 
-Rule-based prose from [`src/utils/spatialSummary.ts`](../src/utils/spatialSummary.ts), one bullet
-per region or structural element, for example:
+Rule-based prose from [`src/utils/spatialSummary.ts`](../src/utils/spatialSummary.ts):
 
 ```text
-- The upper-left area contains: "brandIcon" (Icon).
-- The upper portion contains: "heading" (Text).
-- The lower portion contains: "signInButton" (Button).
+- The Container "signInCard" frames the upper portion of the screen.
+- The upper portion contains: "authTabs" (Tabs).
+- Inside "signInCard" (Container), top to bottom: "heading" (Text); "emailInput" (Input); "signInButton" (Button).
 ```
 
-Layout types (`container`, `toolbar`, `sidebar`) are described first, then every other element is
-bucketed into thirds of the canvas and listed per region, ordered top→bottom, left→right. A `chart`
-is named with its shape, e.g. `"sessionsChart" (Chart: chart (bar, 2 series × 3 categories))`. An
-empty canvas produces `- The screen is empty.`
+Top-level layout types (`container`, `toolbar`, `sidebar`) are described first; every other
+top-level element is bucketed into thirds of the canvas and listed per region (top→bottom,
+left→right). Nested elements are **not** bucketed by screen region: each parent gets one line with
+its children in reading order — rows top to bottom, elements sharing a row joined as
+`"a", "b" side by side`. A `chart` is named with its shape, e.g. `"sessionsChart" (Chart: chart (bar, 2 series × 3 categories))`. An empty canvas produces `- The screen is empty.`
 
 ## `## Editable Project Source`
 
-````markdown
-## Editable Project Source
+The canonical project, written with **one layer / one element per line** (`projectToSourceJson`):
+still plain JSON that `JSON.parse` reads exactly, but a fraction of the tokens of fully indented
+JSON, and easy to scan.
 
+````markdown
 ```ui-project
 {
   "version": 2,
-  "title": "…",
+  "title": "Sign in",
   "canvas": { "mode": "mobile", "width": 390, "height": 844 },
-  "layers": [{ "id": "…", "name": "Default", "visible": true, "locked": false }],
+  "layers": [
+    { "id": "layer_default", "name": "Default", "visible": true, "locked": false }
+  ],
   "elements": [
-    {
-      "id": "el_heading",
-      "type": "text",
-      "name": "heading",
-      "label": "Welcome back",
-      "note": "Screen title.",
-      "x": 24, "y": 120, "width": 300, "height": 32,
-      "layerId": "layer_default",
-      "visible": true, "locked": false, "zIndex": 0,
-      "textStyle": { "fontSize": 24, "bold": true, "align": "center" }
-    }
+    { "id": "el_heading", "type": "text", "name": "heading", "label": "Welcome back", … },
+    …
   ]
 }
 ```
 ````
 
-* 2-space indented JSON, exactly `{ version, title, canvas, layers, elements }`;
-* `version` is the literal `2` (`PROJECT_VERSION`);
-* optional keys (`items`, `columns`, `textStyle`, `contentSize`) appear **only when present**, so an
-  untouched project exports exactly as it did before those fields existed;
-* this block is the **only** part read back by the importer.
+* keys are exactly `{ version, title, canvas, layers, elements }`; `version` is the literal `2`;
+* optional keys (`items`, `columns`, `textStyle`, `contentSize`, `parentId`, `diagram`, `drawing`)
+  appear **only when present**;
+* this block is the **only** part read back by the importer. The JSON download
+  (`projectToJson`, Export → Project JSON) stays fully indented.
 
-## Complete example (real output, trimmed)
+## Complete example (real output)
 
 ````markdown
 # UI Wireframe: Sign in
@@ -176,7 +177,7 @@ Generated by Wirefragma.
 
 Type: Mobile
 Canvas: 390 × 844
-Elements: 3
+Elements: 6
 Layers (front to back): Default
 
 ## ASCII Wireframe
@@ -184,111 +185,146 @@ Layers (front to back): Default
 ```text
 
 
-   [🚀]
+  ────────Sign in────────┬──────Register────────
 
-   Welcome back
+  ┌─Sign in────────────────────────────────────┐
+  │ Welcome back                               │
+  │                                            │
+  │                                            │
+  │ [ Email_________________________________ ] │
+  │                                            │
+  │                                            │
+  │                                            │
+  │                                            │
+  │                                            │
+  │                [ Sign in ]                 │
+  └────────────────────────────────────────────┘
 
-                   [ Sign in ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+  [🚀]
 ```
 
 ## UI Elements
 
-### `heading`
+### `signInCard`
 
-Type: Text
-
-Layer: Default
-
-Label: Welcome back
-
-Bounds: x=24, y=120, width=300, height=32
-
-Typography:
-- Size: 24
-- Weight: Bold
-- Alignment: Center
-
-Visible content:
-
-- Welcome back
+- Type: Container
+- Label: Sign in
+- Bounds: x=16, y=100, width=358, height=300
 
 LLM note:
+Card with the form.
 
+### `heading`
+
+- Type: Text
+- Label: Welcome back
+- Bounds: x=32, y=130, width=300, height=32
+- Inside: `signInCard`
+- Typography:
+  - Size: 24
+  - Weight: Bold
+  - Alignment: Center
+
+LLM note:
 Screen title.
+
+### `emailInput`
+
+- Type: Input
+- Label: Email
+- Bounds: x=32, y=190, width=326, height=40
+- Inside: `signInCard`
+
+LLM note:
+Validated on blur.
 
 ### `signInButton`
 
-Type: Button
-
-Layer: Default
-
-Label: Sign in
-
-Bounds: x=24, y=720, width=342, height=48
-
-Visible content:
-
-- Sign in
+- Type: Button
+- Label: Sign in
+- Bounds: x=32, y=330, width=326, height=48
+- Inside: `signInCard`
 
 LLM note:
-
 Validates the form, then navigates home.
+
+### `authTabs`
+
+- Type: Tabs
+- Bounds: x=16, y=40, width=358, height=36
+
+Items:
+- Sign in
+- Register
+
+LLM note:
+Sign in is active.
 
 ### `brandIcon`
 
-Type: Icon
-
-Layer: Default
-
-Label: 🚀
-
-Bounds: x=24, y=40, width=32, height=32
-
-Content size: 48px
-
-Visible content:
-
-- 🚀
+- Type: Icon
+- Label: 🚀
+- Bounds: x=16, y=720, width=32, height=32
+- Content size: 48px
 
 ## Spatial Summary
 
-- The upper-left area contains: "brandIcon" (Icon).
-- The upper portion contains: "heading" (Text).
-- The lower portion contains: "signInButton" (Button).
+- The Container "signInCard" frames the upper portion of the screen.
+- The upper portion contains: "authTabs" (Tabs).
+- The lower-left area contains: "brandIcon" (Icon).
+- Inside "signInCard" (Container), top to bottom: "heading" (Text); "emailInput" (Input); "signInButton" (Button).
 
 ## Editable Project Source
 
 ```ui-project
-{ "version": 2, "title": "Sign in", … }
+{
+  "version": 2,
+  "title": "Sign in",
+  "canvas": { "mode": "mobile", "width": 390, "height": 844 },
+  "layers": [
+    { "id": "layer_default", "name": "Default", "visible": true, "locked": false }
+  ],
+  "elements": [
+    { "id": "el_card", "type": "container", "name": "signInCard", "label": "Sign in", "note": "Card with the form.", "x": 16, "y": 100, "width": 358, "height": 300, "layerId": "layer_default", "visible": true, "locked": false, "zIndex": 0 },
+    { "id": "el_heading", "type": "text", "name": "heading", "label": "Welcome back", "note": "Screen title.", "x": 32, "y": 130, "width": 300, "height": 32, "layerId": "layer_default", "visible": true, "locked": false, "zIndex": 1, "textStyle": { "fontSize": 24, "bold": true, "align": "center" }, "parentId": "el_card" },
+    { "id": "el_email", "type": "input", "name": "emailInput", "label": "Email", "note": "Validated on blur.", "x": 32, "y": 190, "width": 326, "height": 40, "layerId": "layer_default", "visible": true, "locked": false, "zIndex": 2, "parentId": "el_card" },
+    { "id": "el_btn", "type": "button", "name": "signInButton", "label": "Sign in", "note": "Validates the form, then navigates home.", "x": 32, "y": 330, "width": 326, "height": 48, "layerId": "layer_default", "visible": true, "locked": false, "zIndex": 3, "parentId": "el_card" },
+    { "id": "el_tabs", "type": "tabs", "name": "authTabs", "label": "", "note": "Sign in is active.", "x": 16, "y": 40, "width": 358, "height": 36, "layerId": "layer_default", "visible": true, "locked": false, "zIndex": 4, "items": ["Sign in", "Register"] },
+    { "id": "el_icon", "type": "icon", "name": "brandIcon", "label": "🚀", "note": "", "x": 16, "y": 720, "width": 32, "height": 32, "layerId": "layer_default", "visible": true, "locked": false, "zIndex": 5, "contentSize": 48 }
+  ]
+}
 ```
 ````
 
-(The ASCII block is trimmed here; in a real export it is the full `renderAscii` output, and the
-final block contains the complete JSON.)
-
 ## The LLM variant
 
-`projectToLlmMarkdown(project)` prepends `LLM_PREAMBLE` and a `---` separator to the same document:
-
-```text
-The following document describes a UI wireframe.
-
-The ASCII section provides approximate spatial layout.
-The UI Elements section provides semantic meaning and behavior.
-The ui-project block is the canonical machine-readable representation.
-
-Use both spatial and semantic information when reasoning about the interface.
-
----
-```
+`projectToLlmMarkdown(project)` prepends `LLM_PREAMBLE` and a `---` separator to the same document.
+The preamble tells the model how to read it: the coordinate system (logical px, top-left origin, y
+down), that the ASCII sketch is approximate, what `Label`, `Inside` and `LLM note` mean, how a
+Canvas and a Drawing are represented, what the Spatial Summary contains, and that the `ui-project`
+block is the complete source that wins when anything is ambiguous.
 
 It is used by the toolbar's **Copy for LLM** button and by the export dialog's "Copy for LLM" tab.
-Nothing else changes, so the block is still the canonical source.
 
 ## Backward compatibility
 
-* The document format is append-only in practice: new sections/fields are added, existing ones keep
-  their names and order.
+* Section headings, field names and the `ui-project` block are stable. The human-readable layout
+  was compacted once (fields as a list, `Layer` only with several layers, no label echo, one element
+  per line in `ui-project`); the importer is unaffected because it only reads `ui-project`, so every
+  earlier export still imports.
 * The fence name `ui-project` and the version number are part of the contract. **Do not rename the
   fence, and do not bump `PROJECT_VERSION` for optional additions.**
 * A version 1 project (no layers, no `visible`/`locked`) is migrated on import into a single

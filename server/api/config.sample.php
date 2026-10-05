@@ -61,6 +61,23 @@ return [
     // Set to false to stop new sign-ups (existing users can still sign in).
     'registration_open' => true,
 
+    // Remote MCP endpoint (mcp/ next to api/; needs PHP 8.1+ and `npm run build:deploy`).
+    // Everything is optional; see docs/mcp.md.
+    'mcp' => [
+        'enabled' => true,
+        // Public URL shown in Settings. Default: app_url + "mcp/".
+        'endpoint' => '',
+        // Private, writable folder for MCP protocol sessions (NOT the PHP login sessions). Keep it
+        // outside public_html, e.g. next to this file. Default: the system temp directory.
+        'session_dir' => '',
+        // Extra hostnames accepted in the Host / Origin header (DNS-rebinding protection). The
+        // host of app_url, localhost, 127.0.0.1 and [::1] are always allowed.
+        'allowed_hosts' => [],
+        // Browser origins allowed to call the endpoint cross-origin (CORS). Empty = none, which
+        // is right for MCP clients (they are not browsers). Never use '*'.
+        'allowed_origins' => [],
+    ],
+
     // Only for local development: adds error details to JSON responses.
     'debug' => false,
 ];

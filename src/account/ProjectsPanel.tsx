@@ -21,6 +21,8 @@ interface ProjectsPanelProps {
   onCreateWireframe: (projectId: number) => void;
   onRenameProject: (id: number, name: string) => void;
   onDeleteProject: (id: number) => void;
+  /** Download the project with all its wireframes as a .wfproj file. */
+  onExportProject: (id: number) => void;
   onRenameWireframe: (id: number, title: string) => void;
   onDuplicateWireframe: (id: number) => void;
   onDeleteWireframe: (id: number) => void;
@@ -97,6 +99,7 @@ export function ProjectsPanel({
   onCreateWireframe,
   onRenameProject,
   onDeleteProject,
+  onExportProject,
   onRenameWireframe,
   onDuplicateWireframe,
   onDeleteWireframe,
@@ -219,6 +222,7 @@ export function ProjectsPanel({
                     items={[
                       { label: t("projects.newWireframe"), onSelect: () => onCreateWireframe(project.id) },
                       { label: t("common.rename"), onSelect: () => setRenaming({ kind: "project", id: project.id }) },
+                      { label: t("projects.exportProject"), onSelect: () => onExportProject(project.id) },
                       { label: t("projects.deleteProject"), danger: true, onSelect: () => onDeleteProject(project.id) }
                     ]}
                   />

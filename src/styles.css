@@ -174,12 +174,35 @@ textarea {
   min-width: 96px;
 }
 
-.zoom-readout {
-  min-width: 42px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  font-size: 12px;
+.app-toolbar .divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+/* Icon-only toolbar buttons (label in title + aria-label). */
+.app-toolbar button.icon-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  line-height: 1;
+  font-size: 15px;
+}
+
+.app-toolbar .export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+}
+
+.app-toolbar .canvas-mode {
+  max-width: 190px;
 }
 
 .size-inputs input {
@@ -2719,6 +2742,144 @@ body.is-resizing-panel * {
 .settings-modal input:disabled {
   color: var(--muted);
   background: var(--subtle);
+}
+
+/* Settings → MCP access */
+
+.mcp-access .hint {
+  margin: 4px 0 10px;
+}
+
+.mcp-access a {
+  color: var(--accent, inherit);
+}
+
+.mcp-copy-row {
+  display: flex;
+  gap: 8px;
+}
+
+.mcp-copy-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.mcp-fresh-token {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--subtle);
+}
+
+.mcp-fresh-token .hint {
+  margin: 0;
+}
+
+.mcp-fresh-token .mcp-copy-failed {
+  color: var(--danger);
+}
+
+.mcp-fresh-token .button-row {
+  justify-content: flex-end;
+}
+
+.mcp-tokens-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 14px 0 6px;
+}
+
+.mcp-create-form {
+  display: grid;
+  gap: 10px;
+  margin: 6px 0 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.mcp-create-form .field {
+  margin: 0;
+}
+
+.mcp-scopes {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.mcp-scopes .hint {
+  margin: 0;
+  color: var(--danger);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.mcp-token-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mcp-token-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.mcp-token-list li.expired .mcp-token-main {
+  opacity: 0.55;
+}
+
+.mcp-token-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.mcp-token-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mcp-token-prefix {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.mcp-token-scopes {
+  font-size: 12px;
+}
+
+.mcp-token-meta.hint {
+  grid-column: 1;
+  margin: 0;
+}
+
+.mcp-token-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  gap: 6px;
 }
 
 /* ------------------------------------------------ Canvas / Drawing popups */

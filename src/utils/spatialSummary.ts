@@ -91,6 +91,28 @@ function describeLayoutElement(
   return `- The ${label} frames the ${regionPhrase(region)} of the screen.`;
 }
 
+const nameOf = (element: WireframeElement) => `"${element.name}" (${ELEMENT_TYPE_LABEL[element.type]})`;
+
+/**
+ * Children of one parent in reading order: rows top to bottom, and elements whose vertical
+ * extents overlap share a row ("A, B side by side").
+ */
+function readingOrder(children: WireframeElement[]): string {
+  const sorted = [...children].sort((a, b) => a.y - b.y || a.x - b.x);
+  const rows: WireframeElement[][] = [];
+  for (const child of sorted) {
+    const row = rows[rows.length - 1];
+    const center = child.y + child.height / 2;
+    if (row && row.some((other) => center > other.y && center < other.y + other.height)) row.push(child);
+    else rows.push([child]);
+  }
+  return rows
+    .map((row) =>
+      row.length === 1 ? nameOf(row[0]) : `${[...row].sort((a, b) => a.x - b.x).map(nameOf).join(", ")} side by side`
+    )
+    .join("; ");
+}
+
 export function buildSpatialSummary(project: WireframeProject): string[] {
   const { canvas } = project;
   // The summary describes what the user actually sees (minus undescribed Drawings).
@@ -98,16 +120,27 @@ export function buildSpatialSummary(project: WireframeProject): string[] {
   if (elements.length === 0) return ["- The screen is empty."];
 
   const lines: string[] = [];
+  const exportedIds = new Set(elements.map((element) => element.id));
+  // Nested elements are described relative to their (exported) parent, not the screen.
+  const childrenOf = new Map<string, WireframeElement[]>();
+  for (const element of elements) {
+    if (element.parentId && exportedIds.has(element.parentId)) {
+      const siblings = childrenOf.get(element.parentId) ?? [];
+      siblings.push(element);
+      childrenOf.set(element.parentId, siblings);
+    }
+  }
+  const isNested = (element: WireframeElement) => !!element.parentId && exportedIds.has(element.parentId);
 
   for (const element of elements) {
-    if (LAYOUT_TYPES.has(element.type)) lines.push(describeLayoutElement(element, canvas));
+    if (LAYOUT_TYPES.has(element.type) && !isNested(element)) lines.push(describeLayoutElement(element, canvas));
   }
 
   const order: Region[] = [];
   const buckets = new Map<string, { region: Region; entries: WireframeElement[] }>();
 
   for (const element of elements) {
-    if (LAYOUT_TYPES.has(element.type)) continue;
+    if (LAYOUT_TYPES.has(element.type) || isNested(element)) continue;
     const region = regionOf(element, canvas);
     const key = `${region.vertical}:${region.horizontal}`;
     let bucket = buckets.get(key);
@@ -132,6 +165,11 @@ export function buildSpatialSummary(project: WireframeProject): string[] {
     if (!bucket) continue;
     const names = bucket.entries.map(describeEntry).join(", ");
     lines.push(`- The ${regionPhrase(region)} contains: ${names}.`);
+  }
+
+  for (const element of elements) {
+    const children = childrenOf.get(element.id);
+    if (children) lines.push(`- Inside ${nameOf(element)}, top to bottom: ${readingOrder(children)}.`);
   }
 
   return lines;

@@ -174,7 +174,10 @@ tries to reconstruct geometry from ASCII.
 
 The palette includes containers, toolbars, sidebars, dialogs, bottom navigation, text, images,
 icons, avatars, lists, tables, tabs, buttons, icon buttons, inputs, textareas, dropdowns,
-checkboxes, radio controls, toggles, sliders, progress indicators, and badges/chips.
+checkboxes, radio controls, toggles, sliders, progress indicators, and badges/chips — plus two
+scene elements: a **Canvas** for small structured diagrams (shapes, arrows, curves, labels, exported
+as an ASCII sketch, a primitive list and relationships) and a **Drawing** for freehand sketches
+described in words. Double-click either one (or use its hover pencil) to edit it in a popup.
 
 These are deliberately generic wireframe primitives rather than native platform widgets.
 Specialized patterns such as a search field or date picker can be expressed with a primitive plus
@@ -202,11 +205,26 @@ an LLM note.
 - Import moves to the projects panel and adds the import as a new wireframe;
 - plain PHP + MySQL, deployable on ordinary shared hosting such as Namecheap.
 
+### MCP for coding agents (optional)
+
+Signed-in projects can be opened by coding agents (Claude Code, Codex, Cursor, …) through a remote
+[MCP](https://modelcontextprotocol.io) endpoint at `https://<your host>/mcp/`:
+
+- create a personal access token in **Settings → MCP access** (read / create and edit / delete
+  permissions, expiry, revocable at any time) and add the endpoint to your client with
+  `Authorization: Bearer <token>`;
+- the agent lists projects, reads a wireframe's canonical JSON, creates wireframes and saves
+  changes with revision checks — it can never silently overwrite your newer edits;
+- a wireframe open in the browser picks up the agent's changes within seconds.
+
+The agent is the LLM; Wirefragma still makes no AI calls. Details: [docs/mcp.md](docs/mcp.md).
+
 ### Import and export
 
 - export regular Markdown or an LLM-prefaced variant;
 - copy LLM-ready Markdown directly to the clipboard;
-- download the canonical project as JSON;
+- download the canonical project as JSON, or a whole project with all its wireframes as a
+  `.wfproj` file (import it back as a project, or pick one wireframe out of it);
 - export a single layer (Layers → "…" → Export layer), optionally cropped to its content — handy
   for explaining one form to a model;
 - export the **WIREFRAGMA schema**: LLM-ready instructions for the project JSON, so a chat model
@@ -247,15 +265,17 @@ required.
 Optional accounts backend (sign-in, projects panel, MySQL storage): create a MySQL/MariaDB
 database, import `server/schema.sql`, copy `server/api/config.sample.php` to
 `server/api/config.php` (use `'transport' => 'log'` for mail), then run `npm run dev:api` next to
-`npm run dev` — Vite proxies `/api` to PHP's built-in server. See
+`npm run dev` — Vite proxies `/api` (and `/mcp`) to PHP's built-in server. See
 [docs/accounts.md](docs/accounts.md); deployment to Namecheap / cPanel shared hosting is described in
-[docs/deployment.md](docs/deployment.md).
+[docs/deployment.md](docs/deployment.md). The MCP endpoint additionally needs Composer and PHP 8.1+
+(`npm run mcp:install`; see [docs/mcp.md](docs/mcp.md)).
 
 Useful commands:
 
 ```bash
 npm test          # Vitest unit tests
 npm run build     # typecheck + production build into dist/
+npm run build:deploy  # the same + the MCP endpoint in dist/mcp (needs Composer)
 npm run preview   # serve the static production build locally
 ```
 
@@ -278,6 +298,7 @@ Canvas 2D renderer + hit testing + interaction engine
 
 project model
    ├── localStorage autosave (guest) / optional PHP + MySQL API (signed in)
+   │                                     └── same storage over MCP for coding agents
    ├── ASCII renderer + spatial summary
    └── Markdown / JSON / ui-project export
 ```
@@ -299,7 +320,8 @@ Wirefragma is a client-side web application:
   backend, in which case signed-in projects are stored in that server's database (with a sign-up
   captcha, email confirmation and a privacy policy) and anyone can still continue without an
   account;
-- the app makes no LLM call itself;
+- the app makes no LLM call itself; with the optional MCP endpoint, external agents you authorize
+  with a personal token can read and edit your signed-in projects;
 - Markdown and JSON exports are explicit, portable files you control.
 
 This architecture keeps the editor simple, but browser storage is not a project library or a
@@ -317,9 +339,13 @@ Those boundaries are part of the product's current focus, not hidden promises. S
 
 ## Documentation
 
+User-facing documentation (editor guide, export format, accounts, MCP setup and tool reference,
+self-hosting) is published with the app at `/docs/` — sources in [`public/docs/`](public/docs/).
+
 [`docs/`](docs/README.md) is the comprehensive technical documentation set. It covers the data
 model, canvas engine, interaction rules, layers, history, clipboard, typography, symbols,
-persistence, migrations, import/export format, testing, deployment, and current limitations.
+persistence, migrations, import/export format, accounts, MCP, testing, deployment, and current
+limitations.
 
 The documentation is deliberately written for both human contributors and coding agents. Start
 with [docs/README.md](docs/README.md), then follow its task-specific reading map.

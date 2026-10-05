@@ -269,31 +269,25 @@ const r = (value: number) => Math.round(value);
 const pointText = (p: DiagramPoint) => `(${r(p.x)},${r(p.y)})`;
 
 /** Numbered list of every primitive, with exact scene coordinates. */
+/**
+ * One line per shape, in paint order: type, id, "label" and exact scene geometry, e.g.
+ * `1. Rectangle \`r1\` "Login form" — x=40, y=80, width=140, height=80`.
+ */
 export function diagramContents(data: DiagramData): string[] {
-  const lines: string[] = [];
-  data.objects.forEach((object, index) => {
-    lines.push(`${index + 1}. ${DIAGRAM_TYPE_LABEL[object.type]} \`${object.id}\``);
-    const indent = "   ";
-    const label = objectLabel(object);
-    if (object.type === "text") {
-      const text = (object.label ?? "").split("\n").map((line) => line.trim()).filter(Boolean).join(" / ");
-      if (text) lines.push(`${indent}Text: ${text}`);
-    } else if (label) {
-      lines.push(`${indent}Label: ${label}`);
-    }
+  return data.objects.map((object, index) => {
+    const text =
+      object.type === "text"
+        ? (object.label ?? "").split("\n").map((line) => line.trim()).filter(Boolean).join(" / ")
+        : objectLabel(object);
+    const name = `${index + 1}. ${DIAGRAM_TYPE_LABEL[object.type]} \`${object.id}\`${text ? ` "${text}"` : ""}`;
     if (isBoxObject(object)) {
-      lines.push(`${indent}Bounds: x=${r(object.x)}, y=${r(object.y)}, width=${r(object.width)}, height=${r(object.height)}`);
-    } else if (object.type === "bezier") {
-      lines.push(`${indent}Start: ${pointText(object.start)}`);
-      lines.push(`${indent}Control 1: ${pointText(object.control1)}`);
-      lines.push(`${indent}Control 2: ${pointText(object.control2)}`);
-      lines.push(`${indent}End: ${pointText(object.end)}`);
-    } else {
-      lines.push(`${indent}From: ${pointText({ x: object.x1, y: object.y1 })}`);
-      lines.push(`${indent}To: ${pointText({ x: object.x2, y: object.y2 })}`);
+      return `${name} — x=${r(object.x)}, y=${r(object.y)}, width=${r(object.width)}, height=${r(object.height)}`;
     }
+    if (object.type === "bezier") {
+      return `${name} — from ${pointText(object.start)} to ${pointText(object.end)}, controls ${pointText(object.control1)} and ${pointText(object.control2)}`;
+    }
+    return `${name} — from ${pointText({ x: object.x1, y: object.y1 })} to ${pointText({ x: object.x2, y: object.y2 })}`;
   });
-  return lines;
 }
 
 /* ------------------------------------------------------------------ relationships */

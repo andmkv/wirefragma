@@ -15,6 +15,8 @@ ini_set('log_errors', '1');
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/captcha.php';
 require __DIR__ . '/lib/mail.php';
+require __DIR__ . '/lib/projects.php';
+require __DIR__ . '/lib/mcp_tokens.php';
 
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
@@ -30,7 +32,7 @@ try {
     wf_start_session();
 
     // Email links land on the app (?verify= / ?reset=); this endpoint is only for API calls.
-    $getActions = ['status', 'captcha', 'projects', 'wireframe'];
+    $getActions = ['status', 'captcha', 'projects', 'wireframe', 'mcp-tokens'];
     if ($method === 'GET' && !in_array($action, $getActions, true)) {
         throw new ApiError(405, 'method', 'Use POST for this action.');
     }
@@ -81,7 +83,7 @@ try {
             wf_json(action_password_change(wf_input()));
             break;
         case 'projects':
-            wf_json(['projects' => projects_tree((int)wf_require_user()['id'])]);
+            wf_json(['projects' => wf_projects_tree((int)wf_require_user()['id'])]);
             break;
         case 'project-create':
             wf_json(action_project_create(wf_input()));
@@ -110,12 +112,20 @@ try {
         case 'wireframe-delete':
             wf_json(action_wireframe_delete(wf_input()));
             break;
+        case 'mcp-tokens':
+            wf_json(action_mcp_tokens());
+            break;
+        case 'mcp-token-create':
+            wf_json(action_mcp_token_create(wf_input()));
+            break;
+        case 'mcp-token-revoke':
+            wf_json(action_mcp_token_revoke(wf_input()));
+            break;
         default:
             throw new ApiError(404, 'unknown_action', 'Unknown action.');
     }
 } catch (ApiError $error) {
-    $payload = ['error' => $error->errorCode, 'message' => $error->getMessage()];
-    if ($error->errorCode === 'conflict' && isset($GLOBALS['wf_conflict'])) $payload['current'] = $GLOBALS['wf_conflict'];
+    $payload = ['error' => $error->errorCode, 'message' => $error->getMessage()] + $error->extra;
     wf_json($payload, $error->status);
 } catch (Throwable $error) {
     error_log('[wirefragma] ' . $error->getMessage() . ' @ ' . $error->getFile() . ':' . $error->getLine());
@@ -312,15 +322,20 @@ function action_reset(array $input): array
     return login_session($userId);
 }
 
+/** Re-authentication for sensitive account actions. */
+function require_current_password(int $userId, $password, string $message = 'The password is not correct.'): void
+{
+    $statement = wf_db()->prepare('SELECT password_hash FROM wf_users WHERE id = ?');
+    $statement->execute([$userId]);
+    if (!is_string($password) || !password_verify($password, (string)$statement->fetchColumn())) {
+        throw new ApiError(403, 'bad_credentials', $message);
+    }
+}
+
 function action_delete_account(array $input): array
 {
     $user = wf_require_user();
-    $password = is_string($input['password'] ?? null) ? $input['password'] : '';
-    $statement = wf_db()->prepare('SELECT password_hash FROM wf_users WHERE id = ?');
-    $statement->execute([$user['id']]);
-    if (!password_verify($password, (string)$statement->fetchColumn())) {
-        throw new ApiError(403, 'bad_credentials', 'The password is not correct.');
-    }
+    require_current_password((int)$user['id'], $input['password'] ?? null);
     // Foreign keys cascade to projects, wireframes and tokens.
     wf_db()->prepare('DELETE FROM wf_users WHERE id = ?')->execute([$user['id']]);
     $_SESSION = ['csrf' => bin2hex(random_bytes(32))];
@@ -353,13 +368,8 @@ function action_password_change(array $input): array
 {
     $user = wf_require_user();
     wf_rate_limit('password-change', (string)$user['id'], 10, 3600);
-    $current = is_string($input['current'] ?? null) ? $input['current'] : '';
     $next = is_string($input['next'] ?? null) ? $input['next'] : '';
-    $statement = wf_db()->prepare('SELECT password_hash FROM wf_users WHERE id = ?');
-    $statement->execute([$user['id']]);
-    if (!password_verify($current, (string)$statement->fetchColumn())) {
-        throw new ApiError(403, 'bad_credentials', 'The current password is not correct.');
-    }
+    require_current_password((int)$user['id'], $input['current'] ?? null, 'The current password is not correct.');
     validate_password($next);
     wf_db()->prepare('UPDATE wf_users SET password_hash = ?, updated_at = ? WHERE id = ?')
         ->execute([password_hash($next, PASSWORD_DEFAULT), wf_now(), $user['id']]);
@@ -371,255 +381,137 @@ function action_password_change(array $input): array
 
 /* ------------------------------------------------------------------ projects */
 
-function projects_tree(int $userId): array
-{
-    $db = wf_db();
-    $projects = $db->prepare('SELECT id, name, updated_at FROM wf_projects WHERE user_id = ? ORDER BY position, id');
-    $projects->execute([$userId]);
-    $wireframes = $db->prepare(
-        'SELECT id, project_id, title, revision, updated_at FROM wf_wireframes WHERE user_id = ? ORDER BY position, id'
-    );
-    $wireframes->execute([$userId]);
+// Thin adapters: request parsing + session auth here, everything else in lib/projects.php (shared
+// with the MCP endpoint).
 
-    $byProject = [];
-    foreach ($wireframes->fetchAll() as $row) {
-        $byProject[(int)$row['project_id']][] = [
-            'id' => (int)$row['id'],
-            'title' => $row['title'],
-            'revision' => (int)$row['revision'],
-            'updatedAt' => $row['updated_at'],
-        ];
-    }
-    $result = [];
-    foreach ($projects->fetchAll() as $row) {
-        $result[] = [
-            'id' => (int)$row['id'],
-            'name' => $row['name'],
-            'updatedAt' => $row['updated_at'],
-            'wireframes' => $byProject[(int)$row['id']] ?? [],
-        ];
-    }
-    return $result;
-}
-
-function owned_project(int $userId, int $projectId): array
-{
-    $statement = wf_db()->prepare('SELECT id, name FROM wf_projects WHERE id = ? AND user_id = ?');
-    $statement->execute([$projectId, $userId]);
-    $project = $statement->fetch();
-    if (!$project) throw new ApiError(404, 'not_found', 'That project does not exist.');
-    return $project;
-}
-
-function owned_wireframe(int $userId, int $wireframeId): array
-{
-    $statement = wf_db()->prepare(
-        'SELECT id, project_id, title, data, revision, updated_at FROM wf_wireframes WHERE id = ? AND user_id = ?'
-    );
-    $statement->execute([$wireframeId, $userId]);
-    $wireframe = $statement->fetch();
-    if (!$wireframe) throw new ApiError(404, 'not_found', 'That wireframe does not exist.');
-    return $wireframe;
-}
-
-function required_name(array $input, string $key, int $max, string $what): string
-{
-    $name = wf_str($input, $key, $max);
-    if ($name === '') throw new ApiError(400, 'bad_name', "Give the {$what} a name.");
-    return $name;
-}
-
-/** Validate an incoming project document: a JSON object with an elements array, size-capped. */
-function document_json($data): string
-{
-    if (!is_array($data) || !isset($data['elements']) || !is_array($data['elements'])) {
-        throw new ApiError(400, 'bad_document', 'The wireframe data is not a Wirefragma project.');
-    }
-    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    if ($json === false) throw new ApiError(400, 'bad_document', 'The wireframe data could not be encoded.');
-    if (strlen($json) > WF_MAX_DOCUMENT_BYTES) {
-        throw new ApiError(413, 'too_large', 'This wireframe is larger than 2 MB and cannot be saved.');
-    }
-    return $json;
-}
-
-function blank_document(string $title): array
-{
-    return [
-        'version' => 2,
-        'title' => $title,
-        'canvas' => ['mode' => 'desktop', 'width' => 1200, 'height' => 800],
-        'layers' => [['id' => 'layer_' . bin2hex(random_bytes(4)), 'name' => 'Default', 'visible' => true, 'locked' => false]],
-        'elements' => [],
-    ];
-}
-
-function next_position(string $table, string $column, int $value): int
-{
-    $statement = wf_db()->prepare("SELECT COALESCE(MAX(position), -1) + 1 FROM {$table} WHERE {$column} = ?");
-    $statement->execute([$value]);
-    return (int)$statement->fetchColumn();
-}
-
-function insert_wireframe(int $userId, int $projectId, string $title, string $json): int
-{
-    $now = wf_now();
-    wf_db()->prepare(
-        'INSERT INTO wf_wireframes (project_id, user_id, title, data, revision, position, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 1, ?, ?, ?)'
-    )->execute([$projectId, $userId, $title, $json, next_position('wf_wireframes', 'project_id', $projectId), $now, $now]);
-    $id = (int)wf_db()->lastInsertId();
-    touch_project($projectId);
-    return $id;
-}
-
-function touch_project(int $projectId): void
-{
-    wf_db()->prepare('UPDATE wf_projects SET updated_at = ? WHERE id = ?')->execute([wf_now(), $projectId]);
-}
-
-/**
- * First sign-in gets one project with one blank wireframe, so the editor never opens empty. The
- * client sends the names in the user's language (`starter.project`, `starter.wireframe`).
- */
 function ensure_starter_project(int $userId, array $input = []): void
 {
-    $statement = wf_db()->prepare('SELECT COUNT(*) FROM wf_projects WHERE user_id = ?');
-    $statement->execute([$userId]);
-    if ((int)$statement->fetchColumn() > 0) return;
     $starter = is_array($input['starter'] ?? null) ? $input['starter'] : [];
-    $projectName = wf_str($starter, 'project', 120) ?: 'My first project';
-    $wireframeTitle = wf_str($starter, 'wireframe', 160) ?: 'Home screen';
-    $now = wf_now();
-    wf_db()->prepare('INSERT INTO wf_projects (user_id, name, position, created_at, updated_at) VALUES (?, ?, 0, ?, ?)')
-        ->execute([$userId, $projectName, $now, $now]);
-    $projectId = (int)wf_db()->lastInsertId();
-    insert_wireframe($userId, $projectId, $wireframeTitle, document_json(blank_document($wireframeTitle)));
+    wf_ensure_starter_project($userId, (string)($starter['project'] ?? ''), (string)($starter['wireframe'] ?? ''));
 }
 
 function action_project_create(array $input): array
 {
-    $user = wf_require_user();
-    $userId = (int)$user['id'];
+    $userId = (int)wf_require_user()['id'];
     wf_rate_limit('project-create', (string)$userId, 120, 3600);
-    $name = required_name($input, 'name', 120, 'project');
-    $now = wf_now();
-    wf_db()->prepare('INSERT INTO wf_projects (user_id, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
-        ->execute([$userId, $name, next_position('wf_projects', 'user_id', $userId), $now, $now]);
-    $projectId = (int)wf_db()->lastInsertId();
-    $wireframeId = null;
-    if (($input['withWireframe'] ?? true) !== false) {
-        $title = wf_str($input, 'wireframeTitle', 160) ?: 'Screen 1';
-        $wireframeId = insert_wireframe($userId, $projectId, $title, document_json(blank_document($title)));
-    }
-    return ['ok' => true, 'projectId' => $projectId, 'wireframeId' => $wireframeId, 'projects' => projects_tree($userId)];
+    $created = wf_project_create(
+        $userId,
+        (string)($input['name'] ?? ''),
+        ($input['withWireframe'] ?? true) !== false,
+        (string)($input['wireframeTitle'] ?? '')
+    );
+    return ['ok' => true] + $created + ['projects' => wf_projects_tree($userId)];
 }
 
 function action_project_rename(array $input): array
 {
     $userId = (int)wf_require_user()['id'];
-    $project = owned_project($userId, wf_int($input, 'id'));
-    $name = required_name($input, 'name', 120, 'project');
-    wf_db()->prepare('UPDATE wf_projects SET name = ?, updated_at = ? WHERE id = ?')->execute([$name, wf_now(), $project['id']]);
-    return ['ok' => true, 'projects' => projects_tree($userId)];
+    wf_project_rename($userId, wf_int($input, 'id'), (string)($input['name'] ?? ''));
+    return ['ok' => true, 'projects' => wf_projects_tree($userId)];
 }
 
 function action_project_delete(array $input): array
 {
     $userId = (int)wf_require_user()['id'];
-    $project = owned_project($userId, wf_int($input, 'id'));
-    wf_db()->prepare('DELETE FROM wf_projects WHERE id = ?')->execute([$project['id']]);
-    return ['ok' => true, 'projects' => projects_tree($userId)];
-}
-
-function wireframe_payload(array $row): array
-{
-    return [
-        'id' => (int)$row['id'],
-        'projectId' => (int)$row['project_id'],
-        'title' => $row['title'],
-        'revision' => (int)$row['revision'],
-        'updatedAt' => $row['updated_at'],
-        'data' => json_decode((string)$row['data'], true),
-    ];
+    wf_project_delete($userId, wf_int($input, 'id'));
+    return ['ok' => true, 'projects' => wf_projects_tree($userId)];
 }
 
 function action_wireframe_get(): array
 {
     $userId = (int)wf_require_user()['id'];
-    return ['wireframe' => wireframe_payload(owned_wireframe($userId, wf_int([], 'id')))];
+    return ['wireframe' => wf_wireframe_payload(wf_owned_wireframe($userId, wf_int([], 'id')))];
 }
 
 function action_wireframe_create(array $input): array
 {
     $userId = (int)wf_require_user()['id'];
     wf_rate_limit('wireframe-create', (string)$userId, 300, 3600);
-    $project = owned_project($userId, wf_int($input, 'projectId'));
-    $title = required_name($input, 'title', 160, 'wireframe');
-    $json = isset($input['data']) ? document_json($input['data']) : document_json(blank_document($title));
-    $id = insert_wireframe($userId, (int)$project['id'], $title, $json);
-    return ['ok' => true, 'wireframeId' => $id, 'projects' => projects_tree($userId)];
+    $document = isset($input['data']) ? wf_input_object_field('data') : null;
+    $id = wf_wireframe_create($userId, wf_int($input, 'projectId'), (string)($input['title'] ?? ''), $document);
+    return ['ok' => true, 'wireframeId' => $id, 'projects' => wf_projects_tree($userId)];
 }
 
 /**
  * Save with optimistic concurrency: the client sends the revision it started from. A mismatch
- * means another tab/device saved in between; the client gets 409 with the current server copy.
+ * means another tab/device/MCP client saved in between; the client gets 409 with the current
+ * server copy. `force: true` ("Keep my version" in the conflict banner) skips the check.
  */
 function action_wireframe_save(array $input): array
 {
     $userId = (int)wf_require_user()['id'];
     wf_rate_limit('wireframe-save', (string)$userId, 1200, 3600);
-    $wireframe = owned_wireframe($userId, wf_int($input, 'id'));
-    $json = document_json($input['data'] ?? null);
-    $title = wf_str($input, 'title', 160);
-    if ($title === '') $title = (string)$wireframe['title'];
-    $base = wf_int($input, 'baseRevision');
-    $force = ($input['force'] ?? false) === true;
-
-    $statement = wf_db()->prepare(
-        'UPDATE wf_wireframes SET data = ?, title = ?, revision = revision + 1, updated_at = ?
-          WHERE id = ? AND user_id = ?' . ($force ? '' : ' AND revision = ?')
+    $saved = wf_wireframe_save(
+        $userId,
+        wf_int($input, 'id'),
+        wf_input_object_field('data'),
+        (string)($input['title'] ?? ''),
+        wf_int($input, 'baseRevision'),
+        ($input['force'] ?? false) === true
     );
-    $params = [$json, $title, wf_now(), $wireframe['id'], $userId];
-    if (!$force) $params[] = $base;
-    $statement->execute($params);
-    if ($statement->rowCount() === 0) {
-        $GLOBALS['wf_conflict'] = wireframe_payload(owned_wireframe($userId, (int)$wireframe['id']));
-        throw new ApiError(409, 'conflict', 'This wireframe was changed in another tab or on another device.');
-    }
-    touch_project((int)$wireframe['project_id']);
-    return ['ok' => true, 'revision' => $force ? (int)$wireframe['revision'] + 1 : $base + 1, 'title' => $title];
+    return ['ok' => true] + $saved;
 }
 
 function action_wireframe_rename(array $input): array
 {
     $userId = (int)wf_require_user()['id'];
-    $wireframe = owned_wireframe($userId, wf_int($input, 'id'));
-    $title = required_name($input, 'title', 160, 'wireframe');
-    // The title also lives inside the document; keep both in sync.
-    $data = json_decode((string)$wireframe['data'], true);
-    if (is_array($data)) $data['title'] = $title;
-    wf_db()->prepare('UPDATE wf_wireframes SET title = ?, data = ?, revision = revision + 1, updated_at = ? WHERE id = ?')
-        ->execute([$title, document_json($data), wf_now(), $wireframe['id']]);
-    return ['ok' => true, 'revision' => (int)$wireframe['revision'] + 1, 'projects' => projects_tree($userId)];
+    $revision = wf_wireframe_rename($userId, wf_int($input, 'id'), (string)($input['title'] ?? ''));
+    return ['ok' => true, 'revision' => $revision, 'projects' => wf_projects_tree($userId)];
 }
 
 function action_wireframe_duplicate(array $input): array
 {
     $userId = (int)wf_require_user()['id'];
-    $wireframe = owned_wireframe($userId, wf_int($input, 'id'));
-    $title = wf_str(['t' => $wireframe['title'] . ' copy'], 't', 160);
-    $data = json_decode((string)$wireframe['data'], true);
-    if (is_array($data)) $data['title'] = $title;
-    $id = insert_wireframe($userId, (int)$wireframe['project_id'], $title, document_json($data));
-    return ['ok' => true, 'wireframeId' => $id, 'projects' => projects_tree($userId)];
+    $id = wf_wireframe_duplicate($userId, wf_int($input, 'id'));
+    return ['ok' => true, 'wireframeId' => $id, 'projects' => wf_projects_tree($userId)];
 }
 
 function action_wireframe_delete(array $input): array
 {
     $userId = (int)wf_require_user()['id'];
-    $wireframe = owned_wireframe($userId, wf_int($input, 'id'));
-    wf_db()->prepare('DELETE FROM wf_wireframes WHERE id = ?')->execute([$wireframe['id']]);
-    touch_project((int)$wireframe['project_id']);
-    return ['ok' => true, 'projects' => projects_tree($userId)];
+    wf_wireframe_delete($userId, wf_int($input, 'id'));
+    return ['ok' => true, 'projects' => wf_projects_tree($userId)];
+}
+
+/* ------------------------------------------------------------------ MCP tokens */
+
+// Token management is part of the signed-in browser API (session + CSRF); the tokens themselves
+// only work on the MCP endpoint (mcp/index.php). See lib/mcp_tokens.php and docs/mcp.md.
+
+/** Where MCP clients connect, and whether the endpoint is installed on this host. */
+function mcp_endpoint_info(): array
+{
+    $config = wf_config()['mcp'] ?? [];
+    $installed = is_file(dirname(__DIR__) . '/mcp/vendor/autoload.php');
+    $endpoint = is_string($config['endpoint'] ?? null) && $config['endpoint'] !== '' ? $config['endpoint'] : wf_app_url() . 'mcp/';
+    return ['endpoint' => $endpoint, 'available' => $installed && ($config['enabled'] ?? true) !== false];
+}
+
+function action_mcp_tokens(): array
+{
+    $userId = (int)wf_require_user()['id'];
+    return ['mcp' => mcp_endpoint_info(), 'tokens' => wf_mcp_tokens_list($userId)];
+}
+
+/** Creating a long-lived credential requires the current password (like deleting the account). */
+function action_mcp_token_create(array $input): array
+{
+    $userId = (int)wf_require_user()['id'];
+    wf_rate_limit('mcp-token-create', (string)$userId, 10, 3600);
+    require_current_password($userId, $input['password'] ?? null);
+    $days = $input['expiresInDays'] ?? null;
+    $created = wf_mcp_token_create(
+        $userId,
+        (string)($input['name'] ?? ''),
+        is_array($input['scopes'] ?? null) ? $input['scopes'] : WF_MCP_DEFAULT_SCOPES,
+        is_int($days) ? $days : null
+    );
+    return ['ok' => true, 'token' => $created['token'], 'record' => $created['record'], 'tokens' => wf_mcp_tokens_list($userId)];
+}
+
+function action_mcp_token_revoke(array $input): array
+{
+    $userId = (int)wf_require_user()['id'];
+    wf_mcp_token_revoke($userId, wf_int($input, 'id'));
+    return ['ok' => true, 'tokens' => wf_mcp_tokens_list($userId)];
 }
