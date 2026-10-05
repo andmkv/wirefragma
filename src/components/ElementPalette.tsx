@@ -1,6 +1,7 @@
 import type { ElementType } from "../model/project";
 import { useT } from "../i18n";
 import { PALETTE_GROUPS } from "../model/defaults";
+import { ElementIcon } from "./ElementIcon";
 
 interface ElementPaletteProps {
   onAdd: (type: ElementType) => void;
@@ -8,36 +9,6 @@ interface ElementPaletteProps {
   /** The collapsed Add panel: a two-column grid of glyph buttons. */
   compact?: boolean;
 }
-
-const GLYPH: Record<ElementType, string> = {
-  container: "▢",
-  text: "T",
-  button: "▭",
-  input: "▯",
-  textarea: "▤",
-  checkbox: "☑",
-  radio: "◉",
-  toggle: "⚉",
-  dropdown: "▾",
-  slider: "⟷",
-  progress: "▰",
-  iconButton: "⊕",
-  tabs: "▥",
-  list: "≡",
-  table: "▦",
-  image: "▨",
-  icon: "★",
-  avatar: "◍",
-  badge: "⬭",
-  divider: "—",
-  toolbar: "▬",
-  sidebar: "▮",
-  bottomNav: "⊞",
-  dialog: "▣",
-  diagram: "◇",
-  drawing: "✎",
-  chart: "▧"
-};
 
 /**
  * Contents of the Add panel. `compact` is the collapsed panel: MS Paint-style glyph buttons in two
@@ -64,7 +35,7 @@ export function ElementPalette({ onAdd, activeLayerName, compact = false }: Elem
                   title={t("palette.addTo", { type: t(`type.${type}`), layer: activeLayerName })}
                   aria-label={t("palette.addTo", { type: t(`type.${type}`), layer: activeLayerName })}
                 >
-                  <span aria-hidden="true">{GLYPH[type]}</span>
+                  <ElementIcon type={type} size={18} />
                 </button>
               ))}
             </div>
@@ -90,7 +61,7 @@ export function ElementPalette({ onAdd, activeLayerName, compact = false }: Elem
                 title={t("palette.addTo", { type: t(`type.${type}`), layer: activeLayerName })}
               >
                 <span className="palette-glyph" aria-hidden="true">
-                  {GLYPH[type]}
+                  <ElementIcon type={type} />
                 </span>
                 <span className="palette-label">{t(`type.${type}`)}</span>
               </button>

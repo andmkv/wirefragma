@@ -33,7 +33,7 @@ There is **no jsdom, no happy-dom and no browser test runner**. That shapes the 
 Manual, human-verified checks (visual quality, real emoji rendering, an actual trackpad pinch) are
 not automated and must not be claimed as automated.
 
-## Test inventory (43 files, 487 cases)
+## Test inventory (43 files, 491 cases)
 
 | File | Cases | Covers |
 | --- | --- | --- |
@@ -66,7 +66,7 @@ not automated and must not be claimed as automated.
 | `src/model/chart.test.ts` | 15 | `ChartData` kinds, limits, coercion, never-throws, JSON round trip |
 | `src/utils/chartText.test.ts` | 19 | Table ⇄ Text/CSV parsing and serialization (delimiters, quoting, limits) |
 | `src/utils/emojiInsert.test.ts` | 9 | insert-at-caret / replace-selection, including multi-codepoint emoji |
-| `src/utils/asciiRenderer.test.ts` | 13 | determinism, grid containment, per-type glyphs, wide/narrow grids |
+| `src/utils/asciiRenderer.test.ts` | 16 | determinism, grid containment, per-type glyphs, wide/narrow grids, and one recognisable sketch per chart kind (columns, stacked, line, area, pie disc, donut ring, fallbacks) |
 | `src/utils/spatialSummary.test.ts` | 4 | deterministic prose, hidden elements ignored, empty canvas, nested elements in reading order |
 | `src/utils/markdownRoundTrip.test.ts` | 37 | the full export/import contract, v1 import, all element types, invalid input, the `## Screen` mode label, compact element sections, one-element-per-line `ui-project` |
 | `src/utils/markdownSemantics.test.ts` | 8 | `Typography:` / `Content size:` output and the emoji round trip |

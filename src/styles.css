@@ -307,8 +307,14 @@ button.danger {
 
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …): an input's intrinsic width must not push the second column out of the panel. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
+}
+
+.field-row input {
+  width: 100%;
+  min-width: 0;
 }
 
 .field-row .field {
@@ -579,16 +585,21 @@ body.is-resizing-panel * {
 .palette-tile:hover {
   background: var(--accent-soft);
   border-color: var(--accent-border);
-  color: var(--ink);
+  color: var(--accent);
 }
 
 .palette-glyph {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
   color: var(--muted);
-  font-size: 13px;
+}
+
+.palette-item:hover .palette-glyph {
+  color: var(--accent);
 }
 
 .palette-hint {
@@ -1445,28 +1456,43 @@ body.is-resizing-panel * {
   z-index: 60;
 }
 
-/* Text field with the 🙂 button (C3): the button sits at the trailing edge of the field. */
+/* Text field with the 🙂 button: the button sits BESIDE the field (never over its text) and is
+   exactly as tall as a single-line field, however tall a textarea grows. */
 .emoji-text-field {
-  position: relative;
+  --emoji-field-height: 28px;
   display: flex;
   align-items: flex-start;
-  gap: 4px;
+  gap: 6px;
 }
 
 .emoji-text-field .emoji-field-control {
   flex: 1 1 auto;
   min-width: 0;
-  padding-right: 30px;
 }
 
-.emoji-text-field textarea.emoji-field-control {
-  padding-right: 30px;
+.emoji-text-field input.emoji-field-control {
+  height: var(--emoji-field-height);
 }
 
 .emoji-text-field .emoji-open {
-  position: absolute;
-  top: 4px;
-  right: 4px;
+  flex: 0 0 auto;
+  width: var(--emoji-field-height);
+  height: var(--emoji-field-height);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: var(--radius);
+  background: var(--surface);
+  filter: grayscale(0.35);
+  opacity: 0.85;
+}
+
+.emoji-text-field .emoji-open:hover:not(:disabled) {
+  filter: none;
+  opacity: 1;
 }
 
 .emoji-search input {
@@ -3139,9 +3165,9 @@ body.is-resizing-panel * {
   min-width: 104px;
 }
 
-/* The category cell carries a remove button, so its field keeps room for both buttons. */
-.chart-table .chart-cell-category .emoji-field-control {
-  padding-right: 52px;
+/* The category cell carries a remove button in its right padding, clear of the emoji button. */
+.chart-table td.chart-cell-category {
+  padding-right: 26px;
 }
 
 .chart-cell-remove {
@@ -3154,7 +3180,9 @@ body.is-resizing-panel * {
 }
 
 .chart-table th .chart-cell-remove {
-  top: 4px;
+  position: static;
+  flex: 0 0 auto;
+  align-self: center;
 }
 
 .chart-value-input {
