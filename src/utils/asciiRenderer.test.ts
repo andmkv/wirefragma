@@ -209,62 +209,85 @@ describe("ascii renderer", () => {
     }
   });
 
-  it("sketches a chart as horizontal bars with values and labels", () => {
-    const output = renderAscii(
-      project([
-        {
-          id: "c",
-          type: "chart",
-          name: "sessionsChart",
-          label: "",
-          note: "",
-          x: 40,
-          y: 40,
-          width: 560,
-          height: 260,
-          zIndex: 0,
-          chart: {
-            kind: "bar",
-            title: "Sessions",
-            categories: ["Jan", "Feb"],
-            series: [{ name: "Sessions", values: [120, 60] }]
-          }
+  const chartProject = (kind: string, extra: Record<string, unknown> = {}, size = { width: 560, height: 300 }) =>
+    project([
+      {
+        id: "c",
+        type: "chart",
+        name: "salesChart",
+        label: "",
+        note: "",
+        x: 40,
+        y: 40,
+        ...size,
+        zIndex: 0,
+        chart: {
+          kind,
+          title: "Sales",
+          categories: ["Jan", "Feb", "Mar", "Apr"],
+          series: [
+            { name: "Web", values: [120, 60, 150, 90] },
+            { name: "Shop", values: [80, 40, 100, 50] }
+          ],
+          ...extra
         }
-      ])
-    );
-    expect(output).toContain("Chart: Sessions");
-    expect(output).toContain("Jan");
-    expect(output).toContain("Feb");
-    expect(output).toContain("120");
-    expect(output).toContain("█");
+      } as never
+    ]);
+
+  it("sketches a bar chart as vertical columns over an axis, with labels and the maximum", () => {
+    const output = renderAscii(chartProject("bar"));
+    expect(output).toContain("Bar chart: Sales");
+    expect(output).toContain("max 150");
+    expect(output).toContain("└──");
+    for (const label of ["Jan", "Feb", "Mar", "Apr"]) expect(output).toContain(label);
+    // Two series are told apart by fill, and the legend names them.
+    expect(output).toContain("█ Web");
+    expect(output).toContain("▓ Shop");
   });
 
-  it("sketches a pie chart as a percentage list", () => {
-    const output = renderAscii(
-      project([
-        {
-          id: "c",
-          type: "chart",
-          name: "shareChart",
-          label: "",
-          note: "",
-          x: 40,
-          y: 40,
-          width: 560,
-          height: 260,
-          zIndex: 0,
-          chart: {
-            kind: "pie",
-            categories: ["Alpha", "Beta"],
-            series: [{ name: "Share", values: [75, 25] }]
-          }
-        }
-      ])
+  it("stacks the series in a stacked bar chart", () => {
+    const output = renderAscii(chartProject("stackedBar"));
+    expect(output).toContain("Stacked bars: Sales");
+    expect(output).toContain("└──");
+    expect(output).toMatch(/▓+/);
+  });
+
+  it("draws line and area charts as points joined by dots, the area shaded", () => {
+    const line = renderAscii(chartProject("line"));
+    expect(line).toContain("Line chart: Sales");
+    expect(line).toContain("●");
+    expect(line).toContain("·");
+    expect(line).not.toContain("░");
+    const area = renderAscii(chartProject("area"));
+    expect(area).toContain("Area chart: Sales");
+    expect(area).toContain("░");
+  });
+
+  it("draws a pie chart as a filled disc with a percentage legend, a donut with a hole", () => {
+    const share = { series: [{ name: "Share", values: [75, 25] }], categories: ["Alpha", "Beta"] };
+    const pie = renderAscii(chartProject("pie", share));
+    expect(pie).toContain("Pie chart: Sales");
+    expect(pie).toContain("█ Alpha 75%");
+    expect(pie).toContain("▓ Beta 25%");
+    expect(pie).toContain("████");
+    const donut = renderAscii(chartProject("donut", share));
+    expect(donut).toContain("Donut chart: Sales");
+    // The ring has a hole: the same box has fewer filled cells than the pie.
+    const cells = (text: string) => Array.from(text).filter((char) => "█▓".includes(char)).length;
+    expect(cells(donut)).toBeLessThan(cells(pie));
+  });
+
+  it("keeps horizontal bars when the chart asks for them, and the slice list for a small pie", () => {
+    const horizontal = renderAscii(
+      chartProject("bar", { options: { horizontal: true }, series: [{ name: "Web", values: [120, 60, 150, 90] }] })
     );
-    expect(output).toContain("Alpha 75%");
-    expect(output).toContain("Beta 25%");
-    // A pie has no bars: the sketch is a list, not a bar chart.
-    expect(output).not.toContain("█");
+    expect(horizontal).toContain("Jan");
+    expect(horizontal).toContain("120");
+    expect(horizontal).toContain("█");
+    const share = { series: [{ name: "Share", values: [75, 25] }], categories: ["Alpha", "Beta"] };
+    const smallPie = renderAscii(chartProject("pie", share, { width: 360, height: 240 }));
+    expect(smallPie).toContain("█ Alpha 75%");
+    expect(smallPie).toContain("▓ Beta 25%");
   });
 
   it("falls back to a plain box when a chart box is too small to sketch", () => {

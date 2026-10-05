@@ -20,3 +20,6 @@ my.cnf
 # MCP endpoint: Composer installs vendor/ locally and during `npm run build:deploy`
 server/mcp/vendor/
 .wirefragma-mcp-sessions/
+
+# Local deploy artefacts
+wirefragma-*-deploy.zip

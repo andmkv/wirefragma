@@ -56,6 +56,17 @@ Chart document with the same `opis/json-schema` validator the PHP endpoint uses.
   every step, so pinch-zoom keeps the grabbed point under the fingers and panning follows the
   pointer exactly (previously the sign was inverted and the pan over-corrected).
 
+### Polish after the first review
+- **Emoji button** sits *beside* every text field, exactly as tall as a single-line field, and never
+  covers the text (it used to float over the field's right edge and could be taller than the field).
+- **Chart in the ASCII sketch** is now recognisable by kind: vertical bar columns over an axis,
+  stacked columns, dotted lines with point markers, a shaded area, a filled pie disc and a donut,
+  with a legend and `max` value; small boxes fall back to horizontal bars or a slice list.
+- **New Add-panel icons**: 27 hand-drawn line pictograms (`ElementIcon`) replace the Unicode
+  characters — each shows the element's real shape (pill + knob for Toggle, lifted tab for Tabs, …).
+- Fixed the Properties X/Y and Width/Height rows overflowing the panel (the second column was cut
+  off, with a horizontal scrollbar) — the grid columns are now `minmax(0, 1fr)`.
+
 ### Fixes found while auditing this release
 - A Chart on the canvas was painted at the canvas origin instead of inside its element (the popup
   preview was right) — fixed, with a regression test.

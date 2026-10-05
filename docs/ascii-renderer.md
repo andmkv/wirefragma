@@ -101,9 +101,17 @@ Labels are clipped with `clip(text, max)`, which truncates with `…`, and centr
 
 ## What ASCII deliberately does not do
 
-* A `chart` is sketched, not plotted: one row per category with a label, a compact value (`1.5k`)
-  and a proportional bar, capped at 8 rows. Pie/donut become a percentage list because a share has
-  no axis. When the box cannot hold a readable row the chart degrades to a plain box.
+* A `chart` is sketched, not plotted — but each kind is recognisable. The box starts with
+  `<Kind> chart: <title>` (and `max N` when it fits). **Bar**: vertical columns over an axis
+  (`│ └──`) with category labels underneath; one series gets smooth tops from the eighth-block
+  glyphs, several series are told apart by fill (`█ ▓ ▒ ░`) and named in a legend line.
+  **Stacked bars**: the series piled up with the same fills. **Line**: points (`● ○ ◆ …`, one per
+  series) joined by dots. **Area**: the same, shaded (`░`) under the first series. **Pie**: a disc
+  whose cells carry the slice fill, the legend with percentages to its right; **donut**: the same
+  with a hole. Negative values are drawn as zero (the Markdown table keeps the sign).
+  Fallbacks, in order: horizontal bars (the data asks for `horizontal`, or the columns do not fit),
+  a slice list (`█ Alpha 75%`) when a pie has no room for a disc, and a plain box when even a row
+  does not fit. Capped at 14 rows; the numbers always travel in the Markdown table and `ui-project`.
 * It does not resolve overlaps beyond "last drawn wins per cell".
 * It does not honour typography, colour, or `contentSize` (an icon is one cell-sized `[★]`).
 * It does not render multi-line text elements beyond stacking label lines downward.

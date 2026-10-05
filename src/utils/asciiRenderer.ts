@@ -486,25 +486,43 @@ function asciiValue(value: number): string {
   return `${Math.round(value * 100) / 100}`;
 }
 
-/** Rows a chart may use, so the title always has somewhere to go. */
-const CHART_MAX_ROWS = 8;
-/** Below this inner width a bar has nowhere to grow; the chart falls back to a plain box. */
+/** Rows a chart may use (heading included), so a tall box does not become a wall of glyphs. */
+const CHART_MAX_ROWS = 14;
+/** Below this inner width a chart has nowhere to grow; it falls back to a plain box. */
 const CHART_MIN_INNER_WIDTH = 14;
 
-/** The header line of a chart box: a title when there is one, otherwise the kind. */
-function chartHeading(element: WireframeElement): string {
-  const title = element.chart?.title?.trim() || element.label.trim();
-  return title ? `Chart: ${title.replace(/\s+/g, " ")}` : "Chart";
+/** One fill glyph per series (and per pie slice): distinguishable in plain text, no colours needed. */
+const SERIES_GLYPHS = ["█", "▓", "▒", "░", "▚", "▞", "▪", "▫"];
+/** One point glyph per series for line / area charts. */
+const POINT_GLYPHS = ["●", "○", "◆", "◇", "■", "□", "▲", "△"];
+/** Partial block heights (eighths), used for the top of a single-series column. */
+const EIGHTHS = [" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+
+type ChartSketchData = ReturnType<typeof normalizeChartData>;
+
+const CHART_KIND_NAME: Record<string, string> = {
+  bar: "Bar chart",
+  stackedBar: "Stacked bars",
+  line: "Line chart",
+  area: "Area chart",
+  pie: "Pie chart",
+  donut: "Donut chart"
+};
+
+/** The header line of a chart box: what it is, then its title. */
+function chartHeading(element: WireframeElement, data: ChartSketchData): string {
+  const title = (data.title ?? "").trim() || element.label.trim();
+  const kind = CHART_KIND_NAME[data.kind] ?? "Chart";
+  return title ? `${kind}: ${title.replace(/\s+/g, " ")}` : kind;
 }
 
-/** Horizontal bars, one category per row: a recognisable bar chart even in a small box. */
-function drawChartBars(
-  grid: Grid,
-  data: { categories: string[]; series: { name: string; values: (number | null)[] }[] },
-  inner: Rect,
-  firstRow: number,
-  rows: number
-): void {
+/** Sketch values are never negative: a wireframe sketch shows magnitude, the table shows the sign. */
+function sketchValue(value: number | null | undefined): number {
+  return value === null || value === undefined || !Number.isFinite(value) ? 0 : Math.max(0, value);
+}
+
+/** Horizontal bars, one category per row (also the fallback when columns do not fit). */
+function drawChartBars(grid: Grid, data: ChartSketchData, inner: Rect, firstRow: number, rows: number): void {
   const values = data.categories.map((_, index) => {
     let sum = 0;
     let seen = false;
@@ -534,50 +552,320 @@ function drawChartBars(
   }
 }
 
-/** Pie / donut: a slice list with percentages, the honest text form of a share. */
-function drawChartShares(
+/** Shared geometry of the vertical charts: an axis on the left, category labels underneath. */
+interface PlotArea {
+  /** x of the vertical axis. */
+  axisX: number;
+  /** First plot column (right of the axis) and its width. */
+  x0: number;
+  width: number;
+  /** Rows of the plot, from `top` down to the row above the horizontal axis. */
+  top: number;
+  height: number;
+  axisRow: number;
+  labelRow: number;
+}
+
+/** Minimum rows for a vertical chart: 2 plot rows + axis + labels. */
+const CHART_MIN_PLOT_ROWS = 2;
+
+function plotArea(inner: Rect, firstRow: number, rows: number): PlotArea | null {
+  const height = rows - 2;
+  if (height < CHART_MIN_PLOT_ROWS || inner.w < 6) return null;
+  return {
+    axisX: inner.x,
+    x0: inner.x + 1,
+    width: inner.w - 1,
+    top: firstRow,
+    height,
+    axisRow: firstRow + height,
+    labelRow: firstRow + height + 1
+  };
+}
+
+function drawPlotFrame(grid: Grid, plot: PlotArea): void {
+  for (let row = plot.top; row < plot.axisRow; row += 1) grid.set(plot.axisX, row, "│");
+  grid.set(plot.axisX, plot.axisRow, "└");
+  for (let col = 0; col < plot.width; col += 1) grid.set(plot.x0 + col, plot.axisRow, "─");
+}
+
+/** Category labels under the axis, one slot each; a slot too narrow for text is left blank. */
+function drawCategoryLabels(grid: Grid, plot: PlotArea, categories: string[], shown: number): void {
+  const slot = plot.width / shown;
+  if (slot < 2) return;
+  for (let index = 0; index < shown; index += 1) {
+    const start = plot.x0 + Math.round(index * slot);
+    const end = plot.x0 + Math.round((index + 1) * slot);
+    const room = Math.max(1, end - start - (slot >= 4 ? 1 : 0));
+    grid.put(start, plot.labelRow, clip(categories[index] || `#${index + 1}`, room));
+  }
+}
+
+/**
+ * Vertical columns: grouped (one column per series) or stacked (series piled up). A single series
+ * gets smooth tops from the eighth-block glyphs; several series are told apart by their fill glyph.
+ */
+function drawChartColumns(
   grid: Grid,
-  data: { categories: string[]; series: { name: string; values: (number | null)[] }[] },
+  data: ChartSketchData,
   inner: Rect,
   firstRow: number,
-  rows: number
-): void {
-  const values = data.categories.map((_, index) => {
-    const value = data.series[0]?.values[index];
-    return value === null || value === undefined || value <= 0 ? 0 : value;
-  });
+  rows: number,
+  stacked: boolean
+): boolean {
+  const plot = plotArea(inner, firstRow, rows);
+  if (!plot) return false;
+  const seriesCount = Math.min(data.series.length, SERIES_GLYPHS.length);
+  const perColumn = stacked ? 1 : seriesCount;
+  const slotMin = perColumn + 1 > 2 ? perColumn : 2;
+  const shown = Math.min(data.categories.length, Math.floor(plot.width / slotMin));
+  if (shown < 1) return false;
+  const slot = Math.floor(plot.width / shown);
+  const gap = slot > perColumn ? 1 : 0;
+  const barWidth = Math.max(1, Math.min(3, Math.floor((slot - gap) / perColumn)));
+  const group = barWidth * perColumn;
+  const offset = Math.floor((slot - group) / 2);
+
+  const totals = data.categories.slice(0, shown).map((_, index) =>
+    data.series.slice(0, seriesCount).reduce((sum, series) => sum + sketchValue(series.values[index]), 0)
+  );
+  const peak = stacked
+    ? Math.max(0, ...totals)
+    : Math.max(0, ...data.series.slice(0, seriesCount).flatMap((series) => series.values.slice(0, shown).map(sketchValue)));
+  if (peak <= 0) return false;
+
+  drawPlotFrame(grid, plot);
+  const bottom = plot.axisRow - 1;
+  for (let index = 0; index < shown; index += 1) {
+    const base = plot.x0 + index * slot + offset;
+    if (stacked) {
+      let cumulative = 0;
+      let previousRows = 0;
+      for (let seriesIndex = 0; seriesIndex < seriesCount; seriesIndex += 1) {
+        const value = sketchValue(data.series[seriesIndex].values[index]);
+        cumulative += value;
+        const upTo = Math.round((cumulative / peak) * plot.height);
+        const fillTo = value > 0 ? Math.max(upTo, previousRows + 1) : previousRows;
+        for (let level = previousRows; level < Math.min(fillTo, plot.height); level += 1) {
+          for (let col = 0; col < barWidth; col += 1) grid.set(base + col, bottom - level, SERIES_GLYPHS[seriesIndex]);
+        }
+        previousRows = Math.min(fillTo, plot.height);
+      }
+      continue;
+    }
+    for (let seriesIndex = 0; seriesIndex < seriesCount; seriesIndex += 1) {
+      const value = sketchValue(data.series[seriesIndex].values[index]);
+      const x = base + seriesIndex * barWidth;
+      if (seriesCount === 1) {
+        const eighths = Math.round((value / peak) * plot.height * 8);
+        const full = Math.floor(eighths / 8);
+        for (let level = 0; level < full; level += 1) {
+          for (let col = 0; col < barWidth; col += 1) grid.set(x + col, bottom - level, "█");
+        }
+        const remainder = eighths % 8;
+        if (remainder > 0 && full < plot.height) {
+          for (let col = 0; col < barWidth; col += 1) grid.set(x + col, bottom - full, EIGHTHS[remainder]);
+        }
+      } else {
+        const height = value > 0 ? Math.max(1, Math.round((value / peak) * plot.height)) : 0;
+        for (let level = 0; level < height; level += 1) {
+          for (let col = 0; col < barWidth; col += 1) grid.set(x + col, bottom - level, SERIES_GLYPHS[seriesIndex]);
+        }
+      }
+    }
+  }
+  drawCategoryLabels(grid, plot, data.categories, shown);
+  return true;
+}
+
+/** Line / area: points joined by dots over the same axes; an area also shades under its first series. */
+function drawChartLines(
+  grid: Grid,
+  data: ChartSketchData,
+  inner: Rect,
+  firstRow: number,
+  rows: number,
+  area: boolean
+): boolean {
+  const plot = plotArea(inner, firstRow, rows);
+  if (!plot) return false;
+  const shown = Math.min(data.categories.length, plot.width);
+  if (shown < 1) return false;
+  const seriesCount = Math.min(data.series.length, POINT_GLYPHS.length);
+  const peak = Math.max(
+    0,
+    ...data.series.slice(0, seriesCount).flatMap((series) => series.values.slice(0, shown).map(sketchValue))
+  );
+  if (peak <= 0) return false;
+
+  drawPlotFrame(grid, plot);
+  const slot = plot.width / shown;
+  const bottom = plot.axisRow - 1;
+  const columnOf = (index: number) => plot.x0 + Math.min(plot.width - 1, Math.floor((index + 0.5) * slot));
+  const rowOf = (value: number) => bottom - Math.round((value / peak) * (plot.height - 1));
+
+  for (let seriesIndex = 0; seriesIndex < seriesCount; seriesIndex += 1) {
+    const points: { x: number; y: number }[] = [];
+    for (let index = 0; index < shown; index += 1) {
+      const raw = data.series[seriesIndex].values[index];
+      if (raw === null || raw === undefined) {
+        points.push({ x: -1, y: -1 });
+        continue;
+      }
+      points.push({ x: columnOf(index), y: rowOf(sketchValue(raw)) });
+    }
+    // Segments between neighbouring points (a gap in the data breaks the line).
+    for (let index = 0; index + 1 < points.length; index += 1) {
+      const from = points[index];
+      const to = points[index + 1];
+      if (from.x < 0 || to.x < 0) continue;
+      for (let x = from.x + 1; x < to.x; x += 1) {
+        const ratio = (x - from.x) / (to.x - from.x);
+        const y = Math.round(from.y + (to.y - from.y) * ratio);
+        if (area && seriesIndex === 0) {
+          for (let fill = y + 1; fill <= bottom; fill += 1) grid.set(x, fill, "░");
+        }
+        grid.set(x, y, "·");
+      }
+    }
+    for (const point of points) {
+      if (point.x < 0) continue;
+      if (area && seriesIndex === 0) {
+        for (let fill = point.y + 1; fill <= bottom; fill += 1) grid.set(point.x, fill, "░");
+      }
+      grid.set(point.x, point.y, POINT_GLYPHS[seriesIndex]);
+    }
+  }
+  drawCategoryLabels(grid, plot, data.categories, shown);
+  return true;
+}
+
+/** One legend line (`█ Revenue ▒ Costs`), clipped to the box. */
+function chartLegendText(data: ChartSketchData, glyphs: string[], width: number): string {
+  const parts = data.series.slice(0, glyphs.length).map((series, index) => `${glyphs[index]} ${series.name || `Series ${index + 1}`}`);
+  return clip(parts.join("  "), width);
+}
+
+/**
+ * Pie / donut: a disc whose cells carry the slice glyph (the character cell is twice as tall as it
+ * is wide, so the horizontal radius is doubled), with the legend and percentages to its right.
+ * Returns false when the box has no room for a disc; the caller then prints the plain slice list.
+ */
+function drawChartDisc(
+  grid: Grid,
+  data: ChartSketchData,
+  inner: Rect,
+  firstRow: number,
+  rows: number,
+  donut: boolean
+): boolean {
+  const values = data.categories.map((_, index) => sketchValue(data.series[0]?.values[index]));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  if (total <= 0) return false;
+  let diameter = Math.min(rows, 9);
+  if (diameter % 2 === 0) diameter -= 1;
+  if (diameter < 5) return false;
+  const radiusY = diameter / 2;
+  const radiusX = radiusY * 2;
+  const discWidth = diameter * 2 + 1;
+  const legendWidth = inner.w - discWidth - 2;
+  if (legendWidth < 8) return false;
+
+  const centreX = inner.x + Math.floor(discWidth / 2);
+  const centreY = firstRow + Math.floor(diameter / 2);
+  const slices = Math.min(values.length, SERIES_GLYPHS.length);
+  const bounds: number[] = [];
+  let running = 0;
+  for (let index = 0; index < slices; index += 1) {
+    running += values[index];
+    bounds.push(running / total);
+  }
+  for (let dy = -Math.floor(diameter / 2); dy <= Math.floor(diameter / 2); dy += 1) {
+    for (let dx = -Math.floor(discWidth / 2); dx <= Math.floor(discWidth / 2); dx += 1) {
+      const nx = dx / radiusX;
+      const ny = dy / radiusY;
+      const distance = nx * nx + ny * ny;
+      if (distance > 1) continue;
+      if (donut && distance < 0.2) continue;
+      // Clockwise from 12 o'clock.
+      let angle = Math.atan2(dx / 2, -dy);
+      if (angle < 0) angle += Math.PI * 2;
+      const fraction = angle / (Math.PI * 2);
+      let slice = bounds.findIndex((bound) => fraction < bound);
+      if (slice < 0) slice = slices - 1;
+      grid.set(centreX + dx, centreY + dy, SERIES_GLYPHS[slice]);
+    }
+  }
+
+  const legendX = inner.x + discWidth + 2;
+  const legendRows = Math.min(rows, slices);
+  for (let index = 0; index < legendRows; index += 1) {
+    const percent = `${Math.round((values[index] / total) * 100)}%`;
+    const label = clip(data.categories[index] || `#${index + 1}`, Math.max(1, legendWidth - 2 - percent.length - 1));
+    grid.put(legendX, firstRow + index, clip(`${SERIES_GLYPHS[index]} ${label} ${percent}`, legendWidth));
+  }
+  return true;
+}
+
+/** The plain slice list: the honest text form of a share when there is no room for a disc. */
+function drawChartShares(grid: Grid, data: ChartSketchData, inner: Rect, firstRow: number, rows: number): void {
+  const values = data.categories.map((_, index) => sketchValue(data.series[0]?.values[index]));
   const total = values.reduce((sum, value) => sum + value, 0);
   if (total <= 0) return;
 
   for (let index = 0; index < Math.min(rows, data.categories.length); index += 1) {
     const percent = `${Math.round((values[index] / total) * 100)}%`;
+    const glyph = SERIES_GLYPHS[index % SERIES_GLYPHS.length];
     const width = Math.max(1, inner.w - 4 - percent.length);
     const label = clip(data.categories[index] || `#${index + 1}`, width);
-    grid.put(inner.x, firstRow + index, clip(`${label} ${padRight(percent, percent.length)}`, inner.w));
+    grid.put(inner.x, firstRow + index, clip(`${glyph} ${label} ${percent}`, inner.w));
   }
 }
 
 /**
- * Chart: a titled box with a genuinely recognisable sketch inside — horizontal bars for the bar
- * kinds, a percentage list for pie/donut. When the box is too small for that, it degrades to the
- * plain box (an empty frame) instead of printing something unreadable.
+ * Chart: a titled box holding a sketch you can tell apart by kind —
+ * vertical columns (bar), stacked columns, a dotted line over axes (line), the same shaded (area),
+ * a filled disc with its legend (pie) or a ring (donut). Horizontal bars are used when the data asks
+ * for them and as the fallback when the columns do not fit; a plain frame when even that does not.
+ * The numbers are in the Markdown table and the `ui-project` block, never only here.
  */
 function drawChart(grid: Grid, rect: Rect, element: WireframeElement): void {
   drawBox(grid, rect);
   const inner = { x: rect.x + 2, y: rect.y + 1, w: rect.w - 4, h: rect.h - 2 };
-  const heading = chartHeading(element);
+  const data = normalizeChartData(element.chart);
+  const heading = chartHeading(element, data);
   if (inner.w < CHART_MIN_INNER_WIDTH || inner.h < 1) {
     if (inner.w >= 4 && inner.h >= 1) grid.put(inner.x, inner.y, clip(heading, inner.w));
     return;
   }
 
+  const peak = chartMaxAbsValue(data);
+  const maxText = peak > 0 ? `max ${asciiValue(peak)}` : "";
+  const maxFits = maxText !== "" && Array.from(heading).length + maxText.length + 2 <= inner.w;
   grid.put(inner.x, inner.y, clip(heading, inner.w));
-  const data = normalizeChartData(element.chart);
-  const rows = Math.min(CHART_MAX_ROWS, inner.h - 1);
-  const firstRow = inner.y + 1;
-  if (rows < 1 || data.categories.length === 0 || data.series.length === 0 || chartMaxAbsValue(data) === 0) return;
+  if (maxFits) grid.put(inner.x + inner.w - maxText.length, inner.y, maxText);
 
-  if (isSingleSeriesKind(data.kind)) drawChartShares(grid, data, inner, firstRow, rows);
+  let firstRow = inner.y + 1;
+  let rows = Math.min(CHART_MAX_ROWS, inner.h) - 1;
+  if (rows < 1 || data.categories.length === 0 || data.series.length === 0 || peak === 0) return;
+
+  const single = isSingleSeriesKind(data.kind);
+  // A legend line only when it pays for itself: several series and room to spare.
+  if (!single && data.series.length > 1 && rows >= 6) {
+    const glyphs = data.kind === "line" || data.kind === "area" ? POINT_GLYPHS : SERIES_GLYPHS;
+    grid.put(inner.x, firstRow, chartLegendText(data, glyphs, inner.w));
+    firstRow += 1;
+    rows -= 1;
+  }
+
+  const horizontal = data.options?.horizontal === true && (data.kind === "bar" || data.kind === "stackedBar");
+  let drawn = false;
+  if (single) drawn = drawChartDisc(grid, data, inner, firstRow, rows, data.kind === "donut");
+  else if (data.kind === "line" || data.kind === "area") drawn = drawChartLines(grid, data, inner, firstRow, rows, data.kind === "area");
+  else if (!horizontal) drawn = drawChartColumns(grid, data, inner, firstRow, rows, data.kind === "stackedBar");
+  if (drawn) return;
+
+  if (single) drawChartShares(grid, data, inner, firstRow, rows);
   else drawChartBars(grid, data, inner, firstRow, rows);
 }
 
